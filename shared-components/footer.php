@@ -1,0 +1,3 @@
+<?php
+// footer include file
+?>
