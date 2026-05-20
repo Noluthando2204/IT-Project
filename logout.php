@@ -1,3 +1,8 @@
 <?php
-// logout.php - destroys session and logs user out
+session_start();
+
+session_destroy();
+
+header("Location: index.php");
+exit();
 ?>
