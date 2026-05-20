@@ -1,3 +1,9 @@
 <?php
-// payment.php - initiates PayFast payment
+/*
+|--------------------------------------------------------------------------
+| PAYFAST PAYMENT INITIALIZATION
+|--------------------------------------------------------------------------
+| This file will later send payment information to PayFast.
+|--------------------------------------------------------------------------
+*/
 ?>
