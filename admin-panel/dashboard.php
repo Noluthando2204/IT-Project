@@ -6,4 +6,4 @@ include("../shared-components/navbar.php");
 
 
 
-<?php include("../shared-components/footer.php"); ?> //Last line of code
+<?php include("../shared-components/footer.php"); ?> //Final line of code
