@@ -2,7 +2,8 @@
 database-config/connection.php
 
 # Uploaded user files
-uploaded-content/
+uploaded-content/*
+!uploaded-content/.htaccess
 
 # macOS
 .DS_Store
