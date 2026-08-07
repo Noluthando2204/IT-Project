@@ -1,3 +1,25 @@
+# Database credentials
 database-config/connection.php
+
+# Uploaded user files
 uploaded-content/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Node modules (if used)
+node_modules/
+
+# Log files
 *.log
+
+# IDE settings
+.vscode/
+.idea/
+
+# Environment files
+.env
+.env.local
