@@ -1,10 +1,20 @@
+
 <!DOCTYPE html>
-<html>
+<html >
+
 <head>
-    <title>Home</title>
-    <link rel="stylesheet" href="styles/main.css">
-</head>
+
+ <title> My php Website </title>
+   </head>
+
 <body>
-    <h1>Home Page</h1>
+    <h1> Welcome to my Website</h1>
+
+    <?php
+
+     echo "Hello! This is my first PHP program";
+     ?> 
+     
+    
 </body>
 </html>
