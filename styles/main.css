@@ -478,3 +478,1350 @@ a {
         flex-direction: column;
     }
 }
+/* =========================================================
+   EventNest - Business Dashboard
+   Business/organiser dashboard styling
+   Bloom-inspired colours and UI feel
+   Layout follows EventNest business dashboard wireframe
+========================================================= */
+
+
+/* =========================================================
+   DESIGN TOKENS
+========================================================= */
+
+:root {
+
+    /* Colours */
+
+    --color-bg: #ffffff;
+
+    --color-bg-soft: #f6f7fc;
+
+    --color-primary: #4f46e5;
+
+    --color-primary-dark: #4338ca;
+
+    --color-accent: #7c3aed;
+
+    --color-text: #17213a;
+
+    --color-text-muted: #64748b;
+
+    --color-border: #e2e5ee;
+
+    --color-success: #16a34a;
+
+    --color-success-bg: #dcfce7;
+
+    --color-warning: #d97706;
+
+    --color-warning-bg: #fef3c7;
+
+    --color-danger: #dc2626;
+
+    --color-danger-bg: #fee2e2;
+
+
+    /* Layout */
+
+    --sidebar-width: 220px;
+
+    --header-height: 74px;
+
+
+    /* Radius */
+
+    --radius-md: 12px;
+
+    --radius-lg: 20px;
+
+
+    /* Shadows */
+
+    --shadow-sm:
+        0 1px 3px rgba(15, 23, 42, 0.06);
+
+    --shadow-md:
+        0 8px 24px rgba(79, 70, 229, 0.08);
+
+}
+
+
+/* =========================================================
+   RESET
+========================================================= */
+
+* {
+    box-sizing: border-box;
+}
+
+
+html {
+    scroll-behavior: smooth;
+}
+
+
+body {
+
+    margin: 0;
+
+    font-family:
+        Inter,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+
+    color: var(--color-text);
+
+    background: var(--color-bg-soft);
+
+}
+
+
+/* =========================================================
+   LINKS
+========================================================= */
+
+a {
+
+    text-decoration: none;
+
+    color: inherit;
+
+}
+
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+.dashboard-header {
+
+    height: var(--header-height);
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    padding: 0 34px;
+
+    background: var(--color-bg);
+
+    border-bottom: 1px solid var(--color-border);
+
+}
+
+
+/* Brand */
+
+.brand {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 12px;
+
+}
+
+
+.brand-logo {
+
+    width: 46px;
+
+    height: 46px;
+
+    object-fit: contain;
+
+    display: block;
+
+}
+
+
+.brand-name {
+
+    font-size: 1.35rem;
+
+    font-weight: 800;
+
+    letter-spacing: -0.5px;
+
+}
+
+
+/* Header right */
+
+.header-right {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 20px;
+
+}
+
+
+/* Notification */
+
+.notification-btn {
+
+    position: relative;
+
+    width: 44px;
+
+    height: 44px;
+
+    border-radius: 50%;
+
+    border: 1px solid var(--color-border);
+
+    background: #fff;
+
+    font-size: 20px;
+
+    cursor: pointer;
+
+}
+
+
+.notification-dot {
+
+    position: absolute;
+
+    width: 8px;
+
+    height: 8px;
+
+    border-radius: 50%;
+
+    background: var(--color-primary);
+
+    top: 7px;
+
+    right: 8px;
+
+}
+
+
+/* Business user */
+
+.business-user {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 10px;
+
+}
+
+
+.business-avatar {
+
+    width: 40px;
+
+    height: 40px;
+
+    border-radius: 50%;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    background:
+        linear-gradient(
+            135deg,
+            var(--color-primary),
+            var(--color-accent)
+        );
+
+    color: #fff;
+
+    font-weight: 700;
+
+}
+
+
+.business-name {
+
+    font-size: 0.95rem;
+
+    font-weight: 600;
+
+}
+
+
+.dropdown-arrow {
+
+    color: var(--color-text-muted);
+
+    font-size: 16px;
+
+}
+
+
+/* =========================================================
+   DASHBOARD SHELL
+========================================================= */
+
+.dashboard-shell {
+
+    display: flex;
+
+    min-height:
+        calc(100vh - var(--header-height));
+
+}
+
+
+/* =========================================================
+   SIDEBAR
+========================================================= */
+
+.dashboard-sidebar {
+
+    width: var(--sidebar-width);
+
+    flex-shrink: 0;
+
+    background: var(--color-bg);
+
+    border-right: 1px solid var(--color-border);
+
+    padding: 26px 16px;
+
+}
+
+
+.sidebar-nav {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 5px;
+
+}
+
+
+.sidebar-link {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 13px;
+
+    padding: 12px 14px;
+
+    border-radius: var(--radius-md);
+
+    color: #52617a;
+
+    font-size: 0.94rem;
+
+    font-weight: 500;
+
+    transition:
+        background 0.2s ease,
+        color 0.2s ease,
+        transform 0.2s ease;
+
+}
+
+
+.sidebar-link:hover {
+
+    background: var(--color-bg-soft);
+
+    color: var(--color-primary);
+
+}
+
+
+.sidebar-link.active {
+
+    background: #eeedff;
+
+    color: var(--color-primary);
+
+    font-weight: 700;
+
+}
+
+
+.sidebar-icon {
+
+    width: 20px;
+
+    text-align: center;
+
+    font-size: 16px;
+
+}
+
+
+.sidebar-link-logout {
+
+    margin-top: 28px;
+
+    color: var(--color-danger);
+
+}
+
+
+.sidebar-link-logout:hover {
+
+    background: var(--color-danger-bg);
+
+    color: var(--color-danger);
+
+}
+
+
+/* =========================================================
+   MAIN CONTENT
+========================================================= */
+
+.dashboard-main {
+
+    flex: 1;
+
+    min-width: 0;
+
+    padding: 38px 40px 60px;
+
+}
+
+
+/* =========================================================
+   PAGE HEADING
+========================================================= */
+
+.page-heading {
+
+    margin-bottom: 26px;
+
+}
+
+
+.page-heading h1 {
+
+    margin: 0 0 7px;
+
+    font-size: 1.65rem;
+
+    font-weight: 800;
+
+    letter-spacing: -0.5px;
+
+}
+
+
+.page-heading p {
+
+    margin: 0;
+
+    color: var(--color-text-muted);
+
+    font-size: 0.98rem;
+
+}
+
+
+/* =========================================================
+   WELCOME CARD
+========================================================= */
+
+.welcome-card {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    gap: 25px;
+
+    padding: 28px 32px;
+
+    margin-bottom: 28px;
+
+    background: #ffffff;
+
+    border: 1px solid var(--color-border);
+
+    border-radius: var(--radius-lg);
+
+    box-shadow: var(--shadow-sm);
+
+}
+
+
+.welcome-content h2 {
+
+    margin: 0 0 7px;
+
+    font-size: 1.55rem;
+
+    font-weight: 800;
+
+}
+
+
+.welcome-content p {
+
+    margin: 0;
+
+    color: var(--color-text-muted);
+
+}
+
+
+.primary-button {
+
+    display: inline-flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    padding: 12px 20px;
+
+    border-radius: 13px;
+
+    background:
+        linear-gradient(
+            135deg,
+            var(--color-primary),
+            var(--color-accent)
+        );
+
+    color: #fff;
+
+    font-weight: 700;
+
+    white-space: nowrap;
+
+    box-shadow: var(--shadow-md);
+
+    transition: transform 0.2s ease;
+
+}
+
+
+.primary-button:hover {
+
+    transform: translateY(-2px);
+
+}
+
+
+/* =========================================================
+   STATISTICS
+========================================================= */
+
+.stats-grid {
+
+    display: grid;
+
+    grid-template-columns:
+        repeat(4, 1fr);
+
+    gap: 20px;
+
+    margin-bottom: 28px;
+
+}
+
+
+.stat-card {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 16px;
+
+    min-height: 118px;
+
+    padding: 22px;
+
+    background: #fff;
+
+    border: 1px solid var(--color-border);
+
+    border-radius: var(--radius-lg);
+
+    box-shadow: var(--shadow-sm);
+
+}
+
+
+.stat-icon {
+
+    width: 58px;
+
+    height: 58px;
+
+    flex-shrink: 0;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    border-radius: 17px;
+
+    background: #eeedff;
+
+    color: var(--color-primary);
+
+    font-size: 21px;
+
+    font-weight: 700;
+
+}
+
+
+.stat-content {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 5px;
+
+}
+
+
+.stat-label {
+
+    color: var(--color-text-muted);
+
+    font-size: 0.85rem;
+
+}
+
+
+.stat-content strong {
+
+    font-size: 1.65rem;
+
+    line-height: 1;
+
+}
+
+
+/* =========================================================
+   PANELS
+========================================================= */
+
+.dashboard-panel {
+
+    background: #fff;
+
+    border: 1px solid var(--color-border);
+
+    border-radius: var(--radius-lg);
+
+    box-shadow: var(--shadow-sm);
+
+    overflow: hidden;
+
+}
+
+
+.panel-header {
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    padding: 21px 24px;
+
+    border-bottom: 1px solid var(--color-border);
+
+}
+
+
+.panel-header h2 {
+
+    margin: 0;
+
+    font-size: 1.08rem;
+
+    font-weight: 800;
+
+}
+
+
+.view-all {
+
+    color: var(--color-primary);
+
+    font-size: 0.86rem;
+
+    font-weight: 700;
+
+}
+
+
+.view-all:hover {
+
+    text-decoration: underline;
+
+}
+
+
+/* =========================================================
+   UPCOMING EVENTS
+========================================================= */
+
+.events-panel {
+
+    margin-bottom: 28px;
+
+}
+
+
+.event-list {
+
+    padding: 16px 24px 22px;
+
+}
+
+
+.event-row {
+
+    display: grid;
+
+    grid-template-columns:
+        2.2fr
+        1.2fr
+        1.3fr
+        0.8fr
+        1fr
+        auto;
+
+    align-items: center;
+
+    gap: 18px;
+
+    padding: 18px;
+
+    margin-bottom: 12px;
+
+    border: 1px solid var(--color-border);
+
+    border-radius: 16px;
+
+}
+
+
+.event-row:last-child {
+
+    margin-bottom: 0;
+
+}
+
+
+.event-info {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 4px;
+
+}
+
+
+.event-info strong {
+
+    font-size: 0.9rem;
+
+}
+
+
+.event-name strong {
+
+    font-size: 0.95rem;
+
+}
+
+
+.mobile-label {
+
+    display: none;
+
+    color: var(--color-text-muted);
+
+    font-size: 0.75rem;
+
+}
+
+
+/* =========================================================
+   BUTTONS
+========================================================= */
+
+.outline-button {
+
+    display: inline-flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    padding: 9px 14px;
+
+    border: 1px solid var(--color-primary);
+
+    border-radius: 12px;
+
+    color: var(--color-primary);
+
+    background: #fff;
+
+    font-size: 0.82rem;
+
+    font-weight: 700;
+
+    transition:
+        background 0.2s ease,
+        color 0.2s ease;
+
+}
+
+
+.outline-button:hover {
+
+    background: var(--color-primary);
+
+    color: #fff;
+
+}
+
+
+/* =========================================================
+   STATUS BADGES
+========================================================= */
+
+.status-badge {
+
+    display: inline-flex;
+
+    align-items: center;
+
+    width: fit-content;
+
+    padding: 5px 10px;
+
+    border-radius: 999px;
+
+    font-size: 0.73rem;
+
+    font-weight: 700;
+
+}
+
+
+.status-published,
+.status-confirmed,
+.status-verified {
+
+    color: var(--color-success);
+
+    background: var(--color-success-bg);
+
+}
+
+
+.status-pending {
+
+    color: var(--color-warning);
+
+    background: var(--color-warning-bg);
+
+}
+
+
+/* =========================================================
+   LOWER DASHBOARD COLUMNS
+========================================================= */
+
+.dashboard-columns {
+
+    display: grid;
+
+    grid-template-columns:
+        1.25fr
+        0.75fr;
+
+    gap: 22px;
+
+    margin-bottom: 28px;
+
+}
+
+
+/* =========================================================
+   RECENT BOOKINGS
+========================================================= */
+
+.booking-list {
+
+    padding: 10px 24px 20px;
+
+}
+
+
+.booking-row {
+
+    display: grid;
+
+    grid-template-columns:
+        1.5fr
+        1fr
+        auto;
+
+    align-items: center;
+
+    gap: 15px;
+
+    padding: 16px 0;
+
+    border-bottom: 1px solid var(--color-border);
+
+}
+
+
+.booking-row:last-child {
+
+    border-bottom: none;
+
+}
+
+
+.booking-row div {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 4px;
+
+}
+
+
+.booking-row strong {
+
+    font-size: 0.88rem;
+
+}
+
+
+.booking-row span:not(.status-badge) {
+
+    color: var(--color-text-muted);
+
+    font-size: 0.78rem;
+
+}
+
+
+/* =========================================================
+   QUICK ACTIONS
+========================================================= */
+
+.quick-actions {
+
+    padding: 10px 24px 20px;
+
+}
+
+
+.quick-action {
+
+    display: grid;
+
+    grid-template-columns:
+        30px 1fr auto;
+
+    align-items: center;
+
+    gap: 10px;
+
+    padding: 14px 0;
+
+    border-bottom: 1px solid var(--color-border);
+
+    color: var(--color-text);
+
+    font-size: 0.9rem;
+
+}
+
+
+.quick-action:last-child {
+
+    border-bottom: none;
+
+}
+
+
+.quick-action span {
+
+    color: var(--color-primary);
+
+    font-size: 17px;
+
+}
+
+
+.quick-action strong {
+
+    color: var(--color-primary);
+
+}
+
+
+.quick-action:hover {
+
+    color: var(--color-primary);
+
+}
+
+
+/* =========================================================
+   BUSINESS PROFILE
+========================================================= */
+
+.business-profile-panel {
+
+    margin-bottom: 20px;
+
+}
+
+
+.business-profile-content {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 18px;
+
+    padding: 22px 24px;
+
+}
+
+
+.profile-avatar-large {
+
+    width: 58px;
+
+    height: 58px;
+
+    flex-shrink: 0;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background:
+        linear-gradient(
+            135deg,
+            var(--color-primary),
+            var(--color-accent)
+        );
+
+    color: #fff;
+
+    font-size: 1.2rem;
+
+    font-weight: 800;
+
+}
+
+
+.business-profile-details {
+
+    flex: 1;
+
+}
+
+
+.business-profile-details h3 {
+
+    margin: 0 0 5px;
+
+    font-size: 1rem;
+
+}
+
+
+.business-profile-details p {
+
+    margin: 0;
+
+    color: var(--color-text-muted);
+
+    font-size: 0.84rem;
+
+}
+
+
+.verification {
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 5px;
+
+}
+
+
+.verification-label {
+
+    color: var(--color-text-muted);
+
+    font-size: 0.75rem;
+
+}
+
+
+/* =========================================================
+   RESPONSIVE DESIGN
+========================================================= */
+
+@media (max-width: 1200px) {
+
+    .stats-grid {
+
+        grid-template-columns:
+            repeat(2, 1fr);
+
+    }
+
+
+    .event-row {
+
+        grid-template-columns:
+            2fr
+            1fr
+            1fr
+            0.7fr
+            1fr
+            auto;
+
+    }
+
+}
+
+
+@media (max-width: 900px) {
+
+    .dashboard-sidebar {
+
+        width: 190px;
+
+    }
+
+
+    .dashboard-main {
+
+        padding: 28px 24px 45px;
+
+    }
+
+
+    .dashboard-columns {
+
+        grid-template-columns: 1fr;
+
+    }
+
+
+    .event-row {
+
+        grid-template-columns:
+            repeat(3, 1fr);
+
+    }
+
+
+    .event-action {
+
+        grid-column: 1 / -1;
+
+    }
+
+}
+
+
+@media (max-width: 700px) {
+
+    .dashboard-header {
+
+        padding: 0 18px;
+
+    }
+
+
+    .business-name {
+
+        display: none;
+
+    }
+
+
+    .dashboard-sidebar {
+
+        width: 100%;
+
+        border-right: none;
+
+        border-bottom: 1px solid var(--color-border);
+
+        padding: 10px;
+
+    }
+
+
+    .dashboard-shell {
+
+        flex-direction: column;
+
+    }
+
+
+    .sidebar-nav {
+
+        display: grid;
+
+        grid-template-columns:
+            repeat(4, 1fr);
+
+        gap: 5px;
+
+    }
+
+
+    .sidebar-link {
+
+        justify-content: center;
+
+        padding: 10px 5px;
+
+        font-size: 0.75rem;
+
+        flex-direction: column;
+
+        gap: 4px;
+
+    }
+
+
+    .sidebar-link-logout {
+
+        margin-top: 0;
+
+    }
+
+
+    .dashboard-main {
+
+        padding: 22px 16px 40px;
+
+    }
+
+
+    .welcome-card {
+
+        align-items: flex-start;
+
+        flex-direction: column;
+
+    }
+
+
+    .stats-grid {
+
+        grid-template-columns: 1fr;
+
+    }
+
+
+    .event-row {
+
+        grid-template-columns: 1fr;
+
+        gap: 12px;
+
+    }
+
+
+    .mobile-label {
+
+        display: block;
+
+    }
+
+
+    .event-action {
+
+        grid-column: auto;
+
+    }
+
+
+    .outline-button {
+
+        width: 100%;
+
+    }
+
+
+    .booking-row {
+
+        grid-template-columns: 1fr;
+
+        gap: 10px;
+
+    }
+
+
+    .business-profile-content {
+
+        align-items: flex-start;
+
+        flex-direction: column;
+
+    }
+
+
+    .verification {
+
+        align-items: flex-start;
+
+    }
+
+}
