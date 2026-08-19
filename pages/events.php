@@ -10,7 +10,7 @@
 <body>
 
     <header>
-        <h1>EventNest</h1>
+        <h1>EventNest</h1>  
 
         <nav>
             <a href="index.php">Home</a>
@@ -26,6 +26,48 @@
             Explore career, professional development and networking events
             available on EventNest.
         </p>
+
+        <section class="event-filters">
+
+    <h3>Find an Event</h3>
+
+    <form action="search-results.php" method="GET">
+
+        <label for="search">Search:</label>
+        <input
+            type="text"
+            id="search"
+            name="q"
+            placeholder="Search for an event"
+        >
+
+        <label for="province">Province:</label>
+        <select id="province" name="province">
+            <option value="">All Provinces</option>
+            <option value="Gauteng">Gauteng</option>
+            <option value="Mpumalanga">Mpumalanga</option>
+            <option value="Limpopo">Limpopo</option>
+            <option value="KwaZulu-Natal">KwaZulu-Natal</option>
+            <option value="Western Cape">Western Cape</option>
+            <option value="Eastern Cape">Eastern Cape</option>
+            <option value="Free State">Free State</option>
+            <option value="North West">North West</option>
+            <option value="Northern Cape">Northern Cape</option>
+        </select>
+
+        <label for="format">Event Format:</label>
+        <select id="format" name="format">
+            <option value="">All Formats</option>
+            <option value="in-person">In-person</option>
+            <option value="online">Online</option>
+            <option value="hybrid">Hybrid</option>
+        </select>
+
+        <button type="submit">Search Events</button>
+
+    </form>
+
+</section>
 
         <section class="event-list">
 
@@ -60,10 +102,3 @@
 </section>
 
     </main>
-
-    <footer>
-        <p>&copy; 2026 EventNest</p>
-    </footer>
-
-</body>
-</html>
