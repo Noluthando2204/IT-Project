@@ -1,11 +1,51 @@
+<?php
+
+require_once '../database-config/connection.php';
+
+try {
+
+    $sql = "
+        SELECT
+            e.event_id,
+            e.title,
+            e.description,
+            e.location,
+            e.province,
+            e.event_date,
+            e.ticket_price,
+            e.format,
+            c.category_name
+        FROM EVENTS e
+        LEFT JOIN CATEGORIES c
+            ON e.category_id = c.category_id
+        WHERE e.status = 'approved'
+        ORDER BY e.event_date ASC
+    ";
+
+    $stmt = $conn->prepare($sql);
+    $stmt->execute();
+
+    $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+
+    $events = [];
+
+}
+
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
+
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>Events - EventNest</title>
+
 </head>
 
 <body>
@@ -15,8 +55,11 @@
         <h1>EventNest</h1>
 
         <nav>
-            <a href="index.php">Home</a>
+
+            <a href="../index.php">Home</a>
+
             <a href="events.php">Events</a>
+
         </nav>
 
     </header>
@@ -27,9 +70,10 @@
         <h2>Browse Events</h2>
 
         <p>
-            Explore career, professional development and networking events
-            available on EventNest.
+            Explore career, professional development and
+            networking events available on EventNest.
         </p>
+
 
 
 
@@ -39,42 +83,83 @@
 
             <form action="search-results.php" method="GET">
 
-                <label for="search">Search:</label>
+                <label for="search">
+                    Search:
+                </label>
 
-                <input
-                    type="text"
-                    id="search"
-                    name="q"
-                    placeholder="Search for an event"
-                >
+                <input type="text" id="search" name="q" placeholder="Search for an event">
 
 
-                <label for="province">Province:</label>
+                <label for="province">
+                    Province:
+                </label>
 
                 <select id="province" name="province">
 
-                    <option value="">All Provinces</option>
-                    <option value="Gauteng">Gauteng</option>
-                    <option value="Mpumalanga">Mpumalanga</option>
-                    <option value="Limpopo">Limpopo</option>
-                    <option value="KwaZulu-Natal">KwaZulu-Natal</option>
-                    <option value="Western Cape">Western Cape</option>
-                    <option value="Eastern Cape">Eastern Cape</option>
-                    <option value="Free State">Free State</option>
-                    <option value="North West">North West</option>
-                    <option value="Northern Cape">Northern Cape</option>
+                    <option value="">
+                        All Provinces
+                    </option>
+
+                    <option value="Gauteng">
+                        Gauteng
+                    </option>
+
+                    <option value="Mpumalanga">
+                        Mpumalanga
+                    </option>
+
+                    <option value="Limpopo">
+                        Limpopo
+                    </option>
+
+                    <option value="KwaZulu-Natal">
+                        KwaZulu-Natal
+                    </option>
+
+                    <option value="Western Cape">
+                        Western Cape
+                    </option>
+
+                    <option value="Eastern Cape">
+                        Eastern Cape
+                    </option>
+
+                    <option value="Free State">
+                        Free State
+                    </option>
+
+                    <option value="North West">
+                        North West
+                    </option>
+
+                    <option value="Northern Cape">
+                        Northern Cape
+                    </option>
 
                 </select>
 
 
-                <label for="format">Event Format:</label>
+                <label for="format">
+                    Event Format:
+                </label>
 
                 <select id="format" name="format">
 
-                    <option value="">All Formats</option>
-                    <option value="in-person">In-person</option>
-                    <option value="online">Online</option>
-                    <option value="hybrid">Hybrid</option>
+                    <option value="">
+                        All Formats
+                    </option>
+
+                    <option value="in-person">
+                        In-person
+                    </option>
+
+                    <option value="online">
+                        Online
+                    </option>
+
+                    <option value="hybrid">
+                        Hybrid
+                    </option>
 
                 </select>
 
@@ -88,54 +173,125 @@
         </section>
 
 
-        
+    
 
         <section class="event-list">
 
             <h3>Available Events</h3>
 
 
-            
+            <?php if (count($events) > 0): ?>
 
-            <div class="event-card">
+                <?php foreach ($events as $event): ?>
 
-                <h4>Event Title</h4>
+                
+
+                    <div class="event-card">
+
+                        <h4>
+                            <?= htmlspecialchars($event['title']) ?>
+                        </h4>
+
+
+                        <p>
+
+                            <strong>
+                                Category:
+                            </strong>
+
+                            <?= htmlspecialchars(
+                                $event['category_name'] ?? 'Uncategorized'
+                            ) ?>
+
+                        </p>
+
+
+                        <p>
+
+                            <strong>
+                                Date:
+                            </strong>
+
+                            <?= htmlspecialchars(
+                                $event['event_date']
+                            ) ?>
+
+                        </p>
+
+
+                        <p>
+
+                            <strong>
+                                Location:
+                            </strong>
+
+                            <?= htmlspecialchars(
+                                $event['location']
+                            ) ?>
+
+                        </p>
+
+
+                        <p>
+
+                            <strong>
+                                Province:
+                            </strong>
+
+                            <?= htmlspecialchars(
+                                $event['province']
+                            ) ?>
+
+                        </p>
+
+
+                        <p>
+
+                            <strong>
+                                Format:
+                            </strong>
+
+                            <span class="format-badge">
+
+                                <?= htmlspecialchars(
+                                    $event['format']
+                                ) ?>
+
+                            </span>
+
+                        </p>
+
+
+                        <p>
+
+                            <strong>
+                                Ticket Price:
+                            </strong>
+
+                            R<?= number_format(
+                                (float) $event['ticket_price'],
+                                2
+                            ) ?>
+
+                        </p>
+
+
+                        <a href="event-detail.php?event_id=<?= (int) $event['event_id'] ?>">
+                            View Event
+                        </a>
+
+                    </div>
+
+                <?php endforeach; ?>
+
+
+            <?php else: ?>
 
                 <p>
-                    <strong>Category:</strong>
-                    Event category
+                    No approved events are currently available.
                 </p>
 
-                <p>
-                    <strong>Date:</strong>
-                    Event date
-                </p>
-
-                <p>
-                    <strong>Location:</strong>
-                    Event location
-                </p>
-
-                <p>
-                    <strong>Province:</strong>
-                    Event province
-                </p>
-
-                <p>
-                    <strong>Format:</strong>
-                    In-person / Online / Hybrid
-                </p>
-
-                <p>
-                    <strong>Ticket Price:</strong>
-                    R0.00
-                </p>
-
-                <a href="event-detail.php">
-                    View Event
-                </a>
-
-            </div>
+            <?php endif; ?>
 
         </section>
 
