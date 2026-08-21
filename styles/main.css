@@ -1,5 +1,104 @@
+* {
+    box-sizing: border-box;
+}
+
 body {
-    font-family: Arial;
     margin: 0;
-    padding: 0;
+    font-family: Arial, sans-serif;
+    background: #f5f5f5;
+    color: #222;
+}
+
+.navbar {
+    background: #111;
+    color: white;
+    padding: 20px 5%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.navbar h1 {
+    margin: 0;
+}
+
+.navbar nav {
+    display: flex;
+    gap: 20px;
+}
+
+.navbar a {
+    color: white;
+    text-decoration: none;
+}
+
+.navbar a:hover {
+    text-decoration: underline;
+}
+
+.container {
+    width: 80%;
+    max-width: 1000px;
+    margin: 40px auto;
+}
+
+.form-section,
+.legal-page,
+.booking-card {
+    background: white;
+    padding: 30px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+}
+
+input,
+textarea,
+select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+}
+
+textarea {
+    resize: vertical;
+}
+
+button,
+.button {
+    display: inline-block;
+    background: #111;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+button:hover,
+.button:hover {
+    opacity: 0.85;
+}
+
+.info-box {
+    background: #eee;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 25px;
+}
+
+.status-message {
+    font-weight: bold;
 }
