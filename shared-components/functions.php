@@ -1,12 +1,22 @@
 <?php
 
- //REUSABLE FUNCTIONS
+/*
+|--------------------------------------------------------------------------
+| REUSABLE FUNCTIONS
+|--------------------------------------------------------------------------
+| Common helper functions used across the EventNest project.
+|--------------------------------------------------------------------------
+*/
 
-//Common helper functions used across the EventNest project.
 
-
-
- // Clean user input before displaying or processing it.
+/*
+|--------------------------------------------------------------------------
+| Sanitize Input
+|--------------------------------------------------------------------------
+| Used for safely displaying user-provided text in HTML.
+| Database queries must still use prepared statements.
+|--------------------------------------------------------------------------
+*/
 
 function sanitizeInput($data)
 {
@@ -14,8 +24,14 @@ function sanitizeInput($data)
 }
 
 
- //Format a date for display.
- 
+/*
+|--------------------------------------------------------------------------
+| Format Date
+|--------------------------------------------------------------------------
+| Formats a date for display.
+|--------------------------------------------------------------------------
+*/
+
 function formatDate($date)
 {
     if (empty($date)) {
@@ -26,11 +42,15 @@ function formatDate($date)
 }
 
 
- //Generate a unique booking reference.
- 
+/*
+|--------------------------------------------------------------------------
+| Generate Booking Reference
+|--------------------------------------------------------------------------
+| Generates a readable and sufficiently unique booking reference.
+|--------------------------------------------------------------------------
+*/
+
 function generateBookingReference()
 {
     return 'BOOK-' . strtoupper(bin2hex(random_bytes(4)));
 }
-
-?>

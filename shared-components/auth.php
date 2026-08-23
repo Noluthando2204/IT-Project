@@ -1,15 +1,25 @@
 <?php
 
- // AUTHENTICATION AND AUTHORISATION
-
+/*
+|--------------------------------------------------------------------------
+| AUTHENTICATION AND AUTHORISATION
+|--------------------------------------------------------------------------
+| Reusable functions for checking whether users are logged in,
+| authorised, verified, suspended, or banned.
+|--------------------------------------------------------------------------
+*/
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
 
-  //Require the user to be logged in.
- 
+/*
+|--------------------------------------------------------------------------
+| Require Login
+|--------------------------------------------------------------------------
+*/
+
 function requireLogin()
 {
     if (!isset($_SESSION['user_id'])) {
@@ -30,8 +40,12 @@ function requireLogin()
 }
 
 
-  //Require the logged-in user to have a specific role.
- 
+/*
+|--------------------------------------------------------------------------
+| Require Role
+|--------------------------------------------------------------------------
+*/
+
 function requireRole($allowedRoles)
 {
     requireLogin();
@@ -52,7 +66,11 @@ function requireRole($allowedRoles)
 }
 
 
-  //Require the logged-in user to be a verified organiser.
+/*
+|--------------------------------------------------------------------------
+| Require Verified Organiser
+|--------------------------------------------------------------------------
+*/
 
 function requireOrganiserVerified()
 {
