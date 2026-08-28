@@ -31,8 +31,6 @@
 
         <form method="POST" action="">
 
-            <!-- Rating -->
-
             <div class="form-group">
 
                 <label for="rating">
@@ -58,9 +56,6 @@
                 </select>
 
             </div>
-
-
-            <!-- Compliment Tags -->
 
             <div
                 id="complimentSection"
@@ -110,9 +105,6 @@
 
             </div>
 
-
-            <!-- Complaint -->
-
             <div
                 id="complaintSection"
                 class="form-group"
@@ -136,9 +128,6 @@
 
             </div>
 
-
-            <!-- Contact Preference -->
-
             <div class="form-group">
 
                 <label>
@@ -155,9 +144,6 @@
                 </label>
 
             </div>
-
-
-            <!-- Contact Email -->
 
             <div
                 id="contactEmailSection"

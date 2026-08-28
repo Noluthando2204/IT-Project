@@ -38,17 +38,11 @@
             </p>
         </div>
 
-        <!--
-            TODO:
-            Add the confirmed registration field names
-            once they are provided by the project team.
-
-            Do NOT invent database field names.
-        -->
+    
 
         <form method="POST" action="">
 
-            <!-- Registration fields will be added here -->
+           
 
             <button type="submit">
                 Register
