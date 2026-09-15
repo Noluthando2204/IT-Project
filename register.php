@@ -1,28 +1,47 @@
 <?php
-include("database-config/connection.php");
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
+require_once __DIR__ . '/config/db.php';
 
-    // Registration logic will go here
+$message = "";
 
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+
+    $name = trim($_POST["name"]);
+    $email = trim($_POST["email"]);
+    $password = $_POST["password"];
+
+    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+
+    $stmt = $pdo->prepare(
+        "INSERT INTO users (name, email, password)
+         VALUES (?, ?, ?)"
+    );
+
+    $stmt->execute([
+        $name,
+        $email,
+        $hashedPassword
+    ]);
+
+    $message = "Registration successful!";
 }
 ?>
 
-<?php include("shared-components/header.php"); ?>
-<?php include("shared-components/navbar.php"); ?>
-
-<h2>User Registration</h2>
+<h1>Create EventNest Account</h1>
 
 <form method="POST">
 
-    <input type="text" name="name" placeholder="Full Name" required>
+    <label>Name</label>
+    <input type="text" name="name" required>
 
-    <input type="email" name="email" placeholder="Email Address" required>
+    <label>Email</label>
+    <input type="email" name="email" required>
 
-    <input type="password" name="password" placeholder="Password" required>
+    <label>Password</label>
+    <input type="password" name="password" required>
 
     <button type="submit">Register</button>
 
 </form>
 
-<?php include("shared-components/footer.php"); ?>
+<p><?= htmlspecialchars($message) ?></p>
