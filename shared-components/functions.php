@@ -11,10 +11,12 @@
 
 /*
 |--------------------------------------------------------------------------
-| Sanitize Input
+| SANITIZE INPUT
 |--------------------------------------------------------------------------
-| Used for safely displaying user-provided text in HTML.
-| Database queries must still use prepared statements.
+| Cleans user input before displaying or processing it.
+|
+| Note: This function does not replace prepared statements.
+| Prepared statements must still be used for all database queries.
 |--------------------------------------------------------------------------
 */
 
@@ -26,9 +28,12 @@ function sanitizeInput($data)
 
 /*
 |--------------------------------------------------------------------------
-| Format Date
+| FORMAT DATE
 |--------------------------------------------------------------------------
 | Formats a date for display.
+|
+| Example:
+| 2026-09-16 → 16 Sep 2026
 |--------------------------------------------------------------------------
 */
 
@@ -44,9 +49,12 @@ function formatDate($date)
 
 /*
 |--------------------------------------------------------------------------
-| Generate Booking Reference
+| GENERATE BOOKING REFERENCE
 |--------------------------------------------------------------------------
-| Generates a readable and sufficiently unique booking reference.
+| Generates a readable booking reference using random bytes.
+|
+| Example:
+| BOOK-A3F91C7D
 |--------------------------------------------------------------------------
 */
 
