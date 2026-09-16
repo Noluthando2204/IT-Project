@@ -1,11 +1,21 @@
 <?php
-
 /*
 |--------------------------------------------------------------------------
 | AUTHENTICATION AND AUTHORISATION
 |--------------------------------------------------------------------------
-| Reusable functions for checking whether users are logged in,
-| authorised, verified, suspended, or banned.
+| This file contains reusable functions for:
+| - Checking whether a user is logged in
+| - Checking whether a user has a specific role
+| - Checking whether an organiser has been verified
+|--------------------------------------------------------------------------
+*/
+
+
+/*
+|--------------------------------------------------------------------------
+| START SESSION
+|--------------------------------------------------------------------------
+| Start the session only if a session has not already been started.
 |--------------------------------------------------------------------------
 */
 
@@ -16,7 +26,10 @@ if (session_status() === PHP_SESSION_NONE) {
 
 /*
 |--------------------------------------------------------------------------
-| Require Login
+| REQUIRE LOGIN
+|--------------------------------------------------------------------------
+| Requires the user to be logged in.
+| If the user is not logged in, they are redirected to the login page.
 |--------------------------------------------------------------------------
 */
 
@@ -26,6 +39,16 @@ function requireLogin()
         header("Location: /login.php");
         exit();
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CHECK ACCOUNT STATUS
+    |--------------------------------------------------------------------------
+    | Suspended or banned users are not allowed to continue using
+    | protected parts of the system.
+    |--------------------------------------------------------------------------
+    */
 
     if (isset($_SESSION['user_status'])) {
         if (
@@ -42,22 +65,55 @@ function requireLogin()
 
 /*
 |--------------------------------------------------------------------------
-| Require Role
+| REQUIRE ROLE
+|--------------------------------------------------------------------------
+| Requires the logged-in user to have one of the specified roles.
+|
+| Example:
+| requireRole('admin');
+|
+| Or:
+| requireRole(['admin', 'organiser']);
 |--------------------------------------------------------------------------
 */
 
 function requireRole($allowedRoles)
 {
+    // Make sure the user is logged in first.
     requireLogin();
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CHECK WHETHER ROLE EXISTS
+    |--------------------------------------------------------------------------
+    */
 
     if (!isset($_SESSION['role'])) {
         header("Location: /index.php");
         exit();
     }
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | ALLOW SINGLE ROLE OR MULTIPLE ROLES
+    |--------------------------------------------------------------------------
+    | If only one role is supplied, convert it into an array so that
+    | the same checking logic can be used for both cases.
+    |--------------------------------------------------------------------------
+    */
+
     if (!is_array($allowedRoles)) {
         $allowedRoles = [$allowedRoles];
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CHECK USER ROLE
+    |--------------------------------------------------------------------------
+    */
 
     if (!in_array($_SESSION['role'], $allowedRoles, true)) {
         header("Location: /index.php");
@@ -68,13 +124,26 @@ function requireRole($allowedRoles)
 
 /*
 |--------------------------------------------------------------------------
-| Require Verified Organiser
+| REQUIRE VERIFIED ORGANISER
+|--------------------------------------------------------------------------
+| Requires the user to:
+| 1. Be logged in
+| 2. Have the organiser role
+| 3. Have an approved verification status
 |--------------------------------------------------------------------------
 */
 
 function requireOrganiserVerified()
 {
+    // Make sure the user is logged in and has the organiser role.
     requireRole('organiser');
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CHECK ORGANISER VERIFICATION STATUS
+    |--------------------------------------------------------------------------
+    */
 
     if (
         !isset($_SESSION['verification_status']) ||
