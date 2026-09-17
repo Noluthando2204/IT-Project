@@ -1,28 +1,28 @@
 <?php
 include "database-config/connection.php";
 
-// Variable to show message to user
 $message = "";
-$message_type = ""; // 'success' or 'error'
+$message_type = "";
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
-    // Get data from the form
     $name = trim($_POST['name'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
 
-    // Basic validation
+    // Check that all fields are filled in
     if (empty($name) || empty($email) || empty($password)) {
 
         $message = "All fields are required.";
         $message_type = "error";
 
+    // Check that the email is valid
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
 
         $message = "Please enter a valid email address.";
         $message_type = "error";
 
+    // Check password length
     } elseif (strlen($password) < 8) {
 
         $message = "Password must be at least 8 characters.";
@@ -30,7 +30,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     } else {
 
-        // Check if email already exists in USERS table
+        // Check if email already exists
         $check_sql = "SELECT user_id FROM users WHERE email = ?";
         $check_stmt = $conn->prepare($check_sql);
 
@@ -52,13 +52,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             } else {
 
-                // Hash the password for security
+                // Hash the password before storing it
                 $password_hash = password_hash($password, PASSWORD_DEFAULT);
 
-                // Insert new user
-                $insert_sql = "INSERT INTO users (name, email, password_hash)
-                               VALUES (?, ?, ?)";
-
+                // Insert the new user
+                $insert_sql = "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)";
                 $insert_stmt = $conn->prepare($insert_sql);
 
                 if (!$insert_stmt) {
@@ -68,19 +66,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
                 } else {
 
-                    $insert_stmt->bind_param(
-                        "sss",
-                        $name,
-                        $email,
-                        $password_hash
-                    );
+                    $insert_stmt->bind_param("sss", $name, $email, $password_hash);
 
                     if ($insert_stmt->execute()) {
 
-                        $message = "Registration successful! You can now login.";
+                        $message = "Registration successful! You can login.";
                         $message_type = "success";
 
-                        // Redirect to login page after 2 seconds
                         header("refresh:2; url=login.php");
 
                     } else {
@@ -97,23 +89,23 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
     }
 }
+
+$conn->close();
 ?>
 
-<?php include "shared-components/header.php"; ?>
-<?php include "shared-components/navbar.php"; ?>
+<?php include 'shared-components/header.php'; ?>
 
 <div class="container">
 
     <h2>User Registration</h2>
 
-    <!-- Show success or error message -->
-    <?php if (!empty($message)) { ?>
+    <?php if (!empty($message)): ?>
 
-        <p style="color: <?php echo ($message_type == 'success' ? 'green' : 'red'); ?>">
-            <?php echo htmlspecialchars($message); ?>
+        <p style="color: <?= $message_type === 'success' ? 'green' : 'red'; ?>">
+            <?= htmlspecialchars($message); ?>
         </p>
 
-    <?php } ?>
+    <?php endif; ?>
 
     <form method="POST" action="register.php">
 
@@ -123,6 +115,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             placeholder="Full Name"
             required
         >
+
         <br><br>
 
         <input
@@ -131,6 +124,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             placeholder="Email Address"
             required
         >
+
         <br><br>
 
         <input
@@ -139,12 +133,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             placeholder="Password"
             required
         >
+
         <br><br>
 
         <button type="submit">Register</button>
 
     </form>
 
+    <p>
+        Already have an account?
+        <a href="login.php">Login here</a>
+    </p>
+
 </div>
 
-<?php include "shared-components/footer.php"; ?>
+<?php include 'shared-components/footer.php'; ?>

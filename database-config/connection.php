@@ -1,22 +1,14 @@
+
 <?php
-/*
-|--------------------------------------------------------------------------
-| PDO DATABASE CONNECTION
-|--------------------------------------------------------------------------
-| This file connects the website to the MySQL database using PDO.
-| Other backend files will include this file whenever database access
-| is needed.
-|--------------------------------------------------------------------------
-*/
 
 $host = "localhost";
-$dbname = "event_platform";
 $username = "root";
 $password = "";
+$dbname = "eventnest";
 
 try {
     $conn = new PDO(
-        "mysql:host=$host;dbname=$dbname",
+        "mysql:host=$host;dbname=$dbname;charset=utf8mb4",
         $username,
         $password
     );
@@ -24,6 +16,7 @@ try {
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 } catch (PDOException $e) {
-    die("Database connection failed.");
+    die("Database connection failed: " . $e->getMessage());
 }
+
 ?>
