@@ -1,4 +1,5 @@
 <?php
+
 /*
 |--------------------------------------------------------------------------
 | AUTHENTICATION AND AUTHORISATION
@@ -50,15 +51,18 @@ function requireLogin()
     |--------------------------------------------------------------------------
     */
 
-    if (isset($_SESSION['user_status'])) {
-        if (
+    if (
+        isset($_SESSION['user_status']) &&
+        (
             $_SESSION['user_status'] === 'suspended' ||
             $_SESSION['user_status'] === 'banned'
-        ) {
-            session_destroy();
-            header("Location: /login.php");
-            exit();
-        }
+        )
+    ) {
+        $_SESSION = [];
+        session_destroy();
+
+        header("Location: /login.php");
+        exit();
     }
 }
 
@@ -79,7 +83,6 @@ function requireLogin()
 
 function requireRole($allowedRoles)
 {
-    // Make sure the user is logged in first.
     requireLogin();
 
 
@@ -99,8 +102,8 @@ function requireRole($allowedRoles)
     |--------------------------------------------------------------------------
     | ALLOW SINGLE ROLE OR MULTIPLE ROLES
     |--------------------------------------------------------------------------
-    | If only one role is supplied, convert it into an array so that
-    | the same checking logic can be used for both cases.
+    | Convert a single role into an array so that both single and
+    | multiple allowed roles can be handled consistently.
     |--------------------------------------------------------------------------
     */
 
@@ -135,7 +138,6 @@ function requireRole($allowedRoles)
 
 function requireOrganiserVerified()
 {
-    // Make sure the user is logged in and has the organiser role.
     requireRole('organiser');
 
 
@@ -153,5 +155,3 @@ function requireOrganiserVerified()
         exit();
     }
 }
-
-?>
