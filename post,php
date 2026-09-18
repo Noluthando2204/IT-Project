@@ -1,1 +1,147 @@
-
+<?php
+// post.php
+// Handles creation and deletion of organiser posts (text, image, video, hashtags).
+// Built against the finalised table structure.
+ 
+session_start();
+require_once __DIR__ . '/config/db.php';
+ 
+if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'organiser') {
+    header('Location: /login.php');
+    exit;
+}
+ 
+$organiser_id = (int) $_SESSION['user_id'];
+$action = $_POST['action'] ?? $_GET['action'] ?? null;
+ 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'create') {
+    $post_type = $_POST['post_type'] ?? '';
+    $allowed_types = ['image', 'video', 'text'];
+ 
+    if (!in_array($post_type, $allowed_types, true)) {
+        http_response_code(400);
+        exit('Invalid post type.');
+    }
+ 
+    $content = trim(strip_tags($_POST['content'] ?? ''));
+ 
+    // A text post needs actual text; an image/video post needs the file
+    // itself — content on those is treated as an optional caption.
+    if ($post_type === 'text' && $content === '') {
+        http_response_code(400);
+        exit('Text posts need some content.');
+    }
+ 
+    // post_tags[] — hashtags on the post. Distinct from tag.php's follow relationship.
+    // Capped at 10 tags so a post can't be used to spam an unbounded tag list.
+    $post_tags = [];
+    if (isset($_POST['post_tags']) && is_array($_POST['post_tags'])) {
+        foreach (array_slice($_POST['post_tags'], 0, 10) as $tag) {
+            $clean_tag = preg_replace('/[^A-Za-z0-9_]/', '', $tag);
+            if ($clean_tag !== '') {
+                $post_tags[] = $clean_tag;
+            }
+        }
+    }
+ 
+    $media_path = null;
+    if ($post_type === 'image' || post_type_is_video($post_type)) {
+        // Media is required for these types — no silent "post with no file".
+        if (empty($_FILES['media']['tmp_name'])) {
+            http_response_code(400);
+            exit(ucfirst($post_type) . ' posts require a file upload.');
+        }
+ 
+        $media_path = save_uploaded_media($_FILES['media'], $post_type);
+        if ($media_path === false) {
+            http_response_code(400);
+            exit('Media upload failed — check file type and size.');
+        }
+    }
+ 
+    $stmt = $pdo->prepare(
+        'INSERT INTO posts (organiser_id, post_type, content, media_path, post_tags, created_at)
+         VALUES (:organiser_id, :post_type, :content, :media_path, :post_tags, NOW())'
+    );
+    $stmt->execute([
+        'organiser_id' => $organiser_id,
+        'post_type'    => $post_type,
+        'content'      => $content,
+        'media_path'   => $media_path,
+        'post_tags'    => $post_tags ? json_encode($post_tags) : null,
+    ]);
+ 
+    header('Location: /organiser-profile.php?posted=1');
+    exit;
+}
+ 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'delete') {
+    $post_id = filter_input(INPUT_POST, 'post_id', FILTER_VALIDATE_INT);
+ 
+    if (!$post_id) {
+        http_response_code(400);
+        exit('Invalid post ID.');
+    }
+ 
+    // Only the owning organiser may delete their own post.
+    $stmt = $pdo->prepare(
+        'DELETE FROM posts WHERE post_id = :post_id AND organiser_id = :organiser_id'
+    );
+    $stmt->execute(['post_id' => $post_id, 'organiser_id' => $organiser_id]);
+ 
+    header('Location: /organiser-profile.php?deleted=1');
+    exit;
+}
+ 
+header('Location: /organiser-profile.php');
+exit;
+ 
+/**
+ * Simple type check helper so both 'video' checks in one place read clearly.
+ */
+function post_type_is_video(string $post_type): bool
+{
+    return $post_type === 'video';
+}
+ 
+/**
+ * Saves an uploaded media file to a non-public-guessable path and
+ * returns the stored relative path, or false on failure.
+ */
+function save_uploaded_media(array $file, string $post_type)
+{
+    $allowed_mime = [
+        'image' => ['image/jpeg', 'image/png', 'image/webp'],
+        'video' => ['video/mp4', 'video/quicktime'],
+    ];
+ 
+    if (!isset($allowed_mime[$post_type])) {
+        return false;
+    }
+ 
+    $mime_type = mime_content_type($file['tmp_name']);
+    if (!in_array($mime_type, $allowed_mime[$post_type], true)) {
+        return false;
+    }
+ 
+    $max_bytes = $post_type === 'video' ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
+    if ($file['size'] > $max_bytes) {
+        return false;
+    }
+ 
+    $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+    $safe_name = bin2hex(random_bytes(16)) . '.' . preg_replace('/[^a-z0-9]/i', '', $extension);
+    $destination_dir = __DIR__ . '/uploads/posts/';
+    $destination_path = $destination_dir . $safe_name;
+ 
+    if (!is_dir($destination_dir)) {
+        mkdir($destination_dir, 0755, true);
+    }
+ 
+    if (!move_uploaded_file($file['tmp_name'], $destination_path)) {
+        return false;
+    }
+ 
+    return 'uploads/posts/' . $safe_name;
+}
+ 
