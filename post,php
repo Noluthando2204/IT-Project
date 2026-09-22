@@ -1,147 +1,273 @@
 <?php
-// post.php
-// Handles creation and deletion of organiser posts (text, image, video, hashtags).
-// Built against the finalised table structure.
+/**
+ * post.php
+ * Root-level standalone backend handler. Uploaded media goes to uploaded-content/.
+ *
+ * Purpose: Validate, save and delete organiser event-linked posts.
+ *
+ * Receives from:
+ *  - create-post.php sends EventID, Content, optional Media, Media_type, Hashtags.
+ *  - Organiser management may send PostID for deletion.
+ *
+ * Required behaviour:
+ *  - Require an approved organiser and verify the selected EventID belongs to them.
+ *  - Insert Content, safe Media path, nullable Media_type, normalised Hashtags,
+ *    session OrganizerID, selected EventID, PostDate.
+ *  - Support text-only updates, images and videos. Reject unsupported media
+ *    types and unsafe filenames.
+ *  - For deletion, verify POSTS.OrganizerID before deleting, and handle linked
+ *    REACTIONS / Post_Categories safely within the relationship rules.
+ *  - No public comments or unrelated standalone posts (not implemented here).
+ *
+ * Links to / returns to: create-post.php / business-dashboard.php after save,
+ * organiser-posts.php / post-detail.php for public viewing after allowed event status.
+ */
  
-session_start();
-require_once __DIR__ . '/config/db.php';
+require_once __DIR__ . '/shared-components/auth.php';
+require_once __DIR__ . '/shared-components/functions.php';
+require_once __DIR__ . '/database-config/connection.php';
  
-if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'organiser') {
-    header('Location: /login.php');
+ 
+/*
+|--------------------------------------------------------------------------
+| TEMPORARY LOCAL HELPERS
+|--------------------------------------------------------------------------
+| shared-components/auth.php currently only checks that $_SESSION['user_id']
+| is set (its own comment says role/permission checks are "for later").
+| shared-components/functions.php currently only has sanitizeInput() and
+| generateBookingReference(). Neither file yet provides role checks, CSRF,
+| or money/date/hashtag formatting helpers.
+|
+| Until the team adds those to the real shared files (per the guide's rule
+| that shared-file changes need team agreement), this file does its own
+| role check and formatting locally. If auth.php/functions.php gain proper
+| versions of these later, delete this block and call the shared ones.
+|--------------------------------------------------------------------------
+*/
+function local_require_role(PDO $pdo, array $allowed_roles, bool $require_approved = false): array
+{
+    $user_id = (int) ($_SESSION['user_id'] ?? 0);
+    $stmt = $pdo->prepare("SELECT UserID, Role, RoleStatus FROM USERS WHERE UserID = :user_id");
+    $stmt->execute([':user_id' => $user_id]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+ 
+    if (!$user || !in_array($user['Role'], $allowed_roles, true)) {
+        header('Location: /login.php');
+        exit;
+    }
+    if ($require_approved && $user['RoleStatus'] !== 'approved') {
+        header('Location: /login.php');
+        exit;
+    }
+    return $user;
+}
+ 
+function local_csrf_token(): string
+{
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+ 
+function local_verify_csrf(string $token): bool
+{
+    return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
+}
+ 
+function local_format_money($amount): string
+{
+    return 'R' . number_format((float) $amount, 2);
+}
+ 
+function local_format_datetime($dt): string
+{
+    return $dt ? date('d M Y, H:i', strtotime($dt)) : '';
+}
+ 
+function local_status_badge(string $status): array
+{
+    $map = [
+        'draft' => 'badge-grey', 'pending' => 'badge-grey',
+        'published' => 'badge-green', 'paid' => 'badge-green', 'confirmed' => 'badge-green', 'success' => 'badge-green', 'released' => 'badge-green',
+        'completed' => 'badge-blue', 'free' => 'badge-blue',
+        'cancelled' => 'badge-red', 'failed' => 'badge-red',
+        'refunded' => 'badge-orange', 'held' => 'badge-orange', 'rejected' => 'badge-red', 'approved' => 'badge-green',
+    ];
+    return ['label' => ucfirst($status), 'class' => $map[$status] ?? 'badge-grey'];
+}
+ 
+function local_normalize_hashtags(string $raw): string
+{
+    $parts = preg_split('/[\s,]+/', trim($raw));
+    $clean = array_filter(array_map(function ($t) {
+        $t = preg_replace('/[^A-Za-z0-9_]/', '', $t);
+        return $t !== '' ? '#' . ltrim($t, '#') : null;
+    }, $parts ?: []));
+    return implode(' ', array_unique($clean));
+}
+ 
+ 
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    exit('Method not allowed.');
+}
+ 
+$organizer_id = local_require_role($pdo, ['organizer'], true)['UserID'];
+ 
+if (!local_verify_csrf($_POST['csrf_token'] ?? '')) {
+    header('Location: create-post.php?post=error');
     exit;
 }
  
-$organiser_id = (int) $_SESSION['user_id'];
-$action = $_POST['action'] ?? $_GET['action'] ?? null;
+$action = $_POST['action'] ?? 'create';
  
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'create') {
-    $post_type = $_POST['post_type'] ?? '';
-    $allowed_types = ['image', 'video', 'text'];
- 
-    if (!in_array($post_type, $allowed_types, true)) {
-        http_response_code(400);
-        exit('Invalid post type.');
-    }
- 
-    $content = trim(strip_tags($_POST['content'] ?? ''));
- 
-    // A text post needs actual text; an image/video post needs the file
-    // itself — content on those is treated as an optional caption.
-    if ($post_type === 'text' && $content === '') {
-        http_response_code(400);
-        exit('Text posts need some content.');
-    }
- 
-    // post_tags[] — hashtags on the post. Distinct from tag.php's follow relationship.
-    // Capped at 10 tags so a post can't be used to spam an unbounded tag list.
-    $post_tags = [];
-    if (isset($_POST['post_tags']) && is_array($_POST['post_tags'])) {
-        foreach (array_slice($_POST['post_tags'], 0, 10) as $tag) {
-            $clean_tag = preg_replace('/[^A-Za-z0-9_]/', '', $tag);
-            if ($clean_tag !== '') {
-                $post_tags[] = $clean_tag;
-            }
-        }
-    }
- 
-    $media_path = null;
-    if ($post_type === 'image' || post_type_is_video($post_type)) {
-        // Media is required for these types — no silent "post with no file".
-        if (empty($_FILES['media']['tmp_name'])) {
-            http_response_code(400);
-            exit(ucfirst($post_type) . ' posts require a file upload.');
-        }
- 
-        $media_path = save_uploaded_media($_FILES['media'], $post_type);
-        if ($media_path === false) {
-            http_response_code(400);
-            exit('Media upload failed — check file type and size.');
-        }
-    }
- 
-    $stmt = $pdo->prepare(
-        'INSERT INTO posts (organiser_id, post_type, content, media_path, post_tags, created_at)
-         VALUES (:organiser_id, :post_type, :content, :media_path, :post_tags, NOW())'
-    );
-    $stmt->execute([
-        'organiser_id' => $organiser_id,
-        'post_type'    => $post_type,
-        'content'      => $content,
-        'media_path'   => $media_path,
-        'post_tags'    => $post_tags ? json_encode($post_tags) : null,
-    ]);
- 
-    header('Location: /organiser-profile.php?posted=1');
+if ($action === 'delete') {
+    handle_post_delete($pdo, $organizer_id);
     exit;
 }
  
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'delete') {
-    $post_id = filter_input(INPUT_POST, 'post_id', FILTER_VALIDATE_INT);
- 
-    if (!$post_id) {
-        http_response_code(400);
-        exit('Invalid post ID.');
-    }
- 
-    // Only the owning organiser may delete their own post.
-    $stmt = $pdo->prepare(
-        'DELETE FROM posts WHERE post_id = :post_id AND organiser_id = :organiser_id'
-    );
-    $stmt->execute(['post_id' => $post_id, 'organiser_id' => $organiser_id]);
- 
-    header('Location: /organiser-profile.php?deleted=1');
-    exit;
-}
- 
-header('Location: /organiser-profile.php');
+handle_post_create($pdo, $organizer_id);
 exit;
  
 /**
- * Simple type check helper so both 'video' checks in one place read clearly.
+ * Validate and insert a new post, linked to an event the organiser owns.
  */
-function post_type_is_video(string $post_type): bool
+function handle_post_create(PDO $pdo, int $organizer_id): void
 {
-    return $post_type === 'video';
+    $event_id = filter_var($_POST['EventID'] ?? null, FILTER_VALIDATE_INT);
+    $content = trim((string) ($_POST['Content'] ?? ''));
+ 
+    if ($event_id === false || $event_id <= 0 || $content === '') {
+        header('Location: create-post.php?post=error');
+        exit;
+    }
+ 
+    // Verify the event belongs to this organiser — never trust the submitted EventID alone.
+    $owns_stmt = $pdo->prepare("SELECT EventID FROM EVENTS WHERE EventID = :event_id AND OrganizerID = :organizer_id");
+    $owns_stmt->execute([':event_id' => $event_id, ':organizer_id' => $organizer_id]);
+    if (!$owns_stmt->fetch()) {
+        header('Location: create-post.php?post=error');
+        exit;
+    }
+ 
+    $media_path = null;
+    $media_type = null;
+ 
+    if (!empty($_FILES['Media']['name'])) {
+        $upload_result = save_post_media($_FILES['Media']);
+        if ($upload_result === null) {
+            // Unsafe filename, unsupported type, or upload error.
+            header('Location: create-post.php?post=error');
+            exit;
+        }
+        [$media_path, $media_type] = $upload_result;
+    }
+    // If no media was uploaded, Media/Media_type stay NULL — a valid text-only update.
+ 
+    $hashtags = local_normalize_hashtags((string) ($_POST['Hashtags'] ?? ''));
+    $content = mb_substr($content, 0, 2000);
+ 
+    $insert = $pdo->prepare(
+        "INSERT INTO POSTS (Content, Media, Media_type, Hashtags, PostDate, OrganizerID, EventID)
+         VALUES (:content, :media, :media_type, :hashtags, NOW(), :organizer_id, :event_id)"
+    );
+    $insert->execute([
+        ':content' => $content,
+        ':media' => $media_path,
+        ':media_type' => $media_type,
+        ':hashtags' => $hashtags,
+        ':organizer_id' => $organizer_id,
+        ':event_id' => $event_id,
+    ]);
+ 
+    header('Location: business-dashboard.php?post=success');
 }
  
 /**
- * Saves an uploaded media file to a non-public-guessable path and
- * returns the stored relative path, or false on failure.
+ * Verify ownership, then delete a post and its safely-cleanable dependents.
  */
-function save_uploaded_media(array $file, string $post_type)
+function handle_post_delete(PDO $pdo, int $organizer_id): void
 {
-    $allowed_mime = [
-        'image' => ['image/jpeg', 'image/png', 'image/webp'],
-        'video' => ['video/mp4', 'video/quicktime'],
+    $post_id = filter_var($_POST['PostID'] ?? null, FILTER_VALIDATE_INT);
+ 
+    if ($post_id === false || $post_id <= 0) {
+        header('Location: business-dashboard.php?post=error');
+        exit;
+    }
+ 
+    $owns_stmt = $pdo->prepare("SELECT PostID FROM POSTS WHERE PostID = :post_id AND OrganizerID = :organizer_id");
+    $owns_stmt->execute([':post_id' => $post_id, ':organizer_id' => $organizer_id]);
+ 
+    if (!$owns_stmt->fetch()) {
+        header('Location: business-dashboard.php?post=error');
+        exit;
+    }
+ 
+    $pdo->beginTransaction();
+    try {
+        // Clean up dependent rows the ERD allows to be cleaned when a post is
+        // deliberately removed (per Cynthia-approved ON DELETE handling for
+        // Post_Categories and REACTIONS).
+        $pdo->prepare("DELETE FROM REACTIONS WHERE PostID = :post_id")
+            ->execute([':post_id' => $post_id]);
+        $pdo->prepare("DELETE FROM Post_Categories WHERE post_id = :post_id")
+            ->execute([':post_id' => $post_id]);
+        $pdo->prepare("DELETE FROM POSTS WHERE PostID = :post_id AND OrganizerID = :organizer_id")
+            ->execute([':post_id' => $post_id, ':organizer_id' => $organizer_id]);
+ 
+        $pdo->commit();
+    } catch (PDOException $e) {
+        $pdo->rollBack();
+        error_log('post.php delete failed: ' . $e->getMessage());
+        header('Location: business-dashboard.php?post=error');
+        exit;
+    }
+ 
+    header('Location: business-dashboard.php?post=deleted');
+}
+ 
+/**
+ * Validate an uploaded media file and move it into uploaded-content/.
+ * Returns [safe_relative_path, media_type] or null on any validation failure.
+ *
+ * @return array{0:string,1:string}|null
+ */
+function save_post_media(array $file): ?array
+{
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        return null;
+    }
+ 
+    $allowed = [
+        'image/jpeg' => ['ext' => 'jpg', 'type' => 'image'],
+        'image/png' => ['ext' => 'png', 'type' => 'image'],
+        'image/webp' => ['ext' => 'webp', 'type' => 'image'],
+        'video/mp4' => ['ext' => 'mp4', 'type' => 'video'],
+        'video/webm' => ['ext' => 'webm', 'type' => 'video'],
     ];
  
-    if (!isset($allowed_mime[$post_type])) {
-        return false;
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mime = finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
+ 
+    if (!isset($allowed[$mime])) {
+        return null;
     }
  
-    $mime_type = mime_content_type($file['tmp_name']);
-    if (!in_array($mime_type, $allowed_mime[$post_type], true)) {
-        return false;
+    // 25MB cap, generous enough for short clips while bounding storage/abuse.
+    if ($file['size'] > 25 * 1024 * 1024) {
+        return null;
     }
  
-    $max_bytes = $post_type === 'video' ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
-    if ($file['size'] > $max_bytes) {
-        return false;
+    $safe_name = bin2hex(random_bytes(16)) . '.' . $allowed[$mime]['ext'];
+    $destination_dir = __DIR__ . '/uploaded-content/';
+    $destination = $destination_dir . $safe_name;
+ 
+    if (!is_dir($destination_dir) || !move_uploaded_file($file['tmp_name'], $destination)) {
+        return null;
     }
  
-    $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-    $safe_name = bin2hex(random_bytes(16)) . '.' . preg_replace('/[^a-z0-9]/i', '', $extension);
-    $destination_dir = __DIR__ . '/uploads/posts/';
-    $destination_path = $destination_dir . $safe_name;
- 
-    if (!is_dir($destination_dir)) {
-        mkdir($destination_dir, 0755, true);
-    }
- 
-    if (!move_uploaded_file($file['tmp_name'], $destination_path)) {
-        return false;
-    }
- 
-    return 'uploads/posts/' . $safe_name;
+    return ['uploaded-content/' . $safe_name, $allowed[$mime]['type']];
 }
  
