@@ -1825,3 +1825,871 @@ a {
     }
 
 }
+/*
+|--------------------------------------------------------------------------
+| EventNest - main.css
+|--------------------------------------------------------------------------
+| Styles for user-dashboard.php, built against the approved EventNest
+| wireframe reference: colour palette, button system, 8px spacing,
+| card/status conventions and shared header/sidebar patterns.
+|--------------------------------------------------------------------------
+*/
+
+/* ==========================================================================
+   1. DESIGN TOKENS
+   ========================================================================== */
+
+:root {
+    /* Approved palette */
+    --en-navy: #0B2D5C;
+    --en-primary-blue: #1E3A8A;
+    --en-teal: #0B9FA5;
+    --en-orange: #F97316;
+    --en-yellow: #F6C43B;
+    --en-off-white: #F6F8FB;
+
+    /* Neutrals */
+    --en-white: #FFFFFF;
+    --en-text: #1A2333;
+    --en-text-muted: #5B6B82;
+    --en-border: #DCE3EE;
+    --en-border-light: #E9EEF5;
+
+    /* Status colours (text + colour, never colour alone) */
+    --en-status-approved-bg: #E3F5EA;
+    --en-status-approved-text: #1E7B45;
+    --en-status-pending-bg: #FDEEDC;
+    --en-status-pending-text: #B85B06;
+    --en-status-rejected-bg: #FBE4E4;
+    --en-status-rejected-text: #B3261E;
+    --en-status-completed-bg: #E4E9FB;
+    --en-status-completed-text: #2C3E9E;
+
+    /* Spacing scale (8px increments) */
+    --en-space-1: 8px;
+    --en-space-2: 16px;
+    --en-space-3: 24px;
+    --en-space-4: 32px;
+    --en-space-5: 40px;
+    --en-space-6: 48px;
+
+    /* Radius / shadow */
+    --en-radius-sm: 8px;
+    --en-radius-md: 12px;
+    --en-radius-lg: 16px;
+    --en-shadow-card: 0 1px 2px rgba(11, 45, 92, 0.06), 0 1px 8px rgba(11, 45, 92, 0.04);
+
+    --en-font: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    font-family: var(--en-font);
+    color: var(--en-text);
+    background: var(--en-off-white);
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+img {
+    max-width: 100%;
+    display: block;
+}
+
+a {
+    color: var(--en-primary-blue);
+    text-decoration: none;
+}
+
+a:hover,
+a:focus {
+    text-decoration: underline;
+}
+
+/* Visible focus states everywhere (coding consistency rule) */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+    outline: 2px solid var(--en-teal);
+    outline-offset: 2px;
+}
+
+h1,
+h2,
+h3 {
+    margin: 0 0 var(--en-space-1) 0;
+    color: var(--en-navy);
+    font-weight: 700;
+}
+
+h1 {
+    font-size: 1.75rem;
+}
+
+h2 {
+    font-size: 1.15rem;
+}
+
+h3 {
+    font-size: 1rem;
+    color: var(--en-text);
+}
+
+p {
+    margin: 0 0 var(--en-space-2) 0;
+    color: var(--en-text-muted);
+}
+
+
+/* ==========================================================================
+   2. SITE HEADER
+   ========================================================================== */
+
+.site-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--en-white);
+    border-bottom: 1px solid var(--en-border);
+    padding: var(--en-space-2) var(--en-space-4);
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+}
+
+.brand-logo {
+    height: 36px;
+    width: auto;
+}
+
+.site-header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--en-space-2);
+}
+
+.icon-btn {
+    background: none;
+    border: none;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: var(--en-space-1);
+    border-radius: var(--en-radius-sm);
+    line-height: 1;
+}
+
+.icon-btn:hover {
+    background: var(--en-off-white);
+}
+
+.topbar-greeting {
+    font-weight: 600;
+    color: var(--en-navy);
+}
+
+
+/* ==========================================================================
+   3. DASHBOARD SHELL / SIDEBAR
+   ========================================================================== */
+
+.dashboard-shell {
+    display: flex;
+    min-height: calc(100vh - 65px);
+}
+
+.dashboard-sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    background: var(--en-navy);
+    padding: var(--en-space-3) 0;
+}
+
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: var(--en-space-1);
+}
+
+.sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: var(--en-space-1);
+    padding: var(--en-space-2) var(--en-space-3);
+    color: rgba(255, 255, 255, 0.85);
+    font-weight: 500;
+    border-left: 3px solid transparent;
+}
+
+.sidebar-link:hover,
+.sidebar-link:focus-visible {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--en-white);
+    text-decoration: none;
+}
+
+.sidebar-link.active {
+    background: rgba(255, 255, 255, 0.12);
+    border-left-color: var(--en-orange);
+    color: var(--en-white);
+    font-weight: 700;
+}
+
+.sidebar-link-logout {
+    margin-top: var(--en-space-3);
+    color: #F3B4B4;
+}
+
+.sidebar-icon {
+    font-size: 0.95rem;
+}
+
+
+/* ==========================================================================
+   4. MAIN CONTENT
+   ========================================================================== */
+
+.dashboard-main {
+    flex: 1;
+    padding: var(--en-space-4);
+    max-width: 1200px;
+}
+
+.dashboard-page-title {
+    margin-bottom: var(--en-space-3);
+}
+
+.eyebrow {
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--en-teal);
+    margin-bottom: 4px;
+}
+
+.dashboard-welcome {
+    background: var(--en-white);
+    border: 1px solid var(--en-border-light);
+    border-radius: var(--en-radius-lg);
+    padding: var(--en-space-3);
+    margin-bottom: var(--en-space-3);
+}
+
+.dashboard-welcome h1 {
+    margin-bottom: var(--en-space-1);
+}
+
+.dashboard-welcome p {
+    margin: 0;
+}
+
+
+/* ==========================================================================
+   5. COLUMN LAYOUTS
+   ========================================================================== */
+
+.dashboard-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--en-space-3);
+    margin-bottom: var(--en-space-3);
+}
+
+.dashboard-columns-secondary {
+    grid-template-columns: 1fr 1fr;
+}
+
+
+/* ==========================================================================
+   6. PANELS / CARDS
+   ========================================================================== */
+
+.dashboard-panel {
+    background: var(--en-white);
+    border: 1px solid var(--en-border-light);
+    border-radius: var(--en-radius-lg);
+    box-shadow: var(--en-shadow-card);
+    padding: var(--en-space-3);
+}
+
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--en-space-2);
+}
+
+.panel-header h2 {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.panel-link {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--en-primary-blue);
+    white-space: nowrap;
+}
+
+.empty-state {
+    color: var(--en-text-muted);
+    font-size: 0.925rem;
+    padding: var(--en-space-2) 0;
+    margin: 0;
+}
+
+
+/* ==========================================================================
+   7. BOOKING / EVENT CARDS
+   ========================================================================== */
+
+.booking-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--en-space-2);
+}
+
+.booking-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--en-space-2);
+    border: 1px solid var(--en-border-light);
+    border-radius: var(--en-radius-md);
+    padding: var(--en-space-2);
+    background: var(--en-off-white);
+}
+
+.booking-card-info h3 {
+    margin-bottom: 4px;
+}
+
+.booking-card-info p {
+    margin: 0 0 var(--en-space-1) 0;
+    font-size: 0.875rem;
+}
+
+/* ==========================================================================
+   8. STATUS BADGES (text + colour, per coding consistency rules)
+   ========================================================================== */
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.status-confirmed,
+.status-approved {
+    background: var(--en-status-approved-bg);
+    color: var(--en-status-approved-text);
+}
+
+.status-pending {
+    background: var(--en-status-pending-bg);
+    color: var(--en-status-pending-text);
+}
+
+.status-rejected,
+.status-cancelled {
+    background: var(--en-status-rejected-bg);
+    color: var(--en-status-rejected-text);
+}
+
+.status-completed {
+    background: var(--en-status-completed-bg);
+    color: var(--en-status-completed-text);
+}
+
+
+/* ==========================================================================
+   9. BUTTONS
+   ========================================================================== */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 18px;
+    border-radius: var(--en-radius-sm);
+    font-weight: 600;
+    font-size: 0.9rem;
+    border: 1px solid transparent;
+    cursor: pointer;
+    min-height: 44px;
+    text-decoration: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.btn:hover {
+    text-decoration: none;
+}
+
+/* Primary action */
+.btn-primary {
+    background: var(--en-orange);
+    color: var(--en-white);
+}
+
+.btn-primary:hover,
+.btn-primary:focus-visible {
+    background: #E1650F;
+}
+
+/* Secondary action */
+.btn-secondary {
+    background: var(--en-primary-blue);
+    color: var(--en-white);
+}
+
+.btn-secondary:hover,
+.btn-secondary:focus-visible {
+    background: #16296B;
+}
+
+/* Confirm */
+.btn-confirm {
+    background: #1E7B45;
+    color: var(--en-white);
+}
+
+.btn-confirm:hover,
+.btn-confirm:focus-visible {
+    background: #175E35;
+}
+
+/* Destructive */
+.btn-destructive {
+    background: #C9302C;
+    color: var(--en-white);
+}
+
+.btn-destructive:hover,
+.btn-destructive:focus-visible {
+    background: #A5241F;
+}
+
+/* Outline */
+.btn-outline {
+    background: var(--en-white);
+    color: var(--en-navy);
+    border-color: var(--en-navy);
+}
+
+.btn-outline:hover,
+.btn-outline:focus-visible {
+    background: var(--en-navy);
+    color: var(--en-white);
+}
+
+
+/* ==========================================================================
+   10. PROFILE SUMMARY
+   ========================================================================== */
+
+.profile-summary-body {
+    display: flex;
+    align-items: center;
+    gap: var(--en-space-2);
+    margin-bottom: var(--en-space-2);
+}
+
+.profile-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--en-teal);
+    color: var(--en-white);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.profile-details {
+    min-width: 0;
+}
+
+.profile-name {
+    margin: 0;
+    font-weight: 700;
+    color: var(--en-navy);
+}
+
+.profile-email,
+.profile-since {
+    margin: 2px 0 0 0;
+    font-size: 0.85rem;
+}
+
+
+/* ==========================================================================
+   11. QUICK LINKS
+   ========================================================================== */
+
+.quick-links-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--en-space-1);
+}
+
+.quick-links-list li a {
+    display: block;
+    padding: var(--en-space-1) var(--en-space-2);
+    border-radius: var(--en-radius-sm);
+    color: var(--en-text);
+    font-weight: 600;
+    font-size: 0.9rem;
+    border: 1px solid var(--en-border-light);
+}
+
+.quick-links-list li a:hover,
+.quick-links-list li a:focus-visible {
+    background: var(--en-off-white);
+    border-color: var(--en-teal);
+    text-decoration: none;
+}
+
+
+/* ==========================================================================
+   12. FOOTER
+   ========================================================================== */
+
+.dashboard-footer {
+    background: var(--en-navy);
+    color: rgba(255, 255, 255, 0.75);
+    text-align: center;
+    padding: var(--en-space-2);
+    font-size: 0.8rem;
+}
+
+
+/* ==========================================================================
+   13. PUBLIC NAVIGATION + ROLE BADGE
+   ========================================================================== */
+
+.public-nav-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--en-space-4);
+    background: var(--en-white);
+    border-bottom: 1px solid var(--en-border-light);
+    padding: var(--en-space-1) var(--en-space-4);
+}
+
+.public-nav-link {
+    color: var(--en-text);
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 6px 4px;
+    border-bottom: 2px solid transparent;
+}
+
+.public-nav-link:hover,
+.public-nav-link:focus-visible {
+    color: var(--en-primary-blue);
+    text-decoration: none;
+}
+
+.public-nav-link.active {
+    color: var(--en-primary-blue);
+    border-bottom-color: var(--en-orange);
+}
+
+.role-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    background: var(--en-off-white);
+    color: var(--en-navy);
+    border: 1px solid var(--en-border);
+}
+
+.role-organiser {
+    background: #FFF3E6;
+    color: #B85B06;
+    border-color: #FBE3D2;
+}
+
+.role-admin {
+    background: #E4E9FB;
+    color: var(--en-status-completed-text);
+    border-color: #CBD5F5;
+}
+
+.btn-sm {
+    padding: 8px 14px;
+    min-height: 36px;
+    font-size: 0.85rem;
+}
+
+
+/* ==========================================================================
+   14. FORMS (create-event.php, create-post.php, and shared)
+   ========================================================================== */
+
+.required-note {
+    font-size: 0.8rem;
+    color: var(--en-text-muted);
+}
+
+.dashboard-page-title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--en-space-1);
+}
+
+.form-notice {
+    border-radius: var(--en-radius-md);
+    padding: var(--en-space-2);
+    margin-bottom: var(--en-space-3);
+    font-size: 0.9rem;
+}
+
+.form-notice-warning {
+    background: var(--en-status-pending-bg);
+    color: var(--en-status-pending-text);
+    border: 1px solid #F6D9B8;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--en-space-2);
+    margin-bottom: var(--en-space-2);
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: var(--en-space-2);
+}
+
+.form-group-grow {
+    flex: 1;
+}
+
+.form-group label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--en-navy);
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+}
+
+.form-group input[type="text"],
+.form-group input[type="date"],
+.form-group input[type="time"],
+.form-group input[type="number"],
+.form-group input[type="email"],
+.form-group select,
+.form-group textarea {
+    border: 1px solid var(--en-border);
+    border-radius: var(--en-radius-sm);
+    padding: 10px 12px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    color: var(--en-text);
+    background: var(--en-white);
+    min-height: 44px;
+}
+
+.form-group textarea {
+    min-height: 88px;
+    resize: vertical;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+    color: #9AA7BC;
+}
+
+.time-range {
+    display: flex;
+    align-items: center;
+    gap: var(--en-space-1);
+}
+
+.time-range input {
+    flex: 1;
+}
+
+.time-separator {
+    font-size: 0.85rem;
+    color: var(--en-text-muted);
+}
+
+.ticket-tier-group {
+    border: 1px solid var(--en-border-light);
+    border-radius: var(--en-radius-md);
+    padding: var(--en-space-2);
+    margin: 0 0 var(--en-space-3) 0;
+}
+
+.ticket-tier-group legend {
+    font-weight: 700;
+    color: var(--en-navy);
+    padding: 0 6px;
+}
+
+.ticket-tier-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--en-space-2);
+}
+
+.ticket-tier-input label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--en-navy);
+    margin-bottom: 6px;
+}
+
+.currency-input {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--en-border);
+    border-radius: var(--en-radius-sm);
+    background: var(--en-white);
+    overflow: hidden;
+}
+
+.currency-prefix {
+    padding: 0 10px;
+    background: var(--en-off-white);
+    color: var(--en-text-muted);
+    font-weight: 700;
+    font-size: 0.85rem;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    border-right: 1px solid var(--en-border);
+}
+
+.currency-input input {
+    border: none;
+    min-height: 42px;
+    flex: 1;
+    padding: 0 10px;
+}
+
+.form-actions {
+    display: flex;
+    gap: var(--en-space-2);
+    margin-top: var(--en-space-2);
+}
+
+.form-actions-right {
+    justify-content: flex-end;
+}
+
+
+/* ==========================================================================
+   15. POST COMPOSER + MEDIA UPLOAD
+   ========================================================================== */
+
+.post-composer {
+    margin-bottom: var(--en-space-3);
+}
+
+.media-buttons {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--en-space-1);
+}
+
+.media-upload-btn {
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.visually-hidden-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+}
+
+
+/* ==========================================================================
+   16. POST LIST / REACTIONS (create-post.php)
+   ========================================================================== */
+
+.post-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--en-space-2);
+}
+
+.post-card {
+    border: 1px solid var(--en-border-light);
+    border-radius: var(--en-radius-md);
+    padding: var(--en-space-2);
+    background: var(--en-off-white);
+}
+
+.post-content {
+    color: var(--en-text);
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.post-meta {
+    font-size: 0.8rem;
+    margin-bottom: var(--en-space-1);
+}
+
+.reaction-row {
+    display: flex;
+    gap: var(--en-space-1);
+    flex-wrap: wrap;
+}
+
+.reaction-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--en-border);
+    background: var(--en-white);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--en-navy);
+}

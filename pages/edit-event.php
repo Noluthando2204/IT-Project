@@ -1,679 +1,269 @@
 <?php
 /*
 |--------------------------------------------------------------------------
-| EventNest - Edit Event
+| EventNest - Edit Event (Organiser)
 |--------------------------------------------------------------------------
-| Organiser event-editing page.
-| Frontend prototype: database UPDATE will be connected during integration.
-|--------------------------------------------------------------------------
-*/
-
-require_once __DIR__ . '/../shared-components/auth.php';
-
-/*
-|--------------------------------------------------------------------------
-| Temporary prototype event
-|--------------------------------------------------------------------------
-| In the integrated version, load this event using the event ID and a
-| prepared PDO statement. The organiser must only be able to edit their
-| own event.
+| Temporary frontend version. Reuses the create-event form, pre-filled
+| with the event's existing values, with an "Update event" action
+| instead of "Publish event". Reached from manage-events.php.
 |--------------------------------------------------------------------------
 */
-$event_id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT) ?: 101;
 
-$event = [
-    'event_id' => $event_id,
-    'organiser_id' => $_SESSION['user_id'] ?? 1,
-    'event_title' => 'Cloud Security Essentials',
-    'career_field' => 'Cybersecurity',
-    'event_date' => '2026-09-17',
-    'start_time' => '09:00',
-    'end_time' => '15:00',
-    'format' => 'Hybrid',
-    'venue' => 'Sandton Convention Centre + livestream',
-    'age_restriction' => '18+',
-    'career_gate_type' => 'field',
-    'allowed_career_field' => 'Cybersecurity',
-    'allowed_email_domain' => '',
-    'description' => 'A practical professional event covering cloud identity, threat prevention and entry-level career pathways.',
-    'status' => 'published'
+require_once '../shared-components/auth.php';
+
+$current_role = $_SESSION['role'] ?? 'attendee';
+$is_organiser = ($current_role === 'organiser');
+
+$event_id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+
+$career_fields = [
+    'technology' => 'Technology',
+    'finance'    => 'Finance',
+    'marketing'  => 'Marketing',
+    'healthcare' => 'Healthcare',
+    'engineering'=> 'Engineering',
+    'business'   => 'Business',
 ];
 
-$organiser_name = $_SESSION['business_name'] ?? 'Tino Organiser';
-
-$errors = [];
-$success = false;
-
 /*
 |--------------------------------------------------------------------------
-| Editing restriction
+| Placeholder event data
 |--------------------------------------------------------------------------
-| Completed and cancelled events must not be edited.
-|--------------------------------------------------------------------------
-*/
-$editing_locked = in_array(
-    strtolower($event['status']),
-    ['completed', 'cancelled'],
-    true
-);
-
-/*
-|--------------------------------------------------------------------------
-| Pre-populate form values from the existing event
+| Stands in for a lookup by $event_id until EVENTS queries are wired up.
+| Falls back to blank values if no matching placeholder is found, so the
+| form still renders for any id during frontend development.
 |--------------------------------------------------------------------------
 */
-$event_title = $event['event_title'];
-$career_field = $event['career_field'];
-$event_date = $event['event_date'];
-$start_time = $event['start_time'];
-$end_time = $event['end_time'];
-$format = $event['format'];
-$venue = $event['venue'];
-$age_restriction = $event['age_restriction'];
-$career_gate_type = $event['career_gate_type'];
-$allowed_career_field = $event['allowed_career_field'];
-$allowed_email_domain = $event['allowed_email_domain'];
-$description = $event['description'];
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$editing_locked) {
+$placeholder_events = [
+    1 => [
+        'event_title'       => 'Cloud Careers',
+        'career_field'      => 'technology',
+        'event_date'        => '2026-09-18',
+        'start_time'        => '08:00',
+        'end_time'          => '15:00',
+        'event_format'      => 'online',
+        'event_location'    => 'https://meet.eventnest.example/cloud-careers',
+        'age_restriction'   => 'none',
+        'event_description' => 'A practical professional event covering cloud identity, threat prevention and entry-level career pathways.',
+        'tier'              => ['general' => '180.00', 'vip' => '350.00', 'early_bird' => '130.00', 'student' => '90.00'],
+    ],
+];
 
-    $event_title = trim($_POST['event_title'] ?? '');
-    $career_field = trim($_POST['career_field'] ?? '');
-    $event_date = trim($_POST['event_date'] ?? '');
-    $start_time = trim($_POST['start_time'] ?? '');
-    $end_time = trim($_POST['end_time'] ?? '');
-    $format = trim($_POST['format'] ?? '');
-    $venue = trim($_POST['venue'] ?? '');
-    $age_restriction = trim($_POST['age_restriction'] ?? 'None');
-    $career_gate_type = trim($_POST['career_gate_type'] ?? 'none');
-    $allowed_career_field = trim($_POST['allowed_career_field'] ?? '');
-    $allowed_email_domain = trim($_POST['allowed_email_domain'] ?? '');
-    $description = trim($_POST['description'] ?? '');
+$event = $placeholder_events[$event_id] ?? [
+    'event_title'       => '',
+    'career_field'      => '',
+    'event_date'        => '',
+    'start_time'        => '',
+    'end_time'          => '',
+    'event_format'      => '',
+    'event_location'    => '',
+    'age_restriction'   => 'none',
+    'event_description' => '',
+    'tier'              => ['general' => '', 'vip' => '', 'early_bird' => '', 'student' => ''],
+];
 
-    if ($event_title === '') {
-        $errors[] = 'Event title is required.';
-    }
-
-    if ($career_field === '') {
-        $errors[] = 'Career field is required.';
-    }
-
-    if ($event_date === '') {
-        $errors[] = 'Date is required.';
-    }
-
-    if ($start_time === '' || $end_time === '') {
-        $errors[] = 'Start and end time are required.';
-    } elseif ($start_time >= $end_time) {
-        $errors[] = 'End time must be later than the start time.';
-    }
-
-    if ($format === '') {
-        $errors[] = 'Format is required.';
-    }
-
-    if ($venue === '') {
-        $errors[] = 'Venue or meeting link is required.';
-    }
-
-    if ($description === '') {
-        $errors[] = 'Description is required.';
-    }
-
-    if (!in_array($age_restriction, ['None', '18+', '21+'], true)) {
-        $errors[] = 'Please select a valid age restriction.';
-    }
-
-    if (!in_array($format, ['In-person', 'Online', 'Hybrid'], true)) {
-        $errors[] = 'Please select a valid event format.';
-    }
-
-    if (!in_array($career_gate_type, ['none', 'field', 'email_domain'], true)) {
-        $errors[] = 'Please select a valid career access option.';
-    }
-
-    if ($career_gate_type === 'field' && $allowed_career_field === '') {
-        $errors[] = 'Select an allowed career field.';
-    }
-
-    if ($career_gate_type === 'email_domain' && $allowed_email_domain === '') {
-        $errors[] = 'Enter an allowed email domain.';
-    }
-
-    if (!$errors) {
-        /*
-         * Prototype only.
-         * Replace with the approved backend UPDATE handler during
-         * database integration. Use a PDO prepared statement and
-         * verify the organiser owns this event before updating it.
-         */
-        $success = true;
-
-        // Keep the prototype display data in sync after a successful update.
-        $event['event_title'] = $event_title;
-        $event['career_field'] = $career_field;
-        $event['event_date'] = $event_date;
-        $event['start_time'] = $start_time;
-        $event['end_time'] = $end_time;
-        $event['format'] = $format;
-        $event['venue'] = $venue;
-        $event['age_restriction'] = $age_restriction;
-        $event['career_gate_type'] = $career_gate_type;
-        $event['allowed_career_field'] = $allowed_career_field;
-        $event['allowed_email_domain'] = $allowed_email_domain;
-        $event['description'] = $description;
-    }
-}
-
-function e($value): string
-{
-    return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
-}
-
-function selected($current, $value): string
-{
-    return $current === $value ? 'selected' : '';
-}
+$current_page = 'manage-events';
+require_once '../shared-components/header.php';
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>Edit Event | EventNest</title>
-
+    <title>EventNest - Edit Event</title>
     <link rel="stylesheet" href="../styles/main.css">
     <link rel="stylesheet" href="../styles/responsive.css">
-    <link rel="stylesheet" href="../styles/create-event.css">
 </head>
 
 <body>
 
-<header class="topbar">
-    <div class="topbar-left">
-        <a href="business-dashboard.php" class="logo" aria-label="EventNest dashboard">
-            <?php if (file_exists(__DIR__ . '/../images/eventnest-logo.png')): ?>
-                <img
-                    src="../images/eventnest-logo.png"
-                    alt="EventNest logo"
-                    class="eventnest-logo"
-                >
-            <?php else: ?>
-                <span class="logo-icon">EN</span>
+    <div class="dashboard-shell">
+
+        <?php require_once '../shared-components/navbar.php'; ?>
+
+        <main class="dashboard-main">
+
+            <header class="dashboard-page-title">
+                <div>
+                    <span class="eyebrow">EventNest</span>
+                    <h1>Edit Event</h1>
+                </div>
+                <span class="required-note">Required fields marked *</span>
+            </header>
+
+            <?php if (!$is_organiser): ?>
+
+                <div class="form-notice form-notice-warning">
+                    This page is intended for verified organisers. You can preview the
+                    form, but updating an event will be blocked until organiser
+                    verification is confirmed.
+                </div>
+
             <?php endif; ?>
 
-            <span class="logo-text">EventNest</span>
-        </a>
+            <section class="dashboard-panel">
 
-        <span class="role-label">Organiser</span>
+                <form action="edit-event.php?id=<?php echo (int) $event_id; ?>" method="post"
+                      class="event-form" novalidate>
+
+                    <div class="form-row">
+
+                        <div class="form-group">
+                            <label for="event_title">Event title *</label>
+                            <input type="text" id="event_title" name="event_title"
+                                   value="<?php echo htmlspecialchars($event['event_title']); ?>"
+                                   placeholder="Professional event title" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="career_field">Career field *</label>
+                            <select id="career_field" name="career_field" required>
+                                <option value="" disabled<?php echo $event['career_field'] === '' ? ' selected' : ''; ?>>
+                                    Select category
+                                </option>
+                                <?php foreach ($career_fields as $value => $label): ?>
+                                    <option value="<?php echo htmlspecialchars($value); ?>"
+                                        <?php echo ($event['career_field'] === $value) ? ' selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($label); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                    </div>
+
+                    <div class="form-row">
+
+                        <div class="form-group">
+                            <label for="event_date">Date *</label>
+                            <input type="date" id="event_date" name="event_date"
+                                   value="<?php echo htmlspecialchars($event['event_date']); ?>" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="start_time">Start and end time *</label>
+                            <div class="time-range">
+                                <input type="time" id="start_time" name="start_time"
+                                       value="<?php echo htmlspecialchars($event['start_time']); ?>" required>
+                                <span class="time-separator">to</span>
+                                <input type="time" id="end_time" name="end_time"
+                                       value="<?php echo htmlspecialchars($event['end_time']); ?>" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="event_format">Format *</label>
+                            <select id="event_format" name="event_format" required>
+                                <option value="" disabled<?php echo $event['event_format'] === '' ? ' selected' : ''; ?>>
+                                    In-person / online / hybrid
+                                </option>
+                                <option value="in_person"<?php echo $event['event_format'] === 'in_person' ? ' selected' : ''; ?>>In-person</option>
+                                <option value="online"<?php echo $event['event_format'] === 'online' ? ' selected' : ''; ?>>Online</option>
+                                <option value="hybrid"<?php echo $event['event_format'] === 'hybrid' ? ' selected' : ''; ?>>Hybrid</option>
+                            </select>
+                        </div>
+
+                    </div>
+
+                    <div class="form-row">
+
+                        <div class="form-group">
+                            <label for="event_location">Venue or meeting link *</label>
+                            <input type="text" id="event_location" name="event_location"
+                                   value="<?php echo htmlspecialchars($event['event_location']); ?>"
+                                   placeholder="Location details" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="age_restriction">Age restriction</label>
+                            <select id="age_restriction" name="age_restriction">
+                                <option value="none"<?php echo $event['age_restriction'] === 'none' ? ' selected' : ''; ?>>None</option>
+                                <option value="16"<?php echo $event['age_restriction'] === '16' ? ' selected' : ''; ?>>16+</option>
+                                <option value="18"<?php echo $event['age_restriction'] === '18' ? ' selected' : ''; ?>>18+</option>
+                            </select>
+                        </div>
+
+                    </div>
+
+                    <div class="form-group">
+                        <label for="event_description">Description *</label>
+                        <textarea id="event_description" name="event_description" rows="4"
+                                  placeholder="Purpose, speakers, programme and accessibility information"
+                                  required><?php echo htmlspecialchars($event['event_description']); ?></textarea>
+                    </div>
+
+                    <fieldset class="ticket-tier-group">
+
+                        <legend>Ticket tiers</legend>
+
+                        <div class="ticket-tier-grid">
+
+                            <div class="ticket-tier-input">
+                                <label for="tier_general">General</label>
+                                <div class="currency-input">
+                                    <span class="currency-prefix">R</span>
+                                    <input type="number" id="tier_general" name="tier[general]"
+                                           value="<?php echo htmlspecialchars($event['tier']['general']); ?>"
+                                           min="0" step="0.01" placeholder="0.00">
+                                </div>
+                            </div>
+
+                            <div class="ticket-tier-input">
+                                <label for="tier_vip">VIP</label>
+                                <div class="currency-input">
+                                    <span class="currency-prefix">R</span>
+                                    <input type="number" id="tier_vip" name="tier[vip]"
+                                           value="<?php echo htmlspecialchars($event['tier']['vip']); ?>"
+                                           min="0" step="0.01" placeholder="0.00">
+                                </div>
+                            </div>
+
+                            <div class="ticket-tier-input">
+                                <label for="tier_early_bird">Early bird</label>
+                                <div class="currency-input">
+                                    <span class="currency-prefix">R</span>
+                                    <input type="number" id="tier_early_bird" name="tier[early_bird]"
+                                           value="<?php echo htmlspecialchars($event['tier']['early_bird']); ?>"
+                                           min="0" step="0.01" placeholder="0.00">
+                                </div>
+                            </div>
+
+                            <div class="ticket-tier-input">
+                                <label for="tier_student">Student</label>
+                                <div class="currency-input">
+                                    <span class="currency-prefix">R</span>
+                                    <input type="number" id="tier_student" name="tier[student]"
+                                           value="<?php echo htmlspecialchars($event['tier']['student']); ?>"
+                                           min="0" step="0.01" placeholder="0.00">
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </fieldset>
+
+                    <div class="form-actions">
+                        <a href="manage-events.php" class="btn btn-outline">Cancel</a>
+                        <button type="submit" name="action" value="update" class="btn btn-primary">
+                            Update event
+                        </button>
+                    </div>
+
+                </form>
+
+            </section>
+
+        </main>
+
     </div>
 
-    <div class="topbar-right">
-        <a href="notifications.php" class="notifications">Notifications</a>
-
-        <span class="user-greeting">
-            Hi, <?= e($organiser_name) ?>
-        </span>
-    </div>
-</header>
-
-<div class="dashboard-layout">
-
-    <aside class="sidebar">
-        <div class="sidebar-title">Organiser</div>
-
-        <nav class="sidebar-nav" aria-label="Organiser navigation">
-            <a href="business-dashboard.php">Overview</a>
-
-            <a href="create-event.php">Create event</a>
-
-            <a href="manage-events.php" class="active" aria-current="page">
-                Manage events
-            </a>
-
-            <a href="manage-bookings.php">Bookings</a>
-
-            <a href="posts.php">Posts</a>
-
-            <a href="private-reviews.php">Private reviews</a>
-
-            <a href="business-register.php">Organisation</a>
-
-            <a href="logout.php">Log out</a>
-        </nav>
-    </aside>
-
-    <main class="main-content">
-
-        <div class="page-heading">
-            <div>
-                <h1>Edit event</h1>
-                <p class="required-note">
-                    Update your event details. Required fields marked *
-                </p>
-            </div>
-
-            <a href="manage-events.php" class="back-link">
-                &larr; Back to events
-            </a>
-        </div>
-
-        <div class="event-status-banner">
-            <span class="status-label">Current status:</span>
-            <span class="status-badge status-<?= e(strtolower($event['status'])) ?>">
-                <?= e(ucfirst($event['status'])) ?>
-            </span>
-        </div>
-
-        <?php if ($editing_locked): ?>
-
-            <div class="alert alert-error" role="alert">
-                <strong>Editing unavailable.</strong>
-                This event has been marked as
-                <strong><?= e(strtolower($event['status'])) ?></strong>
-                and can no longer be edited.
-            </div>
-
-            <div class="locked-card">
-                <h2><?= e($event_title) ?></h2>
-                <p>
-                    Completed or cancelled events are read-only.
-                    You can return to Manage Events to view the event.
-                </p>
-
-                <a href="manage-events.php" class="btn btn-secondary">
-                    Back to Manage Events
-                </a>
-            </div>
-
-        <?php else: ?>
-
-            <?php if ($success): ?>
-                <div class="alert alert-success" role="status">
-                    <strong>Event updated successfully.</strong>
-                    Your changes have passed prototype validation.
-                    Database saving will be connected during integration.
-                </div>
-            <?php endif; ?>
-
-            <?php if (!empty($errors)): ?>
-                <div class="alert alert-error" role="alert">
-                    <strong>Please correct the following:</strong>
-
-                    <ul>
-                        <?php foreach ($errors as $error): ?>
-                            <li><?= e($error) ?></li>
-                        <?php endforeach; ?>
-                    </ul>
-                </div>
-            <?php endif; ?>
-
-            <form
-                action="edit-event.php?id=<?= (int)$event_id ?>"
-                method="POST"
-                class="event-form"
-                id="edit-event-form"
-            >
-
-                <div class="form-group full-width">
-                    <label for="event_title">
-                        Event title <span>*</span>
-                    </label>
-
-                    <input
-                        type="text"
-                        id="event_title"
-                        name="event_title"
-                        value="<?= e($event_title) ?>"
-                        placeholder="Professional event title"
-                        required
-                    >
-                </div>
-
-                <div class="form-group">
-                    <label for="career_field">
-                        Career field <span>*</span>
-                    </label>
-
-                    <select id="career_field" name="career_field" required>
-                        <option value="">Select category</option>
-                        <option value="Cloud Computing" <?= selected($career_field, 'Cloud Computing') ?>>Cloud Computing</option>
-                        <option value="Cybersecurity" <?= selected($career_field, 'Cybersecurity') ?>>Cybersecurity</option>
-                        <option value="Finance" <?= selected($career_field, 'Finance') ?>>Finance</option>
-                        <option value="Marketing" <?= selected($career_field, 'Marketing') ?>>Marketing</option>
-                        <option value="Leadership" <?= selected($career_field, 'Leadership') ?>>Leadership</option>
-                        <option value="Technology" <?= selected($career_field, 'Technology') ?>>Technology</option>
-                        <option value="Other" <?= selected($career_field, 'Other') ?>>Other</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="event_date">
-                        Date <span>*</span>
-                    </label>
-
-                    <input
-                        type="date"
-                        id="event_date"
-                        name="event_date"
-                        value="<?= e($event_date) ?>"
-                        required
-                    >
-                </div>
-
-                <div class="form-group">
-                    <label>
-                        Start and end time <span>*</span>
-                    </label>
-
-                    <div class="time-row">
-                        <input
-                            type="time"
-                            id="start_time"
-                            name="start_time"
-                            value="<?= e($start_time) ?>"
-                            required
-                            aria-label="Start time"
-                        >
-
-                        <input
-                            type="time"
-                            id="end_time"
-                            name="end_time"
-                            value="<?= e($end_time) ?>"
-                            required
-                            aria-label="End time"
-                        >
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="format">
-                        Format <span>*</span>
-                    </label>
-
-                    <select id="format" name="format" required>
-                        <option value="">Select format</option>
-                        <option value="In-person" <?= selected($format, 'In-person') ?>>In-person</option>
-                        <option value="Online" <?= selected($format, 'Online') ?>>Online</option>
-                        <option value="Hybrid" <?= selected($format, 'Hybrid') ?>>Hybrid</option>
-                    </select>
-
-                    <p class="hint">
-                        Hybrid combines an online speaker with in-person attendance requirements.
-                    </p>
-                </div>
-
-                <div class="form-group">
-                    <label for="venue">
-                        Venue or meeting link <span>*</span>
-                    </label>
-
-                    <input
-                        type="text"
-                        id="venue"
-                        name="venue"
-                        value="<?= e($venue) ?>"
-                        placeholder="Location details or meeting link"
-                        required
-                    >
-                </div>
-
-                <div class="form-group">
-                    <label for="age_restriction">Age restriction</label>
-
-                    <select id="age_restriction" name="age_restriction">
-                        <option value="None" <?= selected($age_restriction, 'None') ?>>None</option>
-                        <option value="18+" <?= selected($age_restriction, '18+') ?>>18+</option>
-                        <option value="21+" <?= selected($age_restriction, '21+') ?>>21+</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="career_gate_type">
-                        Career access
-                    </label>
-
-                    <select id="career_gate_type" name="career_gate_type">
-                        <option value="none" <?= selected($career_gate_type, 'none') ?>>
-                            No career restriction
-                        </option>
-                        <option value="field" <?= selected($career_gate_type, 'field') ?>>
-                            Career field
-                        </option>
-                        <option value="email_domain" <?= selected($career_gate_type, 'email_domain') ?>>
-                            Email domain
-                        </option>
-                    </select>
-                </div>
-
-                <div
-                    class="form-group"
-                    id="allowed-career-field-wrapper"
-                    <?= $career_gate_type !== 'field' ? 'hidden' : '' ?>
-                >
-                    <label for="allowed_career_field">
-                        Allowed career field
-                    </label>
-
-                    <select id="allowed_career_field" name="allowed_career_field">
-                        <option value="">Select career field</option>
-                        <option value="Cloud Computing" <?= selected($allowed_career_field, 'Cloud Computing') ?>>Cloud Computing</option>
-                        <option value="Cybersecurity" <?= selected($allowed_career_field, 'Cybersecurity') ?>>Cybersecurity</option>
-                        <option value="Finance" <?= selected($allowed_career_field, 'Finance') ?>>Finance</option>
-                        <option value="Marketing" <?= selected($allowed_career_field, 'Marketing') ?>>Marketing</option>
-                        <option value="Leadership" <?= selected($allowed_career_field, 'Leadership') ?>>Leadership</option>
-                        <option value="Technology" <?= selected($allowed_career_field, 'Technology') ?>>Technology</option>
-                        <option value="Other" <?= selected($allowed_career_field, 'Other') ?>>Other</option>
-                    </select>
-                </div>
-
-                <div
-                    class="form-group"
-                    id="allowed-email-domain-wrapper"
-                    <?= $career_gate_type !== 'email_domain' ? 'hidden' : '' ?>
-                >
-                    <label for="allowed_email_domain">
-                        Allowed email domain
-                    </label>
-
-                    <input
-                        type="text"
-                        id="allowed_email_domain"
-                        name="allowed_email_domain"
-                        value="<?= e($allowed_email_domain) ?>"
-                        placeholder="example.ac.za"
-                    >
-
-                    <p class="hint">
-                        Restrict attendance to users with a specific email domain.
-                    </p>
-                </div>
-
-                <div class="form-group full-width">
-                    <label for="description">
-                        Description <span>*</span>
-                    </label>
-
-                    <textarea
-                        id="description"
-                        name="description"
-                        placeholder="Purpose, speakers, programme and accessibility information"
-                        required
-                    ><?= e($description) ?></textarea>
-                </div>
-
-                <div class="form-actions full-width">
-                    <a href="manage-events.php" class="btn btn-secondary">
-                        Cancel
-                    </a>
-
-                    <button type="button" class="btn btn-preview" id="previewButton">
-                        Preview changes
-                    </button>
-
-                    <button type="submit" class="btn btn-publish">
-                        Update event
-                    </button>
-                </div>
-
-            </form>
-
-            <div class="preview-modal" id="previewModal" aria-hidden="true">
-                <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="previewTitle">
-
-                    <button
-                        type="button"
-                        class="modal-close"
-                        id="closePreview"
-                        aria-label="Close preview"
-                    >
-                        &times;
-                    </button>
-
-                    <p class="preview-label">Event preview</p>
-
-                    <h2 id="previewTitle"><?= e($event_title) ?></h2>
-
-                    <div class="preview-meta">
-                        <span id="previewCareer"><?= e($career_field) ?></span>
-                        <span id="previewDate">
-                            <?= e($event_date) ?> |
-                            <?= e($start_time) ?> - <?= e($end_time) ?>
-                        </span>
-                        <span id="previewFormat"><?= e($format) ?></span>
-                    </div>
-
-                    <p id="previewVenue"><?= e($venue) ?></p>
-
-                    <p id="previewDescription"><?= e($description) ?></p>
-
-                    <div class="preview-restrictions">
-                        <strong>Access information</strong>
-                        <p id="previewAge">
-                            Age restriction: <?= e($age_restriction) ?>
-                        </p>
-                        <p id="previewGate">
-                            Career access:
-                            <?= $career_gate_type === 'none'
-                                ? 'No restriction'
-                                : e($career_gate_type === 'field'
-                                    ? $allowed_career_field
-                                    : $allowed_email_domain) ?>
-                        </p>
-                    </div>
-
-                </div>
-            </div>
-
-        <?php endif; ?>
-
-    </main>
-</div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const gate = document.getElementById('career_gate_type');
-    const careerWrapper = document.getElementById('allowed-career-field-wrapper');
-    const emailWrapper = document.getElementById('allowed-email-domain-wrapper');
-
-    const previewButton = document.getElementById('previewButton');
-    const previewModal = document.getElementById('previewModal');
-    const closePreview = document.getElementById('closePreview');
-
-    function updateGateFields() {
-        if (!gate) return;
-
-        careerWrapper.hidden = gate.value !== 'field';
-        emailWrapper.hidden = gate.value !== 'email_domain';
-    }
-
-    if (gate) {
-        gate.addEventListener('change', updateGateFields);
-        updateGateFields();
-    }
-
-    if (previewButton) {
-        previewButton.addEventListener('click', function () {
-            const value = function (id) {
-                const element = document.getElementById(id);
-                return element ? element.value.trim() : '';
-            };
-
-            const formatDate = function (dateValue) {
-                if (!dateValue) return 'Date';
-
-                const date = new Date(dateValue + 'T00:00:00');
-
-                return date.toLocaleDateString('en-ZA', {
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric'
-                });
-            };
-
-            document.getElementById('previewTitle').textContent =
-                value('event_title') || 'Your event title';
-
-            document.getElementById('previewCareer').textContent =
-                value('career_field') || 'Career field';
-
-            document.getElementById('previewDate').textContent =
-                (value('event_date')
-                    ? formatDate(value('event_date'))
-                    : 'Date') +
-                ' | ' +
-                (value('start_time') || '--:--') +
-                ' - ' +
-                (value('end_time') || '--:--');
-
-            document.getElementById('previewFormat').textContent =
-                value('format') || 'Format';
-
-            document.getElementById('previewVenue').textContent =
-                value('venue') || 'Venue or meeting link';
-
-            document.getElementById('previewDescription').textContent =
-                value('description') || 'Event description';
-
-            const age = value('age_restriction') || 'None';
-            document.getElementById('previewAge').textContent =
-                'Age restriction: ' + age;
-
-            let gateText = 'No restriction';
-
-            if (gate.value === 'field') {
-                gateText = value('allowed_career_field') || 'Career field';
-            } else if (gate.value === 'email_domain') {
-                gateText = value('allowed_email_domain') || 'Email domain';
-            }
-
-            document.getElementById('previewGate').textContent =
-                'Career access: ' + gateText;
-
-            previewModal.classList.add('show');
-            previewModal.setAttribute('aria-hidden', 'false');
-        });
-    }
-
-    if (closePreview) {
-        closePreview.addEventListener('click', function () {
-            previewModal.classList.remove('show');
-            previewModal.setAttribute('aria-hidden', 'true');
-        });
-    }
-
-    if (previewModal) {
-        previewModal.addEventListener('click', function (event) {
-            if (event.target === previewModal) {
-                previewModal.classList.remove('show');
-                previewModal.setAttribute('aria-hidden', 'true');
-            }
-        });
-    }
-});
-</script>
+    <footer class="dashboard-footer">
+        <p>&copy; <?php echo date('Y'); ?> EventNest. Connecting People Through Events.</p>
+    </footer>
 
 </body>
+
 </html>
