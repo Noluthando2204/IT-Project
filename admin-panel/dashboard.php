@@ -1,136 +1,85 @@
 <?php
-// post.php
-// Handles creation and deletion of organiser posts (text, image, video, hashtags).
-// Built against the finalised table structure.
+// admin-panel/dashboard.php
+// Administrator's main dashboard: platform stats + links to manage-*.php pages.
 
 session_start();
-require_once __DIR__ . '/config/db.php';
 
-// Verify exact schema role spelling ('organizer')
-if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'organizer') {
+// Only admins may view this page. Checked BEFORE opening a DB connection.
+if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'admin') {
     header('Location: /login.php');
     exit;
 }
 
-// Mandatory CSRF protection
-$submitted_csrf = $_POST['csrf_token'] ?? $_GET['csrf_token'] ?? '';
-if (empty($submitted_csrf) || $submitted_csrf !== $_SESSION['csrf_token']) {
-    http_response_code(403);
-    exit('Invalid CSRF token.');
-}
+require_once __DIR__ . '/../config/db.php';
 
-$organiser_id = (int) $_SESSION['user_id'];
-$action = $_POST['action'] ?? $_GET['action'] ?? null;
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'create') {
-    $post_type = $_POST['post_type'] ?? '';
-    $allowed_types = ['image', 'video', 'text'];
-
-    if (!in_array($post_type, $allowed_types, true)) {
-        http_response_code(400);
-        exit('Invalid post type.');
-    }
-
-    $content = trim(strip_tags($_POST['content'] ?? ''));
-    $has_media = !empty($_FILES['media']['tmp_name']);
-
-    // Allow media-only posts. Only fail if BOTH text and media are absent.
-    if ($content === '' && !$has_media) {
-        http_response_code(400);
-        exit('Posts must contain either text or media.');
-    }
-
-    $post_tags = [];
-    if (isset($_POST['post_tags']) && is_array($_POST['post_tags'])) {
-        foreach (array_slice($_POST['post_tags'], 0, 10) as $tag) {
-            $clean_tag = preg_replace('/[^A-Za-z0-9_]/', '', $tag);
-            if ($clean_tag !== '') {
-                $post_tags[] = $clean_tag;
-            }
-        }
-    }
-
-    $media_path = null;
-    if ($post_type === 'image' || post_type_is_video($post_type)) {
-        if (!$has_media) {
-            http_response_code(400);
-            exit(ucfirst($post_type) . ' posts require a file upload.');
-        }
-
-        $media_path = save_uploaded_media($_FILES['media'], $post_type);
-        if ($media_path === false) {
-            http_response_code(400);
-            exit('Media upload failed — check file type and size.');
-        }
-    }
-
-    $stmt = $pdo->prepare(
-        'INSERT INTO posts (organiser_id, post_type, content, media_path, post_tags, created_at)
-         VALUES (:organiser_id, :post_type, :content, :media_path, :post_tags, NOW())'
-    );
-    $stmt->execute([
-        'organiser_id' => $organiser_id,
-        'post_type'    => $post_type,
-        'content'      => $content,
-        'media_path'   => $media_path,
-        'post_tags'    => $post_tags ? json_encode($post_tags) : null,
-    ]);
-
-    header('Location: /organiser-profile.php?posted=1');
-    exit;
-}
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'delete') {
-    $post_id = filter_input(INPUT_POST, 'post_id', FILTER_VALIDATE_INT);
-
-    if (!$post_id) {
-        http_response_code(400);
-        exit('Invalid post ID.');
-    }
-
-    // Relying on ON DELETE CASCADE in the final schema for REACTIONS and Post_Categories
-    $stmt = $pdo->prepare(
-        'DELETE FROM posts WHERE post_id = :post_id AND organiser_id = :organiser_id'
-    );
-    $stmt->execute(['post_id' => $post_id, 'organiser_id' => $organiser_id]);
-
-    header('Location: /organiser-profile.php?deleted=1');
-    exit;
-}
-
-header('Location: /organiser-profile.php');
-exit;
-
-function post_type_is_video(string $post_type): bool {
-    return $post_type === 'video';
-}
-
-function save_uploaded_media(array $file, string $post_type) {
-    $allowed_mime = [
-        'image' => ['image/jpeg', 'image/png', 'image/webp'],
-        'video' => ['video/mp4', 'video/quicktime'],
-    ];
-
-    if (!isset($allowed_mime[$post_type])) return false;
+// Lightweight COUNT() queries to avoid expensive joins.
+$stats = [
+    // total_users excludes admin accounts
+    'total_users' => (int) $pdo->query(
+        "SELECT COUNT(*) FROM users WHERE role != 'admin'"
+    )->fetchColumn(),
     
-    $mime_type = mime_content_type($file['tmp_name']);
-    if (!in_array($mime_type, $allowed_mime[$post_type], true)) return false;
+    'total_events' => (int) $pdo->query(
+        'SELECT COUNT(*) FROM events'
+    )->fetchColumn(),
+    
+    // Updated to use the expected schema verification_status
+    'pending_verifications' => (int) $pdo->query(
+        "SELECT COUNT(*) FROM users WHERE role = 'organizer' AND verification_status = 'pending'"
+    )->fetchColumn(),
+    
+    'total_bookings' => (int) $pdo->query(
+        'SELECT COUNT(*) FROM bookings'
+    )->fetchColumn(),
 
-    $max_bytes = $post_type === 'video' ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
-    if ($file['size'] > $max_bytes) return false;
+    // Added held escrow requirement
+    'escrow_held' => (float) $pdo->query(
+        "SELECT COALESCE(SUM(amount), 0) FROM escrow WHERE status = 'held'"
+    )->fetchColumn(),
+];
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard — EventNest</title>
+</head>
+<body>
+    <h1>Admin Dashboard</h1>
+    
+    <section class="stats-grid">
+        <!-- Cards made clickable per the coding guide -->
+        <a href="manage-users.php" class="stat-card" style="display: block; text-decoration: none; color: inherit;">
+            <h2><?php echo htmlspecialchars((string) $stats['total_users']); ?></h2>
+            <p>Total Users</p>
+        </a>
+        
+        <a href="manage-businesses.php?filter=pending" class="stat-card" style="display: block; text-decoration: none; color: inherit;">
+            <h2><?php echo htmlspecialchars((string) $stats['pending_verifications']); ?></h2>
+            <p>Organisers Awaiting Approval</p>
+        </a>
 
-    $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-    $safe_name = bin2hex(random_bytes(16)) . '.' . preg_replace('/[^a-z0-9]/i', '', $extension);
-    $destination_dir = __DIR__ . '/uploads/posts/';
-    $destination_path = $destination_dir . $safe_name;
+        <a href="manage-events.php" class="stat-card" style="display: block; text-decoration: none; color: inherit;">
+            <h2><?php echo htmlspecialchars((string) $stats['total_events']); ?></h2>
+            <p>Total Events</p>
+        </a>
+        
+        <a href="manage-bookings.php" class="stat-card" style="display: block; text-decoration: none; color: inherit;">
+            <h2><?php echo htmlspecialchars((string) $stats['total_bookings']); ?></h2>
+            <p>Total Bookings</p>
+        </a>
 
-    if (!is_dir($destination_dir)) {
-        mkdir($destination_dir, 0755, true);
-    }
+        <a href="manage-escrow.php" class="stat-card" style="display: block; text-decoration: none; color: inherit;">
+            <h2>$<?php echo number_format($stats['escrow_held'], 2); ?></h2>
+            <p>Held Escrow</p>
+        </a>
+    </section>
 
-    if (!move_uploaded_file($file['tmp_name'], $destination_path)) {
-        return false;
-    }
-
-    return 'uploads/posts/' . $safe_name;
-}
+    <nav class="admin-links">
+        <a href="manage-users.php">Manage Users</a>
+        <a href="manage-events.php">Manage Events</a>
+        <a href="manage-bookings.php">Manage Bookings</a>
+        <a href="manage-businesses.php">Manage Businesses (Organisers)</a>
+    </nav>
+</body>
+</html>
