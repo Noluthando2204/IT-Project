@@ -1,86 +1,288 @@
 <?php
+declare(strict_types=1);
+
 session_start();
 
 require_once __DIR__ . '/database-config/connection.php';
 
-//The user must be logged in before viewing a booking payment result.
+// Insert auth.php and functions.php files
+// require_once __DIR__ . '/shared-components/auth.php';
+// require_once __DIR__ . '/shared-components/functions.php';
 
-if (!isset($_SESSION['user_id'])) {
+function payment_cancel_escape(string $value): string
+{
+    return htmlspecialchars(
+        $value,
+        ENT_QUOTES,
+        'UTF-8'
+    );
+}
+
+
+/*
+ The attendee must be logged in before viewing
+ a cancelled/incomplete payment result.
+ */
+$user_id =
+    filter_var(
+        $_SESSION['user_id'] ?? null,
+        FILTER_VALIDATE_INT
+    );
+
+
+if (!$user_id || $user_id < 1) {
     header('Location: login.php');
     exit;
 }
 
-$userId = (int) $_SESSION['user_id'];
-$bookingId = filter_input(INPUT_GET, 'booking_id', FILTER_VALIDATE_INT);
-
-if (!$bookingId || $bookingId <= 0) {
-    exit('Invalid booking ID.');
-}
-
-// Ensure that the booking is loaded from the database.
-
-$sql = "
-    SELECT
-        b.booking_id,
-        b.booking_reference,
-        b.quantity,
-        b.status,
-        b.event_id,
-        e.title AS event_title,
-        e.event_date,
-        t.ticket_name,
-        t.price AS ticket_price
-    FROM bookings b
-    INNER JOIN events e ON b.event_id = e.event_id
-    INNER JOIN tickets t
-        ON b.ticket_id = t.ticket_id
-        AND b.event_id = t.event_id
-    WHERE b.booking_id = :booking_id
-      AND b.user_id = :user_id
-    LIMIT 1
-";
-
-$stmt = $pdo->prepare($sql);
-$stmt->execute([
-    ':booking_id' => $bookingId,
-    ':user_id' => $userId
-]);
-
-$booking = $stmt->fetch(PDO::FETCH_ASSOC);
-
-if (!$booking) {
-    exit('Booking not found or you are not allowed to view it.');
-}
-
-//The total is calculated from the database.
-
-$quantity = (int) $booking['quantity'];
-$ticketPrice = (float) $booking['ticket_price'];
-$totalAmount = round($quantity * $ticketPrice, 2);
 
 /*
-A person reaching this page does not mean payment failed.
-The booking stays pending and ticket quantity is not released here. 
-A separate expiry or cancel process can
-handle confirmed abandoned bookings safely.
-*/
-$canRetry = $booking['status'] === 'pending';
-$alreadyPaid = $booking['status'] === 'paid';
+ Confirm that the session belongs to an attendee.
+ Replaced later shared authentication helper.
+ */
+$user_statement = $pdo->prepare(
+    'SELECT UserID, Role
+     FROM USERS
+     WHERE UserID = :user_id
+     LIMIT 1'
+);
 
-function safeOutput(string $text): string
-{
-    return htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+$user_statement->execute([
+    'user_id' => $user_id
+]);
+
+$current_user =
+    $user_statement->fetch();
+
+
+if (
+    !$current_user
+    || $current_user['Role'] !== 'attendee'
+) {
+    http_response_code(403);
+
+    exit(
+        'Only attendee accounts can view this payment result.'
+    );
 }
+
+
+/*
+ payment.php adds BookingID to the PayFast cancel URL.
+ */
+$booking_id =
+    filter_input(
+        INPUT_GET,
+        'booking_id',
+        FILTER_VALIDATE_INT
+    );
+
+
+if (!$booking_id || $booking_id < 1) {
+    http_response_code(400);
+
+    exit(
+        'A valid booking is required.'
+    );
+}
+
+
+/*
+ Load the booking using the current session UserID.
+ Payment amount, status and ownership are never accepted
+ from the browser.
+ */
+$booking_statement = $pdo->prepare(
+    'SELECT
+        b.BookingID,
+        b.Booking_reference,
+        b.Quantity,
+        b.Status,
+        b.TotalAmount,
+        b.UserID,
+        b.EventID,
+        b.TicketID,
+
+        e.EventName,
+
+        t.EventID AS TicketEventID,
+        t.TicketType,
+        t.Price,
+
+        p.PaymentStatus
+
+     FROM BOOKINGS b
+
+     INNER JOIN EVENTS e
+        ON e.EventID = b.EventID
+
+     INNER JOIN TICKETS t
+        ON t.TicketID = b.TicketID
+
+     LEFT JOIN PAYMENTS p
+        ON p.BookingID = b.BookingID
+
+     WHERE b.BookingID = :booking_id
+       AND b.UserID = :user_id
+
+     ORDER BY p.PaymentDate DESC
+
+     LIMIT 1'
+);
+
+
+$booking_statement->execute([
+    'booking_id' => $booking_id,
+    'user_id' => $user_id
+]);
+
+
+$booking =
+    $booking_statement->fetch();
+
+
+if (!$booking) {
+    http_response_code(404);
+    exit('Booking not found.');
+}
+
+
+/*
+ Confirm that the ticket belongs to the same event.
+ */
+if (
+    (int) $booking['TicketEventID']
+    !==
+    (int) $booking['EventID']
+) {
+    error_log(
+        'Ticket/event mismatch for cancelled payment booking '
+        . $booking_id
+    );
+
+    http_response_code(409);
+
+    exit(
+        'The booking information could not be verified.'
+    );
+}
+
+
+/*
+Recalculate the amount using database values.
+ */
+$quantity =
+    (int) $booking['Quantity'];
+
+$ticket_price =
+    (float) $booking['Price'];
+
+$expected_total =
+    round(
+        $ticket_price * $quantity,
+        2
+    );
+
+$stored_total =
+    round(
+        (float) $booking['TotalAmount'],
+        2
+    );
+
+
+if (
+    $quantity < 1
+    || $ticket_price < 0
+    || abs(
+        $expected_total
+        - $stored_total
+    ) > 0.009
+) {
+    http_response_code(409);
+
+    exit(
+        'The booking amount could not be verified.'
+    );
+}
+
+
+/*
+ If PayFast has already successfully verified this booking,
+ a late visit to the cancel URL must not change anything.
+ */
+$already_paid =
+    in_array(
+        $booking['Status'],
+        ['paid', 'confirmed'],
+        true
+    )
+    &&
+    $booking['PaymentStatus'] === 'success';
+
+
+if ($already_paid) {
+
+    header(
+        'Location: payment-success.php?booking_id='
+        . $booking_id
+    );
+
+    exit;
+}
+
+
+/*
+ Free bookings should not appear as cancelled
+ PayFast payments.
+ */
+$is_free =
+    in_array(
+        $booking['Status'],
+        ['free', 'confirmed'],
+        true
+    )
+    &&
+    $stored_total <= 0;
+
+
+if ($is_free) {
+
+    header(
+        'Location: payment-success.php?booking_id='
+        . $booking_id
+    );
+
+    exit;
+}
+
+$can_retry =
+    $booking['Status'] === 'pending';
+
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payment Not Completed</title>
 
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Payment not completed | EventNest
+    </title>
+
+
+    <!-- INSERT THANDO'S SHARED HEADER/CSS COMPONENT LINKS HERE -->
+
+
+    <!--TEMPORARY RESULT STYLING -->
     <style>
+
         body {
             margin: 0;
             padding: 40px 20px;
@@ -108,12 +310,6 @@ function safeOutput(string $text): string
             color: #7a4b00;
             background: #fff3cd;
             border: 1px solid #f2d68b;
-        }
-
-        .paid-message {
-            color: #155724;
-            background: #d4edda;
-            border: 1px solid #b8dfc2;
         }
 
         .summary-row {
@@ -146,11 +342,13 @@ function safeOutput(string $text): string
         .retry-button {
             color: white;
             background: #f58220;
+            border: 2px solid #f58220;
         }
 
         .bookings-button {
             color: white;
             background: #1877f2;
+            border: 2px solid #1877f2;
         }
 
         .outline-button {
@@ -158,76 +356,161 @@ function safeOutput(string $text): string
             background: white;
             border: 2px solid #1877f2;
         }
+
     </style>
+
 </head>
+
+
 <body>
 
-    <main class="result-card">
-        <?php if ($alreadyPaid): ?>
-            <div class="status-message paid-message">
-                This booking has already been paid for. No payment details were changed.
-            </div>
-        <?php else: ?>
-            <div class="status-message not-completed">
-                <strong>Payment not completed.</strong>
-                Your booking has not been marked as paid.
-            </div>
+
+<!-- INSERT SHARED header.php / navbar.php HERE -->
+
+
+<main class="result-card">
+
+
+    <div class="status-message not-completed">
+
+        <strong>
+            Payment not completed.
+        </strong>
+
+        EventNest did not receive a verified successful payment.
+
+    </div>
+
+
+    <h1>Payment Result</h1>
+
+
+    <?php if ($can_retry): ?>
+
+        <p>
+            Your booking is still pending.
+            You can retry the payment when you are ready.
+        </p>
+
+    <?php else: ?>
+
+        <p>
+            This booking cannot currently be paid.
+            Please check My bookings for its latest status.
+        </p>
+
+    <?php endif; ?>
+
+
+    <div class="summary-row">
+
+        <span>Booking reference</span>
+
+        <span>
+            <?= payment_cancel_escape(
+                (string) $booking['Booking_reference']
+            ) ?>
+        </span>
+
+    </div>
+
+
+    <div class="summary-row">
+
+        <span>Event</span>
+
+        <span>
+            <?= payment_cancel_escape(
+                (string) $booking['EventName']
+            ) ?>
+        </span>
+
+    </div>
+
+
+    <div class="summary-row">
+
+        <span>Ticket</span>
+
+        <span>
+            <?= payment_cancel_escape(
+                (string) $booking['TicketType']
+            ) ?>
+        </span>
+
+    </div>
+
+
+    <div class="summary-row">
+
+        <span>Quantity</span>
+
+        <span>
+            <?= $quantity ?>
+        </span>
+
+    </div>
+
+
+    <div class="summary-row">
+
+        <span>Total</span>
+
+        <span>
+            R<?= number_format(
+                $stored_total,
+                2
+            ) ?>
+        </span>
+
+    </div>
+
+
+    <div class="buttons">
+
+
+        <?php if ($can_retry): ?>
+
+            <a
+                class="button retry-button"
+                href="payment.php?booking_id=<?= (int) $booking_id ?>"
+            >
+                Retry payment
+            </a>
+
         <?php endif; ?>
 
-        <h1>Payment Result</h1>
 
-        <div class="summary-row">
-            <span>Booking reference</span>
-            <span><?= safeOutput($booking['booking_reference']) ?></span>
-        </div>
+        <a
+            class="button bookings-button"
+            href="my-bookings.php"
+        >
+            View my bookings
+        </a>
 
-        <div class="summary-row">
-            <span>Event</span>
-            <span><?= safeOutput($booking['event_title']) ?></span>
-        </div>
 
-        <div class="summary-row">
-            <span>Event date</span>
-            <span><?= safeOutput($booking['event_date']) ?></span>
-        </div>
+        <a
+            class="button outline-button"
+            href="event-detail.php?event_id=<?= (int) $booking['EventID'] ?>"
+        >
+            Back to event
+        </a>
 
-        <div class="summary-row">
-            <span>Ticket</span>
-            <span><?= safeOutput($booking['ticket_name']) ?></span>
-        </div>
 
-        <div class="summary-row">
-            <span>Quantity</span>
-            <span><?= $quantity ?></span>
-        </div>
+        <a
+            class="button outline-button"
+            href="events.php"
+        >
+            Browse events
+        </a>
 
-        <div class="summary-row">
-            <span>Total</span>
-            <span>R <?= number_format($totalAmount, 2) ?></span>
-        </div>
+    </div>
 
-        <div class="buttons">
-            <?php if ($canRetry): ?>
-                <a class="button retry-button"
-                   href="payment.php?booking_id=<?= $bookingId ?>">
-                    Retry payment
-                </a>
-            <?php endif; ?>
+</main>
 
-            <a class="button bookings-button" href="pages/my-bookings.php">
-                View my bookings
-            </a>
 
-            <a class="button outline-button"
-               href="pages/event-detail.php?event_id=<?= (int) $booking['event_id'] ?>">
-                Back to event
-            </a>
+<!-- INSERT SHARED footer.php HERE -->
 
-            <a class="button outline-button" href="pages/events.php">
-                Browse events
-            </a>
-        </div>
-    </main>
 
 </body>
 </html>
