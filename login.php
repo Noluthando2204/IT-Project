@@ -18,7 +18,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     } else {
 
-        $sql = "SELECT user_id, name, email, password_hash
+        $sql = "SELECT user_id, full_name, email, password_hash
                 FROM users
                 WHERE email = ?";
 
@@ -34,7 +34,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 session_regenerate_id(true);
 
                 $_SESSION['user_id'] = $user['user_id'];
-                $_SESSION['name'] = $user['name'];
+                $_SESSION['name'] = $user['full_name'];
                 $_SESSION['email'] = $user['email'];
                 $_SESSION['loggedin'] = true;
 
