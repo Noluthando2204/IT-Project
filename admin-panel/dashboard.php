@@ -1,25 +1,32 @@
 <?php
 // admin-panel/dashboard.php
-// Administrator's main dashboard: platform stats + links to manage-*.php pages.
-
 session_start();
-require_once __DIR__ . '/../config/db.php';
 
-// Only admins may view this page.
-if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'admin') {
+if (!isset($_SESSION['user_id'])) {
     header('Location: /login.php');
     exit;
 }
 
-// Lightweight COUNT() queries only — this page is loaded frequently,
-// so we avoid expensive joins here (per the coding guide's notes).
+require_once __DIR__ . '/../config/db.php';
+
+// Queries updated to match the 'eventnest' schema exactly.
 $stats = [
-    'total_users'         => (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn(),
-    'total_events'        => (int) $pdo->query('SELECT COUNT(*) FROM events')->fetchColumn(),
-    'pending_verifications' => (int) $pdo->query(
-        "SELECT COUNT(*) FROM verifications WHERE status = 'pending'"
+    'total_users' => (int) $pdo->query(
+        "SELECT COUNT(*) FROM users"
     )->fetchColumn(),
-    'total_bookings'      => (int) $pdo->query('SELECT COUNT(*) FROM bookings')->fetchColumn(),
+    
+    'active_users' => (int) $pdo->query(
+        "SELECT COUNT(*) FROM users WHERE account_status = 'active'"
+    )->fetchColumn(),
+    
+    'total_events' => (int) $pdo->query(
+        'SELECT COUNT(*) FROM events'
+    )->fetchColumn(),
+    
+    // event_attendees acts as the registration/booking metric
+    'total_attendees' => (int) $pdo->query(
+        'SELECT COUNT(*) FROM event_attendees'
+    )->fetchColumn(),
 ];
 ?>
 <!DOCTYPE html>
@@ -30,32 +37,27 @@ $stats = [
 </head>
 <body>
     <h1>Admin Dashboard</h1>
-
+    
     <section class="stats-grid">
-        <div class="stat-card">
+        <a href="manage-users.php" class="stat-card" style="display: block; text-decoration: none; color: inherit;">
             <h2><?php echo htmlspecialchars((string) $stats['total_users']); ?></h2>
-            <p>Total Users</p>
-        </div>
-        <div class="stat-card">
+            <p>Total Users (<?php echo htmlspecialchars((string) $stats['active_users']); ?> Active)</p>
+        </a>
+        
+        <a href="manage-events.php" class="stat-card" style="display: block; text-decoration: none; color: inherit;">
             <h2><?php echo htmlspecialchars((string) $stats['total_events']); ?></h2>
             <p>Total Events</p>
-        </div>
-        <div class="stat-card">
-            <h2><?php echo htmlspecialchars((string) $stats['pending_verifications']); ?></h2>
-            <p>Pending Verifications</p>
-        </div>
-        <div class="stat-card">
-            <h2><?php echo htmlspecialchars((string) $stats['total_bookings']); ?></h2>
-            <p>Total Bookings</p>
-        </div>
+        </a>
+        
+        <a href="manage-attendees.php" class="stat-card" style="display: block; text-decoration: none; color: inherit;">
+            <h2><?php echo htmlspecialchars((string) $stats['total_attendees']); ?></h2>
+            <p>Total Event Registrations</p>
+        </a>
     </section>
 
     <nav class="admin-links">
         <a href="manage-users.php">Manage Users</a>
         <a href="manage-events.php">Manage Events</a>
-        <a href="manage-bookings.php">Manage Bookings</a>
-        <a href="manage-businesses.php">Manage Businesses (Organisers)</a>
-        <a href="manage-verifications.php">Manage Verifications</a>
     </nav>
 </body>
 </html>
