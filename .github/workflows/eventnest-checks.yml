@@ -1,0 +1,70 @@
+name: EventNest Automated Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  eventnest-checks:
+    name: EventNest PR Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out Pull Request code
+        uses: actions/checkout@v6
+
+      - name: Show PHP version
+        run: php --version
+
+      - name: Check PHP syntax
+        shell: bash
+        run: |
+          echo "Checking PHP files for syntax errors..."
+
+          php_files_found=0
+
+          while IFS= read -r -d '' file; do
+            php_files_found=1
+            echo "Checking: $file"
+            php -l "$file"
+          done < <(find . -type f -name "*.php" -print0)
+
+          if [ "$php_files_found" -eq 0 ]; then
+            echo "No PHP files were found."
+          else
+            echo "All PHP files passed the syntax check."
+          fi
+
+      - name: Check for prohibited EventNest files
+        shell: bash
+        run: |
+          echo "Checking for files that must not be committed..."
+
+          prohibited_found=0
+
+          while IFS= read -r -d '' file; do
+            filename="$(basename "$file")"
+
+            case "$filename" in
+              connection.php|.env|.env.local|.env.development|.env.production)
+                echo "::error file=${file#./}::Prohibited file detected: ${file#./}"
+                prohibited_found=1
+                ;;
+            esac
+          done < <(
+            find . \
+              -path './.git' -prune -o \
+              -type f -print0
+          )
+
+          if [ "$prohibited_found" -ne 0 ]; then
+            echo "One or more prohibited files were found."
+            echo "Remove them from the Pull Request before requesting review."
+            exit 1
+          fi
+
+          echo "No prohibited EventNest files were found."
