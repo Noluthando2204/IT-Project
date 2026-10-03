@@ -1,5 +1,1396 @@
+/* ==========================================================================
+   EventNest - styles/main.css
+   Owner: Thando
+
+   The single shared desktop visual system for every EventNest page.
+   Source of truth: Coding Guide "Required EventNest Visual System" and
+   Wireframe Screen 01. Tablet/mobile rules live in styles/responsive.css,
+   which header.php loads after this file.
+
+   Rules for page owners:
+   - Use these classes; do not add inline styles or pick new colours per page.
+   - Buttons that do the same job use the same class on every page.
+   - Every status shows text AND colour (.status-badge + .status-<value>).
+   ========================================================================== */
+
+
+/* ==========================================================================
+   1. DESIGN TOKENS
+   ========================================================================== */
+
+:root {
+    /* Approved palette (Coding Guide) */
+    --en-bg: #F6F8FB;            /* page background */
+    --en-surface: #FFFFFF;       /* cards, forms, modals */
+    --en-navy: #0B2D5C;          /* main text, headings, footer */
+    --en-blue: #1E3A8A;          /* secondary buttons/navigation */
+    --en-teal: #0B9FA5;          /* brand accent, selected navigation */
+    --en-orange: #F97316;        /* main call to action */
+    --en-yellow: #F6C43B;        /* reaction emphasis */
+    --en-green: #16835B;         /* confirm */
+    --en-red: #D9363E;           /* destructive */
+
+    /* Hover shades (same hue, darker) */
+    --en-blue-hover: #172E6E;
+    --en-orange-hover: #E0630B;
+    --en-green-hover: #116A49;
+    --en-red-hover: #B92A31;
+
+    /* Neutrals */
+    --en-text: var(--en-navy);
+    --en-text-muted: #5B6B82;
+    --en-border: #DCE3EE;
+    --en-border-light: #E9EEF5;
+    --en-disabled-bg: #E9EEF5;
+    --en-disabled-text: #5B6B82;
+
+    /* Status pairs (background / text) */
+    --en-success-bg: #E3F4EC;
+    --en-success-text: #11694A;
+    --en-warning-bg: #FDEEDC;
+    --en-warning-text: #9A4A05;
+    --en-danger-bg: #FBE4E5;
+    --en-danger-text: #A8242B;
+    --en-info-bg: #E4E9FB;
+    --en-info-text: #1E3A8A;
+    --en-neutral-bg: #EEF1F6;
+    --en-neutral-text: #3F4D63;
+
+    /* 8-pixel spacing scale */
+    --en-space-1: 8px;
+    --en-space-2: 16px;
+    --en-space-3: 24px;
+    --en-space-4: 32px;
+    --en-space-5: 40px;
+    --en-space-6: 48px;
+
+    /* Shape */
+    --en-radius-sm: 8px;
+    --en-radius-md: 12px;
+    --en-radius-lg: 16px;
+    --en-radius-pill: 999px;
+    --en-shadow-card: 0 1px 2px rgba(11, 45, 92, 0.06), 0 1px 8px rgba(11, 45, 92, 0.04);
+    --en-shadow-menu: 0 8px 24px rgba(11, 45, 92, 0.14);
+
+    /* Layout */
+    --en-sidebar-width: 240px;
+    --en-content-width: 1200px;
+
+    --en-font: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+}
+
+
+/* ==========================================================================
+   2. BASE
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    font-size: 16px;
+}
+
+/* Column layout keeps the footer below content on short pages. */
 body {
-    font-family: Arial;
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    font-family: var(--en-font);
+    line-height: 1.5;
+    color: var(--en-text);
+    background: var(--en-bg);
+}
+
+img,
+video {
+    max-width: 100%;
+    display: block;
+}
+
+a {
+    color: var(--en-blue);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+h1,
+h2,
+h3 {
+    margin: 0 0 var(--en-space-1);
+    color: var(--en-navy);
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+h1 { font-size: 1.75rem; }
+h2 { font-size: 1.15rem; }
+h3 { font-size: 1rem; }
+
+p {
+    margin: 0 0 var(--en-space-2);
+}
+
+.text-muted {
+    color: var(--en-text-muted);
+}
+
+
+/* ==========================================================================
+   3. ACCESSIBILITY HELPERS
+   ========================================================================== */
+
+/* Visible keyboard focus everywhere (coding consistency rule). */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+    outline: 3px solid var(--en-teal);
+    outline-offset: 2px;
+}
+
+.skip-link {
+    position: absolute;
+    left: var(--en-space-2);
+    top: -100px;
+    z-index: 100;
+    padding: var(--en-space-1) var(--en-space-2);
+    background: var(--en-navy);
+    color: #FFFFFF;
+    border-radius: var(--en-radius-sm);
+    font-weight: 700;
+}
+
+.skip-link:focus {
+    top: var(--en-space-1);
+}
+
+.visually-hidden,
+.visually-hidden-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+
+/* ==========================================================================
+   4. SITE HEADER AND NAVIGATION
+   ========================================================================== */
+
+.site-header {
+    display: flex;
+    align-items: center;
+    gap: var(--en-space-3);
+    background: var(--en-surface);
+    border-bottom: 1px solid var(--en-border);
+    padding: var(--en-space-1) var(--en-space-4);
+    min-height: 72px;
+    position: relative;
+    z-index: 20;
+}
+
+.site-header-start {
+    display: flex;
+    align-items: center;
+    gap: var(--en-space-2);
+}
+
+.brand {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+/* One shared logo size; height-driven so the PNG keeps its aspect ratio. */
+.brand-logo {
+    height: 48px;
+    width: auto;
+    max-width: none;
+    object-fit: contain;
+}
+
+.site-nav {
+    flex: 1;
+}
+
+.site-nav-list {
+    list-style: none;
     margin: 0;
     padding: 0;
+    display: flex;
+    justify-content: center;
+    gap: var(--en-space-3);
+}
+
+.site-nav-link {
+    display: inline-block;
+    padding: 6px 2px;
+    color: var(--en-navy);
+    font-weight: 600;
+    font-size: 0.95rem;
+    border-bottom: 3px solid transparent;
+}
+
+.site-nav-link:hover {
+    color: var(--en-blue);
+    text-decoration: none;
+}
+
+/* Selected page: weight + teal indicator, not colour alone. */
+.site-nav-link.active {
+    font-weight: 800;
+    border-bottom-color: var(--en-teal);
+}
+
+.site-header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--en-space-2);
+    margin-left: auto;
+}
+
+.header-login {
+    color: var(--en-navy);
+    font-weight: 700;
+    font-size: 0.95rem;
+    padding: 6px 4px;
+}
+
+.header-login:hover {
+    color: var(--en-blue);
+    text-decoration: none;
+}
+
+/* Mobile menu button: hidden on desktop, shown by responsive.css. */
+.nav-toggle {
+    display: none;
+    align-items: center;
+    gap: var(--en-space-1);
+    min-height: 44px;
+    padding: 0 var(--en-space-2);
+    background: var(--en-surface);
+    color: var(--en-navy);
+    border: 1px solid var(--en-border);
+    border-radius: var(--en-radius-sm);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.nav-toggle-icon,
+.nav-toggle-icon::before,
+.nav-toggle-icon::after {
+    display: block;
+    width: 18px;
+    height: 2px;
+    background: currentColor;
+    border-radius: 2px;
+    position: relative;
+}
+
+.nav-toggle-icon::before,
+.nav-toggle-icon::after {
+    content: "";
+    position: absolute;
+    left: 0;
+}
+
+.nav-toggle-icon::before { top: -6px; }
+.nav-toggle-icon::after  { top: 6px; }
+
+.header-role {
+    color: var(--en-navy);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.header-notifications {
+    color: var(--en-text-muted);
+    font-size: 0.9rem;
+}
+
+/* Account menu ("Hi, <name>") built on <details>/<summary>. */
+.account-menu {
+    position: relative;
+}
+
+.account-menu-toggle {
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 0 var(--en-space-1);
+    border-radius: var(--en-radius-sm);
+    font-weight: 700;
+    color: var(--en-navy);
+    cursor: pointer;
+}
+
+.account-menu-toggle::-webkit-details-marker {
+    display: none;
+}
+
+.account-menu-list {
+    list-style: none;
+    margin: 0;
+    padding: var(--en-space-1) 0;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    min-width: 220px;
+    background: var(--en-surface);
+    border: 1px solid var(--en-border);
+    border-radius: var(--en-radius-md);
+    box-shadow: var(--en-shadow-menu);
+    z-index: 30;
+}
+
+.account-menu-link {
+    display: block;
+    padding: 10px var(--en-space-2);
+    color: var(--en-navy);
+    font-weight: 600;
+    border-left: 3px solid transparent;
+}
+
+.account-menu-link:hover {
+    background: var(--en-bg);
+    text-decoration: none;
+}
+
+.account-menu-link.active {
+    border-left-color: var(--en-teal);
+    font-weight: 800;
+}
+
+.account-menu-logout {
+    margin-top: 6px;
+    border-top: 1px solid var(--en-border-light);
+    color: var(--en-red);
+}
+
+
+/* ==========================================================================
+   5. PAGE LAYOUTS AND ROLE SIDEBAR
+   ========================================================================== */
+
+/* Public pages */
+.page-main {
+    width: 100%;
+    max-width: var(--en-content-width);
+    margin: 0 auto;
+    padding: var(--en-space-4);
+}
+
+/* Role pages (attendee / organiser / admin) */
+.dashboard-shell {
+    display: flex;
+    flex: 1;
+}
+
+.dashboard-sidebar {
+    width: var(--en-sidebar-width);
+    flex-shrink: 0;
+    background: var(--en-navy);
+    padding: var(--en-space-3) 0;
+}
+
+.sidebar-role {
+    margin: 0 0 var(--en-space-2);
+    padding: 0 var(--en-space-3);
+    color: #FFFFFF;
+    font-weight: 800;
+    font-size: 1.05rem;
+}
+
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 var(--en-space-1);
+}
+
+.sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: var(--en-space-1);
+    min-height: 44px;
+    padding: 10px var(--en-space-2);
+    color: rgba(255, 255, 255, 0.86);
+    font-weight: 500;
+    border-radius: var(--en-radius-sm);
+}
+
+.sidebar-link:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #FFFFFF;
+    text-decoration: none;
+}
+
+.sidebar-link.active {
+    background: #1D4B85;
+    color: #FFFFFF;
+    font-weight: 700;
+}
+
+.sidebar-link-logout {
+    margin-top: var(--en-space-1);
+}
+
+.sidebar-icon {
+    width: 20px;
+    text-align: center;
+}
+
+.dashboard-main {
+    flex: 1;
+    min-width: 0;
+    max-width: var(--en-content-width);
+    padding: var(--en-space-4);
+}
+
+.dashboard-page-title,
+.page-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--en-space-1);
+    margin-bottom: var(--en-space-3);
+}
+
+.page-heading p {
+    flex-basis: 100%;
+    margin: 0;
+    color: var(--en-text-muted);
+}
+
+.eyebrow {
+    display: block;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--en-teal);
+}
+
+
+/* ==========================================================================
+   6. CARDS AND PANELS
+   ========================================================================== */
+
+.card,
+.dashboard-panel,
+.dashboard-welcome,
+.welcome-card {
+    background: var(--en-surface);
+    border: 1px solid var(--en-border-light);
+    border-radius: var(--en-radius-lg);
+    box-shadow: var(--en-shadow-card);
+    padding: var(--en-space-3);
+}
+
+.dashboard-welcome,
+.welcome-card {
+    margin-bottom: var(--en-space-3);
+}
+
+.dashboard-welcome p {
+    margin: 0;
+    color: var(--en-text-muted);
+}
+
+.welcome-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--en-space-3);
+}
+
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--en-space-2);
+    margin-bottom: var(--en-space-2);
+}
+
+.panel-header h2 {
+    margin: 0;
+}
+
+.panel-link,
+.view-all {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--en-blue);
+    white-space: nowrap;
+}
+
+.dashboard-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--en-space-3);
+    margin-bottom: var(--en-space-3);
+}
+
+.dashboard-columns-secondary {
+    grid-template-columns: 1fr 1fr;
+}
+
+/* Summary statistic cards (dashboards) */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--en-space-3);
+    margin-bottom: var(--en-space-3);
+}
+
+.stat-card {
+    display: flex;
+    align-items: center;
+    gap: var(--en-space-2);
+    padding: var(--en-space-3);
+    background: var(--en-surface);
+    border: 1px solid var(--en-border-light);
+    border-radius: var(--en-radius-lg);
+    box-shadow: var(--en-shadow-card);
+}
+
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--en-radius-md);
+    background: var(--en-info-bg);
+    color: var(--en-blue);
+    font-weight: 700;
+}
+
+.stat-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.stat-label {
+    color: var(--en-text-muted);
+    font-size: 0.85rem;
+}
+
+.stat-content strong,
+.stat-value {
+    font-size: 1.6rem;
+    line-height: 1.1;
+    color: var(--en-navy);
+}
+
+
+/* ==========================================================================
+   7. BUTTONS - five roles from Screen 01
+   .btn-primary     Primary action  - orange (Search, Book now, Create account)
+   .btn-secondary   Secondary       - blue   (View, management actions)
+   .btn-confirm     Confirm         - green
+   .btn-destructive Destructive     - red    (Cancel event, Delete account)
+   .btn-outline     Outline         - white with blue border
+   ========================================================================== */
+
+.btn,
+.primary-button,
+.outline-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 44px;
+    padding: 10px 18px;
+    border: 1px solid transparent;
+    border-radius: var(--en-radius-sm);
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: center;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.btn:hover,
+.primary-button:hover,
+.outline-button:hover {
+    text-decoration: none;
+}
+
+.btn-primary,
+.primary-button {
+    background: var(--en-orange);
+    color: #FFFFFF;
+}
+
+.btn-primary:hover,
+.primary-button:hover {
+    background: var(--en-orange-hover);
+}
+
+.btn-secondary {
+    background: var(--en-blue);
+    color: #FFFFFF;
+}
+
+.btn-secondary:hover {
+    background: var(--en-blue-hover);
+}
+
+.btn-confirm {
+    background: var(--en-green);
+    color: #FFFFFF;
+}
+
+.btn-confirm:hover {
+    background: var(--en-green-hover);
+}
+
+.btn-destructive {
+    background: var(--en-red);
+    color: #FFFFFF;
+}
+
+.btn-destructive:hover {
+    background: var(--en-red-hover);
+}
+
+.btn-outline,
+.outline-button {
+    background: var(--en-surface);
+    color: var(--en-blue);
+    border-color: var(--en-blue);
+}
+
+.btn-outline:hover,
+.outline-button:hover {
+    background: var(--en-info-bg);
+}
+
+/* Header Create account button - teal as shown on Screens 02 and 44. */
+.btn-teal {
+    background: var(--en-teal);
+    color: #FFFFFF;
+}
+
+.btn-teal:hover {
+    background: #08858A;
+}
+
+.btn-sm {
+    min-height: 36px;
+    padding: 8px 14px;
+    font-size: 0.875rem;
+}
+
+.btn-block {
+    display: flex;
+    width: 100%;
+}
+
+/* Disabled: readable, clearly inactive, never mistaken for a live control. */
+.btn:disabled,
+.btn[aria-disabled="true"],
+.btn.is-disabled {
+    background: var(--en-disabled-bg);
+    color: var(--en-disabled-text);
+    border-color: var(--en-border);
+    cursor: not-allowed;
+}
+
+a.btn[aria-disabled="true"],
+a.btn.is-disabled {
+    pointer-events: none;
+}
+
+
+/* ==========================================================================
+   8. STATUS BADGES - text + colour, values follow the ERD enums
+   ========================================================================== */
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    padding: 4px 10px;
+    border-radius: var(--en-radius-pill);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: capitalize;
+    background: var(--en-neutral-bg);
+    color: var(--en-neutral-text);
+}
+
+.status-paid,
+.status-success,
+.status-confirmed,
+.status-published,
+.status-verified,
+.status-approved,
+.status-active,
+.status-released {
+    background: var(--en-success-bg);
+    color: var(--en-success-text);
+}
+
+.status-pending,
+.status-held,
+.status-unverified {
+    background: var(--en-warning-bg);
+    color: var(--en-warning-text);
+}
+
+/* Both spellings listed until the group settles canceled vs cancelled. */
+.status-failed,
+.status-canceled,
+.status-cancelled,
+.status-rejected,
+.status-suspended,
+.status-deleted {
+    background: var(--en-danger-bg);
+    color: var(--en-danger-text);
+}
+
+.status-completed,
+.status-refunded,
+.status-free {
+    background: var(--en-info-bg);
+    color: var(--en-info-text);
+}
+
+.status-draft {
+    background: var(--en-neutral-bg);
+    color: var(--en-neutral-text);
+}
+
+
+/* ==========================================================================
+   9. NOTICES, EMPTY AND ERROR STATES
+   ========================================================================== */
+
+.form-notice {
+    border-radius: var(--en-radius-md);
+    padding: var(--en-space-2);
+    margin-bottom: var(--en-space-3);
+    font-size: 0.925rem;
+    border: 1px solid transparent;
+}
+
+.form-notice-success { background: var(--en-success-bg); color: var(--en-success-text); border-color: #BFE3D1; }
+.form-notice-warning { background: var(--en-warning-bg); color: var(--en-warning-text); border-color: #F6D9B8; }
+.form-notice-error   { background: var(--en-danger-bg);  color: var(--en-danger-text);  border-color: #F3C3C6; }
+.form-notice-info    { background: var(--en-info-bg);    color: var(--en-info-text);    border-color: #CBD5F5; }
+
+.empty-state {
+    margin: 0;
+    padding: var(--en-space-3) var(--en-space-2);
+    text-align: center;
+    color: var(--en-text-muted);
+    font-size: 0.95rem;
+    border: 1px dashed var(--en-border);
+    border-radius: var(--en-radius-md);
+    background: var(--en-bg);
+}
+
+/* Confirmation panel before destructive actions (Screens 22, 36) */
+.confirm-panel {
+    background: #FFF4EC;
+    border: 1px solid #F8C9A6;
+    border-radius: var(--en-radius-lg);
+    padding: var(--en-space-3);
+    margin-bottom: var(--en-space-3);
+}
+
+.confirm-panel h2 {
+    color: var(--en-navy);
+}
+
+
+/* ==========================================================================
+   10. FORMS
+   ========================================================================== */
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--en-space-2);
+    margin-bottom: var(--en-space-2);
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: var(--en-space-2);
+}
+
+.form-group-grow {
+    flex: 1;
+}
+
+/* Labels sit above fields. */
+.form-group label,
+.ticket-tier-input label {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--en-navy);
+}
+
+.required-note,
+.field-hint {
+    font-size: 0.8rem;
+    color: var(--en-text-muted);
+}
+
+.form-group input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid var(--en-border);
+    border-radius: var(--en-radius-sm);
+    background: var(--en-surface);
+    color: var(--en-text);
+    font-family: inherit;
+    font-size: 0.95rem;
+}
+
+.form-group textarea {
+    min-height: 96px;
+    resize: vertical;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+    color: #8492A8;
+}
+
+.form-group input:disabled,
+.form-group select:disabled,
+.form-group textarea:disabled {
+    background: var(--en-disabled-bg);
+    color: var(--en-disabled-text);
+    cursor: not-allowed;
+}
+
+/* Validation error state - shared by scripts/validation.js and server-side errors. */
+.form-group.has-error input,
+.form-group.has-error select,
+.form-group.has-error textarea,
+.form-group [aria-invalid="true"] {
+    border-color: var(--en-red);
+    background: #FFF8F8;
+}
+
+.field-error {
+    margin: 0;
+    font-size: 0.825rem;
+    font-weight: 600;
+    color: var(--en-danger-text);
+}
+
+.checkbox-row {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--en-space-1);
+    font-size: 0.9rem;
+}
+
+.time-range {
+    display: flex;
+    align-items: center;
+    gap: var(--en-space-1);
+}
+
+.time-range input {
+    flex: 1;
+}
+
+.time-separator {
+    font-size: 0.85rem;
+    color: var(--en-text-muted);
+}
+
+.ticket-tier-group {
+    border: 1px solid var(--en-border-light);
+    border-radius: var(--en-radius-md);
+    padding: var(--en-space-2);
+    margin: 0 0 var(--en-space-3);
+}
+
+.ticket-tier-group legend {
+    padding: 0 6px;
+    font-weight: 700;
+    color: var(--en-navy);
+}
+
+.ticket-tier-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--en-space-2);
+}
+
+.ticket-tier-input label {
+    display: block;
+    margin-bottom: 6px;
+}
+
+.currency-input {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid var(--en-border);
+    border-radius: var(--en-radius-sm);
+    background: var(--en-surface);
+    overflow: hidden;
+}
+
+.currency-prefix {
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    background: var(--en-bg);
+    color: var(--en-text-muted);
+    font-weight: 700;
+    font-size: 0.875rem;
+    border-right: 1px solid var(--en-border);
+}
+
+.currency-input input {
+    flex: 1;
+    min-height: 42px;
+    padding: 0 10px;
+    border: none;
+    font: inherit;
+}
+
+.form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--en-space-2);
+    margin-top: var(--en-space-2);
+}
+
+.form-actions-right {
+    justify-content: flex-end;
+}
+
+/* Filter panel used by events.php, search-results.php and tag.php */
+.filter-panel {
+    background: var(--en-surface);
+    border: 1px solid var(--en-border-light);
+    border-radius: var(--en-radius-lg);
+    padding: var(--en-space-3);
+}
+
+
+/* ==========================================================================
+   11. TABLES
+   ========================================================================== */
+
+.table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--en-surface);
+    font-size: 0.9rem;
+}
+
+.data-table th {
+    background: #E8EEFB;
+    color: var(--en-navy);
+    font-weight: 700;
+    text-align: left;
+}
+
+.data-table th,
+.data-table td {
+    padding: 12px var(--en-space-2);
+    border-bottom: 1px solid var(--en-border-light);
+    vertical-align: middle;
+}
+
+.data-table tbody tr:hover {
+    background: var(--en-bg);
+}
+
+
+/* ==========================================================================
+   12. EVENT CARDS (listings, homepage, recommendations)
+   ========================================================================== */
+
+.event-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: var(--en-space-3);
+}
+
+.event-card {
+    display: flex;
+    flex-direction: column;
+    background: var(--en-surface);
+    border: 1px solid var(--en-border-light);
+    border-radius: var(--en-radius-lg);
+    box-shadow: var(--en-shadow-card);
+    overflow: hidden;
+}
+
+/* Consistent aspect ratio; uploaded media is cropped, never stretched. */
+.event-card-media {
+    aspect-ratio: 16 / 9;
+    width: 100%;
+    object-fit: cover;
+    background: var(--en-bg);
+}
+
+/* No image post: EventNest logo on the standard navy-to-teal area. */
+.event-media-fallback {
+    aspect-ratio: 16 / 9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--en-navy), var(--en-teal));
+}
+
+.event-media-fallback img {
+    height: 45%;
+    width: auto;
+    object-fit: contain;
+}
+
+.event-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    padding: var(--en-space-2);
+}
+
+.event-card-meta {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--en-text-muted);
+}
+
+.event-card-footer {
+    margin-top: auto;
+    padding-top: var(--en-space-1);
+}
+
+
+/* ==========================================================================
+   13. DASHBOARD LISTS (bookings, events, quick links, profile)
+   ========================================================================== */
+
+.booking-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--en-space-2);
+}
+
+.booking-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--en-space-2);
+    padding: var(--en-space-2);
+    border: 1px solid var(--en-border-light);
+    border-radius: var(--en-radius-md);
+    background: var(--en-bg);
+}
+
+.booking-card-info {
+    min-width: 0;
+}
+
+.booking-card-info h3 {
+    margin-bottom: 4px;
+}
+
+.booking-card-info p {
+    margin: 0 0 var(--en-space-1);
+    font-size: 0.875rem;
+    color: var(--en-text-muted);
+}
+
+.booking-row {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr auto;
+    align-items: center;
+    gap: var(--en-space-2);
+    padding: var(--en-space-2) 0;
+    border-bottom: 1px solid var(--en-border-light);
+}
+
+.booking-row:last-child {
+    border-bottom: none;
+}
+
+.event-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.event-row {
+    display: grid;
+    grid-template-columns: 2.2fr 1.2fr 1.3fr 0.8fr 1fr auto;
+    align-items: center;
+    gap: var(--en-space-2);
+    padding: var(--en-space-2);
+    border: 1px solid var(--en-border-light);
+    border-radius: var(--en-radius-md);
+}
+
+.event-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.mobile-label {
+    display: none;
+    font-size: 0.75rem;
+    color: var(--en-text-muted);
+}
+
+.quick-links-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--en-space-1);
+}
+
+.quick-links-list a,
+.quick-action {
+    display: block;
+    padding: 10px var(--en-space-2);
+    border: 1px solid var(--en-border-light);
+    border-radius: var(--en-radius-sm);
+    color: var(--en-navy);
+    font-weight: 600;
+    font-size: 0.925rem;
+}
+
+.quick-links-list a:hover,
+.quick-action:hover {
+    background: var(--en-bg);
+    border-color: var(--en-teal);
+    text-decoration: none;
+}
+
+.profile-summary-body,
+.business-profile-content {
+    display: flex;
+    align-items: center;
+    gap: var(--en-space-2);
+    margin-bottom: var(--en-space-2);
+}
+
+.profile-avatar,
+.profile-avatar-large {
+    width: 56px;
+    height: 56px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--en-teal);
+    color: #FFFFFF;
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.profile-details {
+    min-width: 0;
+}
+
+.profile-name {
+    margin: 0;
+    font-weight: 700;
+    color: var(--en-navy);
+}
+
+.profile-email,
+.profile-since {
+    margin: 2px 0 0;
+    font-size: 0.85rem;
+    color: var(--en-text-muted);
+}
+
+
+/* ==========================================================================
+   14. POSTS AND REACTIONS
+   ========================================================================== */
+
+.post-composer {
+    margin-bottom: var(--en-space-3);
+}
+
+.media-buttons {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--en-space-1);
+}
+
+.media-upload-btn {
+    cursor: pointer;
+}
+
+.post-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--en-space-2);
+}
+
+.post-card {
+    padding: var(--en-space-2);
+    border: 1px solid var(--en-border-light);
+    border-radius: var(--en-radius-md);
+    background: var(--en-surface);
+}
+
+.post-media {
+    width: 100%;
+    max-height: 520px;
+    object-fit: contain;
+    background: var(--en-bg);
+    border-radius: var(--en-radius-sm);
+}
+
+.post-content {
+    margin-bottom: 6px;
+    color: var(--en-text);
+    font-weight: 600;
+}
+
+.post-meta {
+    margin-bottom: var(--en-space-1);
+    font-size: 0.8rem;
+    color: var(--en-text-muted);
+}
+
+.reaction-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--en-space-1);
+}
+
+/* Reactions always carry a text label next to the icon. */
+.reaction-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 4px 12px;
+    border: 1px solid var(--en-border);
+    border-radius: var(--en-radius-pill);
+    background: var(--en-surface);
+    color: var(--en-navy);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.reaction-pill.is-selected,
+.reaction-pill[aria-pressed="true"] {
+    background: #FEF6DD;
+    border-color: var(--en-yellow);
+    font-weight: 800;
+}
+
+
+/* ==========================================================================
+   15. SITE FOOTER (Screen 02)
+   About EventNest | Events | FAQ | Terms | Privacy | Cookies | Contact us
+   ========================================================================== */
+
+.site-footer {
+    margin-top: auto;              /* keeps the footer below content on short pages */
+    background: var(--en-navy);
+    color: #FFFFFF;
+}
+
+.footer-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--en-space-3);
+    max-width: var(--en-content-width);
+    margin: 0 auto;
+    padding: var(--en-space-3) var(--en-space-4);
+}
+
+.footer-links ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+/* Pipe separators between the middle links, as on Screen 02. */
+.footer-links li + li::before {
+    content: "|";
+    margin: 0 10px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.footer-link {
+    display: inline-block;
+    padding: 4px 0;
+    color: #FFFFFF;
+    font-size: 0.875rem;
+}
+
+.footer-about,
+.footer-contact {
+    font-weight: 700;
+}
+
+.footer-link.active {
+    font-weight: 700;
+    text-decoration: underline;
+    text-decoration-color: var(--en-teal);
+    text-decoration-thickness: 3px;
+    text-underline-offset: 4px;
+}
+
+.site-footer a:focus-visible {
+    outline-color: #FFFFFF;
 }
