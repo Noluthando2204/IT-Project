@@ -5,6 +5,7 @@ COLLATE utf8mb4_unicode_ci;
 
 USE eventnest;
 
+
 SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS BLOCKS;
@@ -22,357 +23,623 @@ DROP TABLE IF EXISTS CATEGORIES;
 
 SET FOREIGN_KEY_CHECKS = 1;
 
+
+-- ============================================================
+-- CATEGORIES
+-- ============================================================
+
 CREATE TABLE CATEGORIES (
-CategoryID INT UNSIGNED NOT NULL AUTO_INCREMENT,
-CategoryName VARCHAR(100) NOT NULL,
-Description TEXT NULL,
-PRIMARY KEY (CategoryID),
-UNIQUE KEY uq_categories_name (CategoryName)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CategoryID INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    CategoryName VARCHAR(100) NOT NULL,
+    Description TEXT NULL,
+
+    PRIMARY KEY (CategoryID),
+
+    UNIQUE KEY uq_categories_name (CategoryName)
+
+) ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci;
+
+
+-- ============================================================
+-- USERS
+-- ============================================================
 
 CREATE TABLE USERS (
-UserID INT UNSIGNED NOT NULL AUTO_INCREMENT,
-FirstName VARCHAR(50) NULL,
-LastName VARCHAR(50) NULL,
-Email VARCHAR(100) NOT NULL,
-PasswordHash VARCHAR(255) NULL,
-Phone VARCHAR(15) NULL,
-CareerField VARCHAR(100) NULL,
-UserStatus ENUM('active','suspended','deleted') NOT NULL DEFAULT 'active',
-Role ENUM('attendee','organiser','admin') NOT NULL DEFAULT 'attendee',
-VerificationStatus ENUM('unverified','pending','verified') NOT NULL DEFAULT 'unverified',
-RecommendationOptIn BOOLEAN NOT NULL DEFAULT FALSE,
-CreatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-LastLoginAt DATETIME NULL,
+    UserID INT UNSIGNED NOT NULL AUTO_INCREMENT,
 
--- Approved prototype extension for organiser verification-fee tracking.
-VerificationFeePaidAt DATETIME NULL,
-VerificationFeePaidUntil DATETIME NULL,
-VerificationFeePaymentStatus ENUM('unpaid','pending','paid','failed')
-    NOT NULL DEFAULT 'unpaid',
-VerificationFeeGatewayReference VARCHAR(100) NULL,
+    FirstName VARCHAR(50) NULL,
+    LastName VARCHAR(50) NULL,
+    Email VARCHAR(100) NOT NULL,
+    PasswordHash VARCHAR(255) NULL,
+    Phone VARCHAR(15) NULL,
+    CareerField VARCHAR(100) NULL,
 
-PRIMARY KEY (UserID),
-UNIQUE KEY uq_users_email (Email),
-KEY idx_users_email (Email),
-KEY idx_users_status (UserStatus),
-KEY idx_users_role (Role),
-KEY idx_users_verification_status (VerificationStatus)
+    UserStatus ENUM('active','suspended','deleted')
+        NOT NULL DEFAULT 'active',
 
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    Role ENUM('attendee','organiser','admin')
+        NOT NULL DEFAULT 'attendee',
+
+    VerificationStatus ENUM('unverified','pending','verified')
+        NOT NULL DEFAULT 'unverified',
+
+    -- Path/reference to the organiser verification document.
+    Verification_docs_path VARCHAR(255) NULL,
+
+    RecommendationOptIn BOOLEAN NOT NULL DEFAULT FALSE,
+
+    -- Account moderation and suspension tracking.
+    Blocks_count INT NOT NULL DEFAULT 0,
+    Suspension_count INT NOT NULL DEFAULT 0,
+    Suspension_start_date DATETIME NULL,
+
+    -- Email verification status.
+    Is_email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+
+    CreatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    LastLoginAt DATETIME NULL,
+
+    -- Approved prototype extension for organiser
+    -- verification-fee tracking.
+    VerificationFeePaidAt DATETIME NULL,
+
+    VerificationFeePaidUntil DATETIME NULL,
+
+    VerificationFeePaymentStatus
+        ENUM('unpaid','pending','paid','failed')
+        NOT NULL DEFAULT 'unpaid',
+
+    VerificationFeeGatewayReference VARCHAR(100) NULL,
+
+    PRIMARY KEY (UserID),
+
+    UNIQUE KEY uq_users_email (Email),
+
+    KEY idx_users_email (Email),
+    KEY idx_users_status (UserStatus),
+    KEY idx_users_role (Role),
+    KEY idx_users_verification_status (VerificationStatus)
+
+) ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci;
+
+
+-- ============================================================
+-- EVENTS
+-- ============================================================
 
 CREATE TABLE EVENTS (
-EventID INT UNSIGNED NOT NULL AUTO_INCREMENT,
-OrganiserID INT UNSIGNED NOT NULL,
-CategoryID INT UNSIGNED NOT NULL,
-EventName VARCHAR(100) NOT NULL,
-Description TEXT NULL,
-Venue VARCHAR(150) NULL,
-EventDate DATETIME NOT NULL,
-AgeRestriction VARCHAR(10) NULL,
-Status ENUM('draft','published','completed','canceled') NOT NULL DEFAULT 'draft',
-Format ENUM('online','physical','hybrid') NOT NULL,
-Hashtags VARCHAR(255) NULL,
-CareerGateType ENUM('none','field','email_domain') NOT NULL DEFAULT 'none',
-AllowedCareerField INT UNSIGNED NULL,
-AllowedEmailDomain VARCHAR(100) NULL,
-IsFeatured BOOLEAN NOT NULL DEFAULT FALSE,
-Province VARCHAR(100) NULL,
-Created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-UpdatedAt DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    EventID INT UNSIGNED NOT NULL AUTO_INCREMENT,
 
-PRIMARY KEY (EventID),
-KEY idx_events_organiser (OrganiserID),
-KEY idx_events_category (CategoryID),
-KEY idx_events_allowed_career_field (AllowedCareerField),
-KEY idx_events_status (Status),
-KEY idx_events_format (Format),
-KEY idx_events_event_date (EventDate),
-KEY idx_events_province (Province),
-KEY idx_events_featured (IsFeatured),
+    OrganiserID INT UNSIGNED NOT NULL,
+    CategoryID INT UNSIGNED NOT NULL,
 
-CONSTRAINT fk_events_organiser
-    FOREIGN KEY (OrganiserID) REFERENCES USERS(UserID)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
+    EventName VARCHAR(100) NOT NULL,
+    Description TEXT NULL,
+    Venue VARCHAR(150) NULL,
+    EventDate DATETIME NOT NULL,
+    AgeRestriction VARCHAR(10) NULL,
 
-CONSTRAINT fk_events_category
-    FOREIGN KEY (CategoryID) REFERENCES CATEGORIES(CategoryID)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
+    Status ENUM('draft','published','completed','canceled')
+        NOT NULL DEFAULT 'draft',
 
-CONSTRAINT fk_events_allowed_career_field
-    FOREIGN KEY (AllowedCareerField) REFERENCES CATEGORIES(CategoryID)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
+    Format ENUM('online','physical','hybrid')
+        NOT NULL,
 
-CONSTRAINT chk_events_gate_fields
-    CHECK (
-        (CareerGateType = 'none'
-            AND AllowedCareerField IS NULL
-            AND AllowedEmailDomain IS NULL)
-        OR
-        (CareerGateType = 'field'
-            AND AllowedCareerField IS NOT NULL
-            AND AllowedEmailDomain IS NULL)
-        OR
-        (CareerGateType = 'email_domain'
-            AND AllowedCareerField IS NULL
-            AND AllowedEmailDomain IS NOT NULL)
-    )
+    Hashtags VARCHAR(255) NULL,
 
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    -- Final ERD field name.
+    CareerGoalType ENUM('none','field','email_domain')
+        NOT NULL DEFAULT 'none',
+
+    AllowedCareerField INT UNSIGNED NULL,
+    AllowedEmailDomain VARCHAR(100) NULL,
+
+    IsFeatured BOOLEAN NOT NULL DEFAULT FALSE,
+    Province VARCHAR(100) NULL,
+
+    Created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UpdatedAt DATETIME NULL
+        DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (EventID),
+
+    KEY idx_events_organiser (OrganiserID),
+    KEY idx_events_category (CategoryID),
+    KEY idx_events_allowed_career_field (AllowedCareerField),
+    KEY idx_events_status (Status),
+    KEY idx_events_format (Format),
+    KEY idx_events_event_date (EventDate),
+    KEY idx_events_province (Province),
+    KEY idx_events_featured (IsFeatured),
+
+    CONSTRAINT fk_events_organiser
+        FOREIGN KEY (OrganiserID)
+        REFERENCES USERS(UserID)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+
+    CONSTRAINT fk_events_category
+        FOREIGN KEY (CategoryID)
+        REFERENCES CATEGORIES(CategoryID)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+
+    CONSTRAINT fk_events_allowed_career_field
+        FOREIGN KEY (AllowedCareerField)
+        REFERENCES CATEGORIES(CategoryID)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+
+    CONSTRAINT chk_events_gate_fields
+        CHECK (
+            (
+                CareerGoalType = 'none'
+                AND AllowedCareerField IS NULL
+                AND AllowedEmailDomain IS NULL
+            )
+            OR
+            (
+                CareerGoalType = 'field'
+                AND AllowedCareerField IS NOT NULL
+                AND AllowedEmailDomain IS NULL
+            )
+            OR
+            (
+                CareerGoalType = 'email_domain'
+                AND AllowedCareerField IS NULL
+                AND AllowedEmailDomain IS NOT NULL
+            )
+        )
+
+) ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci;
+
+
+-- ============================================================
+-- USER EVENT RECOMMENDATIONS
+-- ============================================================
 
 CREATE TABLE USER_EVENT_RECOMMENDATIONS (
-RecommendationID INT UNSIGNED NOT NULL AUTO_INCREMENT,
-UserID INT UNSIGNED NOT NULL,
-EventID INT UNSIGNED NOT NULL,
-SimilarityScore DECIMAL(5,4) NULL,
-ModelName VARCHAR(100) NULL,
-GeneratedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-ExpiresAt DATETIME NULL,
+    RecommendationID INT UNSIGNED NOT NULL AUTO_INCREMENT,
 
-PRIMARY KEY (RecommendationID),
-UNIQUE KEY uq_user_event_recommendation (UserID, EventID),
-KEY idx_recommendations_user (UserID),
-KEY idx_recommendations_event (EventID),
-KEY idx_recommendations_expires (ExpiresAt),
+    UserID INT UNSIGNED NOT NULL,
+    EventID INT UNSIGNED NOT NULL,
 
-CONSTRAINT fk_recommendations_user
-    FOREIGN KEY (UserID) REFERENCES USERS(UserID)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
+    SimilarityScore DECIMAL(5,4) NULL,
+    ModelName VARCHAR(100) NULL,
 
-CONSTRAINT fk_recommendations_event
-    FOREIGN KEY (EventID) REFERENCES EVENTS(EventID)
-    ON DELETE RESTRICT ON UPDATE CASCADE
+    GeneratedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ExpiresAt DATETIME NULL,
 
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    PRIMARY KEY (RecommendationID),
+
+    UNIQUE KEY uq_user_event_recommendation (UserID, EventID),
+
+    KEY idx_recommendations_user (UserID),
+    KEY idx_recommendations_event (EventID),
+    KEY idx_recommendations_expires (ExpiresAt),
+
+    CONSTRAINT fk_recommendations_user
+        FOREIGN KEY (UserID)
+        REFERENCES USERS(UserID)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+
+    CONSTRAINT fk_recommendations_event
+        FOREIGN KEY (EventID)
+        REFERENCES EVENTS(EventID)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE
+
+) ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci;
+
+
+-- ============================================================
+-- TICKETS
+-- ============================================================
 
 CREATE TABLE TICKETS (
-TicketID INT UNSIGNED NOT NULL AUTO_INCREMENT,
-EventID INT UNSIGNED NOT NULL,
-TicketType VARCHAR(50) NOT NULL,
-Price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-QuantityAvailable INT NOT NULL,
-Capacity INT NOT NULL,
-Description VARCHAR(255) NULL,
+    TicketID INT UNSIGNED NOT NULL AUTO_INCREMENT,
 
-PRIMARY KEY (TicketID),
-KEY idx_tickets_event (EventID),
-KEY idx_tickets_type (TicketType),
+    EventID INT UNSIGNED NOT NULL,
 
-CONSTRAINT fk_tickets_event
-    FOREIGN KEY (EventID) REFERENCES EVENTS(EventID)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
+    TicketType VARCHAR(50) NOT NULL,
+    Price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    QuantityAvailable INT NOT NULL,
+    Capacity INT NOT NULL,
+    Description VARCHAR(255) NULL,
 
-CONSTRAINT chk_tickets_price
-    CHECK (Price >= 0),
+    PRIMARY KEY (TicketID),
 
-CONSTRAINT chk_tickets_capacity
-    CHECK (Capacity > 0),
+    KEY idx_tickets_event (EventID),
+    KEY idx_tickets_type (TicketType),
 
-CONSTRAINT chk_tickets_quantity
-    CHECK (QuantityAvailable >= 0 AND QuantityAvailable <= Capacity),
+    CONSTRAINT fk_tickets_event
+        FOREIGN KEY (EventID)
+        REFERENCES EVENTS(EventID)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
 
-CONSTRAINT chk_tickets_type
-    CHECK (TicketType IN ('General','VIP','Early Bird','Student'))
+    CONSTRAINT chk_tickets_price
+        CHECK (Price >= 0),
 
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CONSTRAINT chk_tickets_capacity
+        CHECK (Capacity > 0),
+
+    CONSTRAINT chk_tickets_quantity
+        CHECK (
+            QuantityAvailable >= 0
+            AND QuantityAvailable <= Capacity
+        ),
+
+    CONSTRAINT chk_tickets_type
+        CHECK (
+            TicketType IN (
+                'General',
+                'VIP',
+                'Early Bird',
+                'Student'
+            )
+        )
+
+) ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci;
+
+
+-- ============================================================
+-- BOOKINGS
+-- ============================================================
 
 CREATE TABLE BOOKINGS (
-BookingID INT UNSIGNED NOT NULL AUTO_INCREMENT,
-EventID INT UNSIGNED NOT NULL,
-UserID INT UNSIGNED NOT NULL,
-TicketID INT UNSIGNED NOT NULL,
-BookingDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-Quantity INT NOT NULL,
-TotalAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-Status ENUM('pending','paid','free','failed','refunded','confirmed','canceled')
-NOT NULL DEFAULT 'pending',
-BookingReference VARCHAR(50) NOT NULL,
+    BookingID INT UNSIGNED NOT NULL AUTO_INCREMENT,
 
-PRIMARY KEY (BookingID),
-UNIQUE KEY uq_bookings_reference (BookingReference),
-KEY idx_bookings_reference (BookingReference),
-KEY idx_bookings_event (EventID),
-KEY idx_bookings_user (UserID),
-KEY idx_bookings_ticket (TicketID),
-KEY idx_bookings_status (Status),
-KEY idx_bookings_date (BookingDate),
+    EventID INT UNSIGNED NOT NULL,
+    UserID INT UNSIGNED NOT NULL,
+    TicketID INT UNSIGNED NOT NULL,
 
-CONSTRAINT fk_bookings_event
-    FOREIGN KEY (EventID) REFERENCES EVENTS(EventID)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
+    BookingDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-CONSTRAINT fk_bookings_user
-    FOREIGN KEY (UserID) REFERENCES USERS(UserID)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
+    Quantity INT NOT NULL,
 
-CONSTRAINT fk_bookings_ticket
-    FOREIGN KEY (TicketID) REFERENCES TICKETS(TicketID)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
+    TotalAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
 
-CONSTRAINT chk_bookings_quantity
-    CHECK (Quantity > 0),
+    -- Approved booking status values.
+    Status ENUM(
+        'pending',
+        'paid',
+        'failed',
+        'refunded',
+        'canceled'
+    ) NOT NULL DEFAULT 'pending',
 
-CONSTRAINT chk_bookings_total
-    CHECK (TotalAmount >= 0)
+    BookingReference VARCHAR(50) NOT NULL,
 
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    PRIMARY KEY (BookingID),
+
+    UNIQUE KEY uq_bookings_reference (BookingReference),
+
+    KEY idx_bookings_reference (BookingReference),
+    KEY idx_bookings_event (EventID),
+    KEY idx_bookings_user (UserID),
+    KEY idx_bookings_ticket (TicketID),
+    KEY idx_bookings_status (Status),
+    KEY idx_bookings_date (BookingDate),
+
+    CONSTRAINT fk_bookings_event
+        FOREIGN KEY (EventID)
+        REFERENCES EVENTS(EventID)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+
+    CONSTRAINT fk_bookings_user
+        FOREIGN KEY (UserID)
+        REFERENCES USERS(UserID)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+
+    CONSTRAINT fk_bookings_ticket
+        FOREIGN KEY (TicketID)
+        REFERENCES TICKETS(TicketID)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+
+    CONSTRAINT chk_bookings_quantity
+        CHECK (Quantity > 0),
+
+    CONSTRAINT chk_bookings_total
+        CHECK (TotalAmount >= 0)
+
+) ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci;
+
+
+-- ============================================================
+-- PAYMENTS
+-- ============================================================
 
 CREATE TABLE PAYMENTS (
-PaymentID INT UNSIGNED NOT NULL AUTO_INCREMENT,
-BookingID INT UNSIGNED NOT NULL,
-PaymentDate DATETIME NULL,
-Amount DECIMAL(10,2) NOT NULL,
-PaymentMethod VARCHAR(50) NULL,
-PaymentStatus ENUM('success','failed','refunded') NOT NULL,
-TransactionID VARCHAR(100) NULL,
-Escrow_status ENUM('held','released','refunded') NULL,
+    PaymentID INT UNSIGNED NOT NULL AUTO_INCREMENT,
 
-PRIMARY KEY (PaymentID),
-KEY idx_payments_booking (BookingID),
-KEY idx_payments_status (PaymentStatus),
-KEY idx_payments_date (PaymentDate),
-KEY idx_payments_transaction (TransactionID),
-UNIQUE KEY uq_payments_transaction (TransactionID),
+    BookingID INT UNSIGNED NOT NULL,
 
-CONSTRAINT fk_payments_booking
-    FOREIGN KEY (BookingID) REFERENCES BOOKINGS(BookingID)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
+    PaymentDate DATETIME NULL,
 
-CONSTRAINT chk_payments_amount
-    CHECK (Amount >= 0)
+    Amount DECIMAL(10,2) NOT NULL,
 
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    PaymentMethod VARCHAR(50) NULL,
+
+    PaymentStatus ENUM(
+        'success',
+        'failed',
+        'refunded'
+    ) NOT NULL,
+
+    TransactionID VARCHAR(100) NULL,
+
+    -- Simulated escrow used by EventNest.
+    Escrow_status ENUM(
+        'held',
+        'released',
+        'refunded'
+    ) NULL,
+
+    PRIMARY KEY (PaymentID),
+
+    KEY idx_payments_booking (BookingID),
+    KEY idx_payments_status (PaymentStatus),
+    KEY idx_payments_date (PaymentDate),
+    KEY idx_payments_transaction (TransactionID),
+
+    UNIQUE KEY uq_payments_transaction (TransactionID),
+
+    CONSTRAINT fk_payments_booking
+        FOREIGN KEY (BookingID)
+        REFERENCES BOOKINGS(BookingID)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+
+    CONSTRAINT chk_payments_amount
+        CHECK (Amount >= 0)
+
+) ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci;
+
+
+-- ============================================================
+-- POSTS
+-- ============================================================
 
 CREATE TABLE POSTS (
-PostID INT UNSIGNED NOT NULL AUTO_INCREMENT,
-EventID INT UNSIGNED NOT NULL,
-OrganiserID INT UNSIGNED NOT NULL,
-Content TEXT NULL,
-Media_type ENUM('image','video') NULL,
-Media VARCHAR(255) NULL,
-Hashtags VARCHAR(255) NULL,
-PostDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PostID INT UNSIGNED NOT NULL AUTO_INCREMENT,
 
-PRIMARY KEY (PostID),
-KEY idx_posts_event (EventID),
-KEY idx_posts_organiser (OrganiserID),
-KEY idx_posts_date (PostDate),
+    EventID INT UNSIGNED NOT NULL,
+    OrganiserID INT UNSIGNED NOT NULL,
 
-CONSTRAINT fk_posts_event
-    FOREIGN KEY (EventID) REFERENCES EVENTS(EventID)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
+    Content TEXT NULL,
 
-CONSTRAINT fk_posts_organiser
-    FOREIGN KEY (OrganiserID) REFERENCES USERS(UserID)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
+    Media_type ENUM('image','video') NULL,
+    Media VARCHAR(255) NULL,
 
-CONSTRAINT chk_posts_media_type
-    CHECK (Media IS NULL OR Media_type IS NOT NULL)
+    Hashtags VARCHAR(255) NULL,
 
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    PostDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (PostID),
+
+    KEY idx_posts_event (EventID),
+    KEY idx_posts_organiser (OrganiserID),
+    KEY idx_posts_date (PostDate),
+
+    CONSTRAINT fk_posts_event
+        FOREIGN KEY (EventID)
+        REFERENCES EVENTS(EventID)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+
+    CONSTRAINT fk_posts_organiser
+        FOREIGN KEY (OrganiserID)
+        REFERENCES USERS(UserID)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+
+    CONSTRAINT chk_posts_media_type
+        CHECK (
+            Media IS NULL
+            OR Media_type IS NOT NULL
+        )
+
+) ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci;
+
+
+-- ============================================================
+-- REACTIONS
+-- ============================================================
 
 CREATE TABLE REACTIONS (
-ReactionID INT UNSIGNED NOT NULL AUTO_INCREMENT,
-PostID INT UNSIGNED NOT NULL,
-UserID INT UNSIGNED NOT NULL,
-ReactionType ENUM('thumbs_up','clap','lightbulb') NOT NULL,
-ReactionDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ReactionID INT UNSIGNED NOT NULL AUTO_INCREMENT,
 
-PRIMARY KEY (ReactionID),
-UNIQUE KEY uq_reactions_user_post (UserID, PostID),
-KEY idx_reactions_post (PostID),
-KEY idx_reactions_user (UserID),
-KEY idx_reactions_type (ReactionType),
+    PostID INT UNSIGNED NOT NULL,
+    UserID INT UNSIGNED NOT NULL,
 
-CONSTRAINT fk_reactions_post
-    FOREIGN KEY (PostID) REFERENCES POSTS(PostID)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
+    ReactionType ENUM(
+        'thumbs_up',
+        'clap',
+        'lightbulb'
+    ) NOT NULL,
 
-CONSTRAINT fk_reactions_user
-    FOREIGN KEY (UserID) REFERENCES USERS(UserID)
-    ON DELETE RESTRICT ON UPDATE CASCADE
+    ReactionDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    PRIMARY KEY (ReactionID),
+
+    UNIQUE KEY uq_reactions_user_post (UserID, PostID),
+
+    KEY idx_reactions_post (PostID),
+    KEY idx_reactions_user (UserID),
+    KEY idx_reactions_type (ReactionType),
+
+    CONSTRAINT fk_reactions_post
+        FOREIGN KEY (PostID)
+        REFERENCES POSTS(PostID)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+
+    CONSTRAINT fk_reactions_user
+        FOREIGN KEY (UserID)
+        REFERENCES USERS(UserID)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE
+
+) ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci;
+
+
+-- ============================================================
+-- POST CATEGORIES
+-- ============================================================
 
 CREATE TABLE Post_Categories (
-post_category_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-post_id INT UNSIGNED NOT NULL,
-category_id INT UNSIGNED NOT NULL,
+    post_category_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
 
-PRIMARY KEY (post_category_id),
-UNIQUE KEY uq_post_category (post_id, category_id),
-KEY idx_post_categories_post (post_id),
-KEY idx_post_categories_category (category_id),
+    post_id INT UNSIGNED NOT NULL,
+    category_id INT UNSIGNED NOT NULL,
 
-CONSTRAINT fk_post_categories_post
-    FOREIGN KEY (post_id) REFERENCES POSTS(PostID)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
+    PRIMARY KEY (post_category_id),
 
-CONSTRAINT fk_post_categories_category
-    FOREIGN KEY (category_id) REFERENCES CATEGORIES(CategoryID)
-    ON DELETE RESTRICT ON UPDATE CASCADE
+    UNIQUE KEY uq_post_category (post_id, category_id),
 
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    KEY idx_post_categories_post (post_id),
+    KEY idx_post_categories_category (category_id),
+
+    CONSTRAINT fk_post_categories_post
+        FOREIGN KEY (post_id)
+        REFERENCES POSTS(PostID)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+
+    CONSTRAINT fk_post_categories_category
+        FOREIGN KEY (category_id)
+        REFERENCES CATEGORIES(CategoryID)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE
+
+) ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci;
+
+
+-- ============================================================
+-- REVIEWS
+-- ============================================================
 
 CREATE TABLE REVIEWS (
-ReviewID INT UNSIGNED NOT NULL AUTO_INCREMENT,
-BookingID INT UNSIGNED NOT NULL,
-UserID INT UNSIGNED NOT NULL,
-EventID INT UNSIGNED NOT NULL,
-Rating INT NOT NULL,
-Comment TEXT NULL,
-Tags VARCHAR(255) NULL,
-WantsContact BOOLEAN NOT NULL DEFAULT FALSE,
-ContactEmail VARCHAR(100) NULL,
-ReviewDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ReviewID INT UNSIGNED NOT NULL AUTO_INCREMENT,
 
-PRIMARY KEY (ReviewID),
-UNIQUE KEY uq_reviews_booking (BookingID),
-KEY idx_reviews_booking (BookingID),
-KEY idx_reviews_user (UserID),
-KEY idx_reviews_event (EventID),
-KEY idx_reviews_date (ReviewDate),
+    BookingID INT UNSIGNED NOT NULL,
+    UserID INT UNSIGNED NOT NULL,
+    EventID INT UNSIGNED NOT NULL,
 
-CONSTRAINT fk_reviews_booking
-    FOREIGN KEY (BookingID) REFERENCES BOOKINGS(BookingID)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
+    Rating INT NOT NULL,
 
-CONSTRAINT fk_reviews_user
-    FOREIGN KEY (UserID) REFERENCES USERS(UserID)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
+    Comment TEXT NULL,
+    Tags VARCHAR(255) NULL,
 
-CONSTRAINT fk_reviews_event
-    FOREIGN KEY (EventID) REFERENCES EVENTS(EventID)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
+    WantsContact BOOLEAN NOT NULL DEFAULT FALSE,
+    ContactEmail VARCHAR(100) NULL,
 
-CONSTRAINT chk_reviews_rating
-    CHECK (Rating BETWEEN 1 AND 5),
+    ReviewDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-CONSTRAINT chk_reviews_contact
-    CHECK (
-        WantsContact = FALSE
-        OR ContactEmail IS NOT NULL
-    )
+    PRIMARY KEY (ReviewID),
 
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    UNIQUE KEY uq_reviews_booking (BookingID),
+
+    KEY idx_reviews_booking (BookingID),
+    KEY idx_reviews_user (UserID),
+    KEY idx_reviews_event (EventID),
+    KEY idx_reviews_date (ReviewDate),
+
+    CONSTRAINT fk_reviews_booking
+        FOREIGN KEY (BookingID)
+        REFERENCES BOOKINGS(BookingID)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+
+    CONSTRAINT fk_reviews_user
+        FOREIGN KEY (UserID)
+        REFERENCES USERS(UserID)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+
+    CONSTRAINT fk_reviews_event
+        FOREIGN KEY (EventID)
+        REFERENCES EVENTS(EventID)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+
+    CONSTRAINT chk_reviews_rating
+        CHECK (Rating BETWEEN 1 AND 5),
+
+    CONSTRAINT chk_reviews_contact
+        CHECK (
+            WantsContact = FALSE
+            OR ContactEmail IS NOT NULL
+        )
+
+) ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci;
+
+
+-- ============================================================
+-- BLOCKS
+-- ============================================================
 
 CREATE TABLE BLOCKS (
-BlockID INT UNSIGNED NOT NULL AUTO_INCREMENT,
-OrganiserID INT UNSIGNED NOT NULL,
-BlockedEmail VARCHAR(100) NOT NULL,
-Reason VARCHAR(255) NULL,
-BlockDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    BlockID INT UNSIGNED NOT NULL AUTO_INCREMENT,
 
-PRIMARY KEY (BlockID),
-UNIQUE KEY uq_blocks_organiser_email (OrganiserID, BlockedEmail),
-KEY idx_blocks_organiser (OrganiserID),
-KEY idx_blocks_email (BlockedEmail),
-KEY idx_blocks_date (BlockDate),
+    OrganiserID INT UNSIGNED NOT NULL,
 
-CONSTRAINT fk_blocks_organiser
-    FOREIGN KEY (OrganiserID) REFERENCES USERS(UserID)
-    ON DELETE RESTRICT ON UPDATE CASCADE
+    BlockedEmail VARCHAR(100) NOT NULL,
 
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    Reason VARCHAR(255) NULL,
+
+    BlockDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (BlockID),
+
+    UNIQUE KEY uq_blocks_organiser_email
+        (OrganiserID, BlockedEmail),
+
+    KEY idx_blocks_organiser (OrganiserID),
+    KEY idx_blocks_email (BlockedEmail),
+    KEY idx_blocks_date (BlockDate),
+
+    CONSTRAINT fk_blocks_organiser
+        FOREIGN KEY (OrganiserID)
+        REFERENCES USERS(UserID)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE
+
+) ENGINE=InnoDB
+DEFAULT CHARSET=utf8mb4
+COLLATE=utf8mb4_unicode_ci;
+
+
+-- ============================================================
+-- FINISH
+-- ============================================================
 
 SET FOREIGN_KEY_CHECKS = 1;
