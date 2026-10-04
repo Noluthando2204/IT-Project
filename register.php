@@ -1,11 +1,15 @@
 <?php
+<<<<<<< HEAD
 include "database-config/connection.php";
 
 $message = "";
 $message_type = "";
+=======
+>>>>>>> origin/main
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
+require_once __DIR__ . '/config/db.php';
 
+<<<<<<< HEAD
     $name = trim($_POST['name'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
@@ -88,17 +92,46 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $check_stmt->close();
         }
     }
+=======
+$message = "";
+
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+
+    $name = trim($_POST["name"]);
+    $email = trim($_POST["email"]);
+    $password = $_POST["password"];
+
+    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+
+    $stmt = $pdo->prepare(
+        "INSERT INTO users (name, email, password)
+         VALUES (?, ?, ?)"
+    );
+
+    $stmt->execute([
+        $name,
+        $email,
+        $hashedPassword
+    ]);
+
+    $message = "Registration successful!";
+>>>>>>> origin/main
 }
 
 $conn->close();
 ?>
 
+<<<<<<< HEAD
 <?php include 'shared-components/header.php'; ?>
 
 <div class="container">
+=======
+<h1>Create EventNest Account</h1>
+>>>>>>> origin/main
 
     <h2>User Registration</h2>
 
+<<<<<<< HEAD
     <?php if (!empty($message)): ?>
 
         <p style="color: <?= $message_type === 'success' ? 'green' : 'red'; ?>">
@@ -106,6 +139,16 @@ $conn->close();
         </p>
 
     <?php endif; ?>
+=======
+    <label>Name</label>
+    <input type="text" name="name" required>
+
+    <label>Email</label>
+    <input type="email" name="email" required>
+
+    <label>Password</label>
+    <input type="password" name="password" required>
+>>>>>>> origin/main
 
     <form method="POST" action="register.php">
 
@@ -116,6 +159,7 @@ $conn->close();
             required
         >
 
+<<<<<<< HEAD
         <br><br>
 
         <input
@@ -148,3 +192,6 @@ $conn->close();
 </div>
 
 <?php include 'shared-components/footer.php'; ?>
+=======
+<p><?= htmlspecialchars($message) ?></p>
+>>>>>>> origin/main

@@ -1,5 +1,66 @@
+
+
 @media (max-width: 768px) {
-    body {
-        font-size: 14px;
+
+    .navbar {
+        flex-direction: column;
+        gap: 15px;
     }
+
+    .navbar nav {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .container {
+        width: 90%;
+    }
+
+    .form-section {
+        width: 100%;
+    }
+
+}
+
+
+
+@media (max-width: 480px) {
+
+    body {
+        font-size: 15px;
+    }
+
+    .navbar h1 {
+        font-size: 24px;
+    }
+
+    .navbar nav {
+        flex-direction: column;
+        width: 100%;
+        text-align: center;
+    }
+
+    .navbar nav a {
+        display: block;
+        padding: 8px;
+    }
+
+    .container {
+        width: 92%;
+        padding: 15px;
+    }
+
+    input,
+    textarea,
+    select,
+    button {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .booking-card {
+        padding: 15px;
+    }
+
 }
