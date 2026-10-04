@@ -1,5 +1,195 @@
-@media (max-width: 768px) {
-    body {
-        font-size: 14px;
+/* ==========================================================================
+   EventNest - styles/responsive.css
+   Owner: Thando
+
+   Loaded after styles/main.css by shared-components/header.php.
+   First pass for the dependency gate: shared header, navigation, role
+   sidebar, footer and the shared layout/component classes. The full
+   page-by-page responsive pass is due with Test 1 (5 October).
+
+   Breakpoints (Screen 54):
+     Tablet  <= 991px
+     Mobile  <= 767px
+   Rule: navigation is never hidden without an accessible replacement.
+   ========================================================================== */
+
+
+/* ==========================================================================
+   TABLET (<= 991px)
+   ========================================================================== */
+
+@media (max-width: 991px) {
+
+    /* Header wraps: brand + actions + Menu button on row one, nav panel below. */
+    .site-header {
+        flex-wrap: wrap;
+        gap: var(--en-space-2);
+        padding: var(--en-space-1) var(--en-space-3);
+    }
+
+    .site-header-actions {
+        order: 2;
+    }
+
+    /* Only collapse the nav when JavaScript can reopen it (.js set in header.php). */
+    .js .nav-toggle[aria-controls="en-primary-nav"] {
+        display: inline-flex;
+        order: 3;
+    }
+
+    .js .site-nav {
+        display: none;
+        order: 4;
+        flex-basis: 100%;
+    }
+
+    .js .site-nav.is-open {
+        display: block;
+    }
+
+    .site-nav-list {
+        flex-direction: column;
+        gap: 0;
+        padding: var(--en-space-1) 0;
+        border-top: 1px solid var(--en-border-light);
+    }
+
+    .site-nav-link {
+        display: block;
+        min-height: 44px;
+        padding: 10px var(--en-space-1);
+        border-bottom: none;
+        border-left: 4px solid transparent;
+    }
+
+    .site-nav-link.active {
+        border-left-color: var(--en-teal);
+    }
+
+    .dashboard-sidebar {
+        width: 200px;
+    }
+
+    .dashboard-main,
+    .page-main {
+        padding: var(--en-space-3);
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .dashboard-columns,
+    .dashboard-columns-secondary {
+        grid-template-columns: 1fr;
+    }
+
+    .event-row {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+
+/* ==========================================================================
+   MOBILE (<= 767px)
+   ========================================================================== */
+
+@media (max-width: 767px) {
+
+    .site-header {
+        padding: var(--en-space-1) var(--en-space-2);
+        min-height: 64px;
+    }
+
+    /* Logo scales proportionally; never clipped or stretched. */
+    .brand-logo {
+        height: 38px;
+    }
+
+    .site-header-start {
+        gap: var(--en-space-1);
+    }
+
+    .site-header-actions {
+        gap: var(--en-space-1);
+    }
+
+    /* Non-functional placeholder; frees space for the account menu. */
+    .header-notifications {
+        display: none;
+    }
+
+    .account-menu-list {
+        min-width: 200px;
+    }
+
+    /* Screen 54: role sidebar collapses behind the header Menu button.
+       Without JavaScript it stays visible as a full-width list. */
+    .js .site-header .nav-toggle[aria-controls="en-role-nav"] {
+        display: inline-flex;
+        order: 3;
+    }
+
+    .dashboard-shell {
+        flex-direction: column;
+    }
+
+    .dashboard-sidebar {
+        width: 100%;
+        padding: var(--en-space-1) 0;
+    }
+
+    .js .dashboard-sidebar {
+        display: none;
+    }
+
+    .js .dashboard-sidebar.is-open {
+        display: block;
+    }
+
+    .sidebar-role {
+        display: none;
+    }
+
+    .dashboard-main,
+    .page-main {
+        padding: var(--en-space-3) var(--en-space-2);
+    }
+
+    h1 {
+        font-size: 1.45rem;
+    }
+
+    /* Stack multi-column layouts into one column. */
+    .stats-grid,
+    .event-row,
+    .booking-row {
+        grid-template-columns: 1fr;
+    }
+
+    .mobile-label {
+        display: block;
+    }
+
+    .welcome-card,
+    .booking-card,
+    .business-profile-content {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .form-actions {
+        flex-direction: column-reverse;
+    }
+
+    .form-actions .btn {
+        width: 100%;
+    }
+
+    .footer-container {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--en-space-2);
+        padding: var(--en-space-3) var(--en-space-2);
     }
 }
