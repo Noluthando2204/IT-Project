@@ -1,9 +1,1 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>User Dashboard</title>
-</head>
-<body>
-    <h1>User Dashboard</h1>
-</body>
-</html>
+
