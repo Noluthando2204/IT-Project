@@ -143,7 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $eligible_bookings = $booking_stmt->fetchAll(PDO::FETCH_ASSOC);
 
                 // Successful paid PAYMENTS deliberately remain Escrow_status='held'. Release is
-                // controlled later by scheduled-taks/escrow.php after the waiting/admin checks.
+                // controlled later by scheduled-tasks/escrow.php after the waiting/admin checks.
                 $pdo->commit();
 
                 $emails_sent = 0;

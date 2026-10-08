@@ -175,4 +175,3 @@ require_once __DIR__ . '/shared-components/header.php';
     </section>
 </main>
 <?php require_once __DIR__ . '/shared-components/footer.php'; ?>
-
