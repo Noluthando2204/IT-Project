@@ -1,49 +1,29 @@
 <?php
-/*
-|--------------------------------------------------------------------------
-| EventNest - shared-components/footer.php
-| Owner: Thando
-|--------------------------------------------------------------------------
-| Shared public footer (Screen 02). Include once at the end of every page,
-| after the page's <main>. Closes the </body></html> opened by header.php.
-|
-| Role pages (those that call en_render_sidebar()) show no footer band,
-| matching Screens 13, 21, 25 and 33; the document is still closed here.
-|
-| Contains public and policy links only - never private attendee,
-| organiser or admin routes. All destinations are fixed internal paths.
-|--------------------------------------------------------------------------
-*/
-
+/* Shared public footer. Page content and dashboard-shell must be closed by the including page. */
 require_once __DIR__ . '/navbar.php';
-
 $en_footer_links = [
-    ['label' => 'Events',  'path' => 'events.php'],
-    ['label' => 'FAQ',     'path' => 'faq.php'],
-    ['label' => 'Terms',   'path' => 'terms.php'],
-    ['label' => 'Privacy', 'path' => 'privacy-policy.php'],
-    ['label' => 'Cookies', 'path' => 'cookie-policy.php'],
+    ['label' => 'Events', 'path' => 'events.php'],
+    ['label' => 'Terms', 'path' => 'pages/terms.php'],
+    ['label' => 'Privacy', 'path' => 'pages/privacy-policy.php'],
+    ['label' => 'Cookies', 'path' => 'pages/cookie-policy.php'],
+    ['label' => 'Contact', 'path' => 'pages/contact.php'],
 ];
 ?>
-<?php if (empty($GLOBALS['en_sidebar_rendered'])): ?>
 <footer class="site-footer">
     <div class="footer-container">
-
-        <?php echo en_nav_link(['label' => 'About EventNest', 'path' => 'about.php'], 'footer-link footer-about'); ?>
-
-        <nav class="footer-links" aria-label="Footer">
-            <ul>
-                <?php foreach ($en_footer_links as $link): ?>
-                    <li><?php echo en_nav_link($link, 'footer-link'); ?></li>
+        <div class="footer-brand">
+            <strong>About EventNest</strong>
+            <p>Connecting people through career and professional-development events.</p>
+            <small>&copy; <?= en_e(date('Y')) ?> EventNest. All rights reserved.</small>
+        </div>
+        <nav aria-label="Footer navigation" class="footer-nav">
+            <ul class="footer-links">
+                <?php foreach ($en_footer_links as $en_footer_link): ?>
+                    <li><a href="<?= en_e(en_url($en_footer_link['path'])) ?>"><?= en_e($en_footer_link['label']) ?></a></li>
                 <?php endforeach; ?>
             </ul>
         </nav>
-
-        <?php echo en_nav_link(['label' => 'Contact us', 'path' => 'contact.php'], 'footer-link footer-contact'); ?>
-
     </div>
 </footer>
-<?php endif; ?>
-
 </body>
 </html>
