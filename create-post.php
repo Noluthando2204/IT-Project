@@ -3,14 +3,15 @@
 // Form for an approved organiser to write an event-linked post.
 // Actual saving is done by post.php.
 //
-// TODO: Cynthia's requireOrganiserVerified() is broken (checks 'approved'
-// but the ERD uses 'verified'). Using requireRole('organiser') for now.
+// Contract (coding guide p.25):
+// create-post.php -> post.php
+// POST event_id, content, media, media_type, hashtags, csrf_token
 
 require_once __DIR__ . '/shared-components/auth.php';
 require_once __DIR__ . '/database-config/connection.php';
 require_once __DIR__ . '/shared-components/functions.php';
 
-requireRole('organiser');
+requireOrganiserVerified();
 
 $userId = (int)$_SESSION['user_id'];
 $page_title = 'Create post';
