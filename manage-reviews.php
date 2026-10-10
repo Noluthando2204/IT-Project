@@ -2,14 +2,13 @@
 // manage-reviews.php
 // Private review page for the logged-in organiser. Only shows reviews on
 // events this organiser owns.
-//
-// TODO: swap to requireOrganiserVerified() after Cynthia fixes auth.php.
+
 
 require_once __DIR__ . '/shared-components/auth.php';
 require_once __DIR__ . '/database-config/connection.php';
 require_once __DIR__ . '/shared-components/functions.php';
 
-requireRole('organiser');
+requireOrganiserVerified();
 
 $userId = (int)$_SESSION['user_id'];
 $page_title = 'Private reviews';
