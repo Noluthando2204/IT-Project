@@ -2,17 +2,16 @@
 // post.php
 // Backend handler for creating and deleting posts. Called by create-post.php.
 //
-// Contract:
+// Accepts:
 //   action=create : event_id, content, media_type, hashtags, media, csrf_token
 //   action=delete : post_id, csrf_token
-//
-// TODO: swap to requireOrganiserVerified() after Cynthia fixes auth.php.
 
 require_once __DIR__ . '/shared-components/auth.php';
 require_once __DIR__ . '/database-config/connection.php';
 require_once __DIR__ . '/shared-components/functions.php';
 
-requireRole('organiser');
+requireOrganiserVerified();
+
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
