@@ -1,17 +1,12 @@
 <?php
 // business-dashboard.php
 // The organiser's private dashboard. Shows counts and quick links.
-//
-// TODO: Cynthia's requireOrganiserVerified() currently checks for the value
-// 'approved', but the ERD stores 'verified', so it redirects real verified
-// organisers away. Using requireRole('organiser') for now so the page works.
-// Swap back to requireOrganiserVerified() after she fixes auth.php.
 
 require_once __DIR__ . '/shared-components/auth.php';
 require_once __DIR__ . '/database-config/connection.php';
 require_once __DIR__ . '/shared-components/functions.php';
 
-requireRole('organiser');
+requireOrganiserVerified();
 
 $userId = (int)$_SESSION['user_id'];
 $page_title = 'Organiser dashboard';
