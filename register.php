@@ -1,197 +1,373 @@
+
+
 <?php
-<<<<<<< HEAD
-include "database-config/connection.php";
+declare(strict_types=1);
 
-$message = "";
-$message_type = "";
-=======
->>>>>>> origin/main
+/*
+|--------------------------------------------------------------------------
+| EventNest - register.php
+|--------------------------------------------------------------------------
+| Creates attendee accounts using the approved USERS table.
+| Requires database-config/connection.php to provide a PDO
+| connection named $pdo.
+*/
 
-require_once __DIR__ . '/config/db.php';
-
-<<<<<<< HEAD
-    $name = trim($_POST['name'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
-
-    // Check that all fields are filled in
-    if (empty($name) || empty($email) || empty($password)) {
-
-        $message = "All fields are required.";
-        $message_type = "error";
-
-    // Check that the email is valid
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-
-        $message = "Please enter a valid email address.";
-        $message_type = "error";
-
-    // Check password length
-    } elseif (strlen($password) < 8) {
-
-        $message = "Password must be at least 8 characters.";
-        $message_type = "error";
-
-    } else {
-
-        // Check if email already exists
-        $check_sql = "SELECT user_id FROM users WHERE email = ?";
-        $check_stmt = $conn->prepare($check_sql);
-
-        if (!$check_stmt) {
-
-            $message = "Database error. Please try again.";
-            $message_type = "error";
-
-        } else {
-
-            $check_stmt->bind_param("s", $email);
-            $check_stmt->execute();
-            $check_stmt->store_result();
-
-            if ($check_stmt->num_rows > 0) {
-
-                $message = "This email is already registered. Please login.";
-                $message_type = "error";
-
-            } else {
-
-                // Hash the password before storing it
-                $password_hash = password_hash($password, PASSWORD_DEFAULT);
-
-                // Insert the new user
-                $insert_sql = "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)";
-                $insert_stmt = $conn->prepare($insert_sql);
-
-                if (!$insert_stmt) {
-
-                    $message = "Database error. Please try again.";
-                    $message_type = "error";
-
-                } else {
-
-                    $insert_stmt->bind_param("sss", $name, $email, $password_hash);
-
-                    if ($insert_stmt->execute()) {
-
-                        $message = "Registration successful! You can login.";
-                        $message_type = "success";
-
-                        header("refresh:2; url=login.php");
-
-                    } else {
-
-                        $message = "Something went wrong. Please try again.";
-                        $message_type = "error";
-                    }
-
-                    $insert_stmt->close();
-                }
-            }
-
-            $check_stmt->close();
-        }
-    }
-=======
-$message = "";
-
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-
-    $name = trim($_POST["name"]);
-    $email = trim($_POST["email"]);
-    $password = $_POST["password"];
-
-    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-
-    $stmt = $pdo->prepare(
-        "INSERT INTO users (name, email, password)
-         VALUES (?, ?, ?)"
-    );
-
-    $stmt->execute([
-        $name,
-        $email,
-        $hashedPassword
-    ]);
-
-    $message = "Registration successful!";
->>>>>>> origin/main
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
 }
 
-$conn->close();
+require_once __DIR__ . '/database-config/connection.php';
+
+$message = '';
+$message_type = 'error';
+
+$fullName = '';
+$email = '';
+
+/*
+|--------------------------------------------------------------------------
+| Redirect already authenticated users
+|--------------------------------------------------------------------------
+*/
+
+if (!empty($_SESSION['user_id'])) {
+    header('Location: my-bookings.php');
+    exit;
+}
+
+/*
+|--------------------------------------------------------------------------
+| CSRF protection
+|--------------------------------------------------------------------------
+*/
+
+if (empty($_SESSION['register_csrf_token'])) {
+    $_SESSION['register_csrf_token'] = bin2hex(
+        random_bytes(32)
+    );
+}
+
+/*
+|--------------------------------------------------------------------------
+| Process registration
+|--------------------------------------------------------------------------
+*/
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $submittedToken = $_POST['csrf_token'] ?? '';
+
+    if (
+        !is_string($submittedToken) ||
+        !hash_equals(
+            $_SESSION['register_csrf_token'],
+            $submittedToken
+        )
+    ) {
+        $message = 'Your session has expired. Please refresh the page and try again.';
+    } else {
+        $fullName = trim($_POST['name'] ?? '');
+        $email = strtolower(trim($_POST['email'] ?? ''));
+        $password = $_POST['password'] ?? '';
+
+        /*
+         * Validate submitted data types.
+         */
+
+        if (
+            !is_string($fullName) ||
+            !is_string($email) ||
+            !is_string($password)
+        ) {
+            $message = 'Please enter valid registration details.';
+        } elseif (
+            $fullName === '' ||
+            !preg_match('//u', $fullName) ||
+            preg_match('/[\x00-\x1F\x7F]/', $fullName)
+        ) {
+            $message = 'Please enter a valid full name.';
+        } elseif (
+            preg_match('/\s/u', $fullName) === 0
+        ) {
+            $message = 'Please enter both your first and last name.';
+        } elseif (strlen($fullName) > 101) {
+            $message = 'Your full name is too long.';
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $message = 'Please enter a valid email address.';
+        } elseif (strlen($email) > 100) {
+            $message = 'Your email address must not exceed 100 characters.';
+        } elseif (
+            strlen($password) < 8 ||
+            strlen($password) > 72
+        ) {
+            $message = 'Your password must be between 8 and 72 bytes.';
+        } else {
+            /*
+             * Split the full name into the approved database fields.
+             * The first word becomes FirstName; remaining words
+             * become LastName.
+             */
+
+            $nameParts = preg_split(
+                '/\s+/u',
+                $fullName,
+                -1,
+                PREG_SPLIT_NO_EMPTY
+            );
+
+            if ($nameParts === false || count($nameParts) < 2) {
+                $message = 'Please enter your first and last name.';
+            } else {
+                $firstName = array_shift($nameParts);
+                $lastName = implode(' ', $nameParts);
+
+                if (
+                    mb_strlen($firstName, 'UTF-8') > 50 ||
+                    mb_strlen($lastName, 'UTF-8') > 50
+                ) {
+                    $message = 'Your first or last name exceeds the allowed length.';
+                } else {
+                    try {
+                        /*
+                         * Check for an existing email.
+                         * The database UNIQUE constraint remains
+                         * the final protection against duplicates.
+                         */
+
+                        $checkStatement = $pdo->prepare(
+                            'SELECT UserID
+                             FROM USERS
+                             WHERE Email = :email
+                             LIMIT 1'
+                        );
+
+                        $checkStatement->execute([
+                            ':email' => $email
+                        ]);
+
+                        if ($checkStatement->fetchColumn() !== false) {
+                            $message = 'An account with this email address already exists.';
+                        } else {
+                            /*
+                             * Never store the original password.
+                             */
+
+                            $passwordHash = password_hash(
+                                $password,
+                                PASSWORD_DEFAULT
+                            );
+
+                            if ($passwordHash === false) {
+                                throw new RuntimeException(
+                                    'Password hashing failed.'
+                                );
+                            }
+
+                            /*
+                             * Use schema-approved defaults:
+                             * Role = attendee
+                             * UserStatus = active
+                             * VerificationStatus = unverified
+                             * Is_email_verified = FALSE
+                             *
+                             * These values are set explicitly so
+                             * registration cannot assign privileged
+                             * roles through submitted form data.
+                             */
+
+                            $insertStatement = $pdo->prepare(
+                                'INSERT INTO USERS (
+                                    FirstName,
+                                    LastName,
+                                    Email,
+                                    PasswordHash,
+                                    Role,
+                                    UserStatus,
+                                    VerificationStatus,
+                                    Is_email_verified
+                                ) VALUES (
+                                    :first_name,
+                                    :last_name,
+                                    :email,
+                                    :password_hash,
+                                    :role,
+                                    :user_status,
+                                    :verification_status,
+                                    :email_verified
+                                )'
+                            );
+
+                            $insertStatement->execute([
+                                ':first_name' => $firstName,
+                                ':last_name' => $lastName,
+                                ':email' => $email,
+                                ':password_hash' => $passwordHash,
+                                ':role' => 'attendee',
+                                ':user_status' => 'active',
+                                ':verification_status' => 'unverified',
+                                ':email_verified' => 0
+                            ]);
+
+                            /*
+                             * Rotate the CSRF token after success.
+                             */
+
+                            $_SESSION['register_csrf_token'] =
+                                bin2hex(random_bytes(32));
+
+                            /*
+                             * Do not automatically authenticate the
+                             * new account or mark its email verified.
+                             */
+
+                            header('Location: login.php?registered=1');
+                            exit;
+                        }
+                    } catch (PDOException $exception) {
+                        /*
+                         * Handle a duplicate email that may have
+                         * been inserted concurrently by another request.
+                         * MySQL duplicate-key error: SQLSTATE 23000,
+                         * driver error 1062.
+                         */
+
+                        $errorInfo = $exception->errorInfo ?? [];
+
+                        if (
+                            $exception->getCode() === '23000' &&
+                            isset($errorInfo[1]) &&
+                            (int) $errorInfo[1] === 1062
+                        ) {
+                            $message = 'An account with this email address already exists.';
+                        } else {
+                            error_log(
+                                'EventNest registration database error: ' .
+                                $exception->getMessage()
+                            );
+
+                            $message = 'Registration could not be completed. Please try again later.';
+                        }
+                    } catch (Throwable $exception) {
+                        error_log(
+                            'EventNest registration error: ' .
+                            $exception->getMessage()
+                        );
+
+                        $message = 'Registration could not be completed. Please try again later.';
+                    }
+                }
+            }
+        }
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| Shared EventNest layout
+|--------------------------------------------------------------------------
+*/
+
+require_once __DIR__ . '/shared-components/header.php';
+require_once __DIR__ . '/shared-components/navbar.php';
 ?>
 
-<<<<<<< HEAD
-<?php include 'shared-components/header.php'; ?>
+<main class="auth-container">
+    <h1>Create your EventNest account</h1>
 
-<div class="container">
-=======
-<h1>Create EventNest Account</h1>
->>>>>>> origin/main
+    <p>
+        Register to discover and book career-related events.
+    </p>
 
-    <h2>User Registration</h2>
-
-<<<<<<< HEAD
-    <?php if (!empty($message)): ?>
-
-        <p style="color: <?= $message_type === 'success' ? 'green' : 'red'; ?>">
-            <?= htmlspecialchars($message); ?>
+    <?php if ($message !== ''): ?>
+        <p
+            class="form-message form-message--<?= htmlspecialchars(
+                $message_type,
+                ENT_QUOTES,
+                'UTF-8'
+            ); ?>"
+            role="alert"
+        >
+            <?= htmlspecialchars(
+                $message,
+                ENT_QUOTES,
+                'UTF-8'
+            ); ?>
         </p>
-
     <?php endif; ?>
-=======
-    <label>Name</label>
-    <input type="text" name="name" required>
-
-    <label>Email</label>
-    <input type="email" name="email" required>
-
-    <label>Password</label>
-    <input type="password" name="password" required>
->>>>>>> origin/main
 
     <form method="POST" action="register.php">
-
         <input
-            type="text"
-            name="name"
-            placeholder="Full Name"
-            required
+            type="hidden"
+            name="csrf_token"
+            value="<?= htmlspecialchars(
+                $_SESSION['register_csrf_token'],
+                ENT_QUOTES,
+                'UTF-8'
+            ); ?>"
         >
 
-<<<<<<< HEAD
-        <br><br>
+        <div class="form-group">
+            <label for="name">Full name</label>
 
-        <input
-            type="email"
-            name="email"
-            placeholder="Email Address"
-            required
-        >
+            <input
+                type="text"
+                id="name"
+                name="name"
+                autocomplete="name"
+                maxlength="101"
+                value="<?= htmlspecialchars(
+                    $fullName,
+                    ENT_QUOTES,
+                    'UTF-8'
+                ); ?>"
+                required
+            >
+        </div>
 
-        <br><br>
+        <div class="form-group">
+            <label for="email">Email address</label>
 
-        <input
-            type="password"
-            name="password"
-            placeholder="Password"
-            required
-        >
+            <input
+                type="email"
+                id="email"
+                name="email"
+                autocomplete="email"
+                maxlength="100"
+                value="<?= htmlspecialchars(
+                    $email,
+                    ENT_QUOTES,
+                    'UTF-8'
+                ); ?>"
+                required
+            >
+        </div>
 
-        <br><br>
+        <div class="form-group">
+            <label for="password">Password</label>
 
-        <button type="submit">Register</button>
+            <input
+                type="password"
+                id="password"
+                name="password"
+                autocomplete="new-password"
+                minlength="8"
+                maxlength="72"
+                required
+            >
 
+            <small>
+                Enter a password of at least 8 characters.
+            </small>
+        </div>
+
+        <button type="submit">
+            Create account
+        </button>
     </form>
 
     <p>
         Already have an account?
-        <a href="login.php">Login here</a>
+        <a href="login.php">Log in</a>
     </p>
+</main>
 
-</div>
-
-<?php include 'shared-components/footer.php'; ?>
-=======
-<p><?= htmlspecialchars($message) ?></p>
->>>>>>> origin/main
+<?php require_once __DIR__ . '/shared-components/footer.php'; ?>
