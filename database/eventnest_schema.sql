@@ -1,8 +1,10 @@
+
 CREATE DATABASE IF NOT EXISTS eventnest
 CHARACTER SET utf8mb4
 COLLATE utf8mb4_unicode_ci;
 
 USE eventnest;
+
 
 SET FOREIGN_KEY_CHECKS = 0;
 
@@ -32,6 +34,7 @@ CREATE TABLE CATEGORIES (
     Description TEXT NULL,
 
     PRIMARY KEY (CategoryID),
+
     UNIQUE KEY uq_categories_name (CategoryName)
 
 ) ENGINE=InnoDB
@@ -59,28 +62,29 @@ CREATE TABLE USERS (
     Role ENUM('attendee','organiser','admin')
         NOT NULL DEFAULT 'attendee',
 
-    -- Includes rejected because the approved admin verification flow
-    -- explicitly supports approve/reject decisions.
-    VerificationStatus ENUM('unverified','pending','verified','rejected')
+    VerificationStatus ENUM('unverified','pending','verified')
         NOT NULL DEFAULT 'unverified',
 
-    -- Approved extension for the protected organiser verification upload.
+    -- Path/reference to the organiser verification document.
     Verification_docs_path VARCHAR(255) NULL,
 
     RecommendationOptIn BOOLEAN NOT NULL DEFAULT FALSE,
 
-    -- Approved moderation/suspension extensions.
+    -- Account moderation and suspension tracking.
     Blocks_count INT NOT NULL DEFAULT 0,
     Suspension_count INT NOT NULL DEFAULT 0,
     Suspension_start_date DATETIME NULL,
 
+    -- Email verification status.
     Is_email_verified BOOLEAN NOT NULL DEFAULT FALSE,
 
     CreatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     LastLoginAt DATETIME NULL,
 
-    -- Approved organiser verification-fee extension.
+    -- Approved prototype extension for organiser
+    -- verification-fee tracking.
     VerificationFeePaidAt DATETIME NULL,
+
     VerificationFeePaidUntil DATETIME NULL,
 
     VerificationFeePaymentStatus
@@ -96,14 +100,7 @@ CREATE TABLE USERS (
     KEY idx_users_email (Email),
     KEY idx_users_status (UserStatus),
     KEY idx_users_role (Role),
-    KEY idx_users_verification_status (VerificationStatus),
-    KEY idx_users_verification_fee_until (VerificationFeePaidUntil),
-
-    CONSTRAINT chk_users_blocks_count
-        CHECK (Blocks_count >= 0),
-
-    CONSTRAINT chk_users_suspension_count
-        CHECK (Suspension_count >= 0)
+    KEY idx_users_verification_status (VerificationStatus)
 
 ) ENGINE=InnoDB
 DEFAULT CHARSET=utf8mb4
@@ -134,7 +131,7 @@ CREATE TABLE EVENTS (
 
     Hashtags VARCHAR(255) NULL,
 
-    -- Final team/ERD field name.
+    -- Final ERD field name.
     CareerGoalType ENUM('none','field','email_domain')
         NOT NULL DEFAULT 'none',
 
@@ -262,9 +259,6 @@ CREATE TABLE TICKETS (
 
     PRIMARY KEY (TicketID),
 
-    -- One row per ticket tier for a given event.
-    UNIQUE KEY uq_tickets_event_type (EventID, TicketType),
-
     KEY idx_tickets_event (EventID),
     KEY idx_tickets_type (TicketType),
 
@@ -313,9 +307,12 @@ CREATE TABLE BOOKINGS (
     TicketID INT UNSIGNED NOT NULL,
 
     BookingDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
     Quantity INT NOT NULL,
+
     TotalAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
 
+    -- Approved booking status values.
     Status ENUM(
         'pending',
         'paid',
@@ -376,7 +373,9 @@ CREATE TABLE PAYMENTS (
     BookingID INT UNSIGNED NOT NULL,
 
     PaymentDate DATETIME NULL,
+
     Amount DECIMAL(10,2) NOT NULL,
+
     PaymentMethod VARCHAR(50) NULL,
 
     PaymentStatus ENUM(
@@ -387,7 +386,7 @@ CREATE TABLE PAYMENTS (
 
     TransactionID VARCHAR(100) NULL,
 
-    -- Approved simulated escrow extension.
+    -- Simulated escrow used by EventNest.
     Escrow_status ENUM(
         'held',
         'released',
@@ -396,11 +395,7 @@ CREATE TABLE PAYMENTS (
 
     PRIMARY KEY (PaymentID),
 
-    -- BookingID is intentionally NOT UNIQUE:
-    -- Retry Payment may create multiple payment-attempt records
-    -- while reusing the same BookingID.
     KEY idx_payments_booking (BookingID),
-
     KEY idx_payments_status (PaymentStatus),
     KEY idx_payments_date (PaymentDate),
     KEY idx_payments_transaction (TransactionID),
@@ -437,6 +432,7 @@ CREATE TABLE POSTS (
     Media VARCHAR(255) NULL,
 
     Hashtags VARCHAR(255) NULL,
+
     PostDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY (PostID),
@@ -615,8 +611,11 @@ CREATE TABLE BLOCKS (
     BlockID INT UNSIGNED NOT NULL AUTO_INCREMENT,
 
     OrganiserID INT UNSIGNED NOT NULL,
+
     BlockedEmail VARCHAR(100) NOT NULL,
+
     Reason VARCHAR(255) NULL,
+
     BlockDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY (BlockID),
@@ -637,5 +636,10 @@ CREATE TABLE BLOCKS (
 ) ENGINE=InnoDB
 DEFAULT CHARSET=utf8mb4
 COLLATE=utf8mb4_unicode_ci;
+
+
+-- ============================================================
+-- FINISH
+-- ============================================================
 
 SET FOREIGN_KEY_CHECKS = 1;
