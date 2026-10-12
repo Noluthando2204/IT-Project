@@ -310,7 +310,7 @@ if ($attendee) {
 $page_title = 'Home';
 require_once __DIR__ . '/shared-components/header.php';
 ?>
-<main class="page-content home-page">
+<main class="page-content home-page" id="main-content">
     <section class="hero" aria-labelledby="home-heading">
         <div class="hero__content">
             <?php if ($attendee): ?>
