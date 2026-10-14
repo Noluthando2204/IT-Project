@@ -1,6 +1,6 @@
 CREATE DATABASE IF NOT EXISTS eventnest
-CHARACTER SET utf8mb4
-COLLATE utf8mb4_unicode_ci;
+    CHARACTER SET utf8mb4
+    COLLATE utf8mb4_unicode_ci;
 
 USE eventnest;
 
@@ -21,11 +21,6 @@ DROP TABLE IF EXISTS CATEGORIES;
 
 SET FOREIGN_KEY_CHECKS = 1;
 
-
--- ============================================================
--- CATEGORIES
--- ============================================================
-
 CREATE TABLE CATEGORIES (
     CategoryID INT UNSIGNED NOT NULL AUTO_INCREMENT,
     CategoryName VARCHAR(100) NOT NULL,
@@ -33,15 +28,9 @@ CREATE TABLE CATEGORIES (
 
     PRIMARY KEY (CategoryID),
     UNIQUE KEY uq_categories_name (CategoryName)
-
 ) ENGINE=InnoDB
-DEFAULT CHARSET=utf8mb4
-COLLATE=utf8mb4_unicode_ci;
-
-
--- ============================================================
--- USERS
--- ============================================================
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE USERS (
     UserID INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -59,19 +48,19 @@ CREATE TABLE USERS (
     Role ENUM('attendee','organiser','admin')
         NOT NULL DEFAULT 'attendee',
 
-    -- Includes rejected because the approved admin verification flow
-    -- explicitly supports approve/reject decisions.
+    -- "rejected" is retained because the approved admin verification flow
+    -- and supports an approve/reject decision.
     VerificationStatus ENUM('unverified','pending','verified','rejected')
         NOT NULL DEFAULT 'unverified',
 
-    -- Approved extension for the protected organiser verification upload.
+    -- Approved operational extension for private organiser verification uploads.
     Verification_docs_path VARCHAR(255) NULL,
 
     RecommendationOptIn BOOLEAN NOT NULL DEFAULT FALSE,
 
-    -- Approved moderation/suspension extensions.
-    Blocks_count INT NOT NULL DEFAULT 0,
-    Suspension_count INT NOT NULL DEFAULT 0,
+    -- Approved moderation/suspension extensions used by the block workflow.
+    Blocks_count INT UNSIGNED NOT NULL DEFAULT 0,
+    Suspension_count INT UNSIGNED NOT NULL DEFAULT 0,
     Suspension_start_date DATETIME NULL,
 
     Is_email_verified BOOLEAN NOT NULL DEFAULT FALSE,
@@ -79,44 +68,38 @@ CREATE TABLE USERS (
     CreatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     LastLoginAt DATETIME NULL,
 
-    -- Approved organiser verification-fee extension.
+    -- Approved annual organiser-verification-fee extension.
     VerificationFeePaidAt DATETIME NULL,
     VerificationFeePaidUntil DATETIME NULL,
-
     VerificationFeePaymentStatus
         ENUM('unpaid','pending','paid','failed')
         NOT NULL DEFAULT 'unpaid',
-
     VerificationFeeGatewayReference VARCHAR(100) NULL,
 
     PRIMARY KEY (UserID),
-
     UNIQUE KEY uq_users_email (Email),
-
-    KEY idx_users_email (Email),
     KEY idx_users_status (UserStatus),
     KEY idx_users_role (Role),
     KEY idx_users_verification_status (VerificationStatus),
     KEY idx_users_verification_fee_until (VerificationFeePaidUntil),
+    KEY idx_users_suspension_start (Suspension_start_date),
 
     CONSTRAINT chk_users_blocks_count
         CHECK (Blocks_count >= 0),
-
     CONSTRAINT chk_users_suspension_count
-        CHECK (Suspension_count >= 0)
-
+        CHECK (Suspension_count >= 0),
+    CONSTRAINT chk_users_verification_fee_dates
+        CHECK (
+            VerificationFeePaidUntil IS NULL
+            OR VerificationFeePaidAt IS NULL
+            OR VerificationFeePaidUntil >= VerificationFeePaidAt
+        )
 ) ENGINE=InnoDB
-DEFAULT CHARSET=utf8mb4
-COLLATE=utf8mb4_unicode_ci;
-
-
--- ============================================================
--- EVENTS
--- ============================================================
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE EVENTS (
     EventID INT UNSIGNED NOT NULL AUTO_INCREMENT,
-
     OrganiserID INT UNSIGNED NOT NULL,
     CategoryID INT UNSIGNED NOT NULL,
 
@@ -129,12 +112,9 @@ CREATE TABLE EVENTS (
     Status ENUM('draft','published','completed','canceled')
         NOT NULL DEFAULT 'draft',
 
-    Format ENUM('online','physical','hybrid')
-        NOT NULL,
-
+    Format ENUM('online','physical','hybrid') NOT NULL,
     Hashtags VARCHAR(255) NULL,
 
-    -- Final team/ERD field name.
     CareerGoalType ENUM('none','field','email_domain')
         NOT NULL DEFAULT 'none',
 
@@ -145,12 +125,10 @@ CREATE TABLE EVENTS (
     Province VARCHAR(100) NULL,
 
     Created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UpdatedAt DATETIME NULL
-        DEFAULT CURRENT_TIMESTAMP
+    UpdatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
         ON UPDATE CURRENT_TIMESTAMP,
 
     PRIMARY KEY (EventID),
-
     KEY idx_events_organiser (OrganiserID),
     KEY idx_events_category (CategoryID),
     KEY idx_events_allowed_career_field (AllowedCareerField),
@@ -180,50 +158,35 @@ CREATE TABLE EVENTS (
 
     CONSTRAINT chk_events_gate_fields
         CHECK (
-            (
-                CareerGoalType = 'none'
+            (CareerGoalType = 'none'
                 AND AllowedCareerField IS NULL
-                AND AllowedEmailDomain IS NULL
-            )
+                AND AllowedEmailDomain IS NULL)
             OR
-            (
-                CareerGoalType = 'field'
+            (CareerGoalType = 'field'
                 AND AllowedCareerField IS NOT NULL
-                AND AllowedEmailDomain IS NULL
-            )
+                AND AllowedEmailDomain IS NULL)
             OR
-            (
-                CareerGoalType = 'email_domain'
+            (CareerGoalType = 'email_domain'
                 AND AllowedCareerField IS NULL
                 AND AllowedEmailDomain IS NOT NULL
-            )
+                AND CHAR_LENGTH(TRIM(AllowedEmailDomain)) > 0)
         )
-
 ) ENGINE=InnoDB
-DEFAULT CHARSET=utf8mb4
-COLLATE=utf8mb4_unicode_ci;
-
-
--- ============================================================
--- USER EVENT RECOMMENDATIONS
--- ============================================================
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE USER_EVENT_RECOMMENDATIONS (
     RecommendationID INT UNSIGNED NOT NULL AUTO_INCREMENT,
-
     UserID INT UNSIGNED NOT NULL,
     EventID INT UNSIGNED NOT NULL,
 
     SimilarityScore DECIMAL(5,4) NULL,
     ModelName VARCHAR(100) NULL,
-
     GeneratedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    ExpiresAt DATETIME NULL,
+    ExpiresAt DATETIME NOT NULL,
 
     PRIMARY KEY (RecommendationID),
-
     UNIQUE KEY uq_user_event_recommendation (UserID, EventID),
-
     KEY idx_recommendations_user (UserID),
     KEY idx_recommendations_event (EventID),
     KEY idx_recommendations_expires (ExpiresAt),
@@ -238,33 +201,29 @@ CREATE TABLE USER_EVENT_RECOMMENDATIONS (
         FOREIGN KEY (EventID)
         REFERENCES EVENTS(EventID)
         ON DELETE RESTRICT
-        ON UPDATE CASCADE
+        ON UPDATE CASCADE,
 
+    CONSTRAINT chk_recommendations_score
+        CHECK (SimilarityScore IS NULL OR (SimilarityScore >= 0 AND SimilarityScore <= 1)),
+
+    CONSTRAINT chk_recommendations_expiry
+        CHECK (ExpiresAt > GeneratedAt)
 ) ENGINE=InnoDB
-DEFAULT CHARSET=utf8mb4
-COLLATE=utf8mb4_unicode_ci;
-
-
--- ============================================================
--- TICKETS
--- ============================================================
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE TICKETS (
     TicketID INT UNSIGNED NOT NULL AUTO_INCREMENT,
-
     EventID INT UNSIGNED NOT NULL,
 
     TicketType VARCHAR(50) NOT NULL,
     Price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-    QuantityAvailable INT NOT NULL,
-    Capacity INT NOT NULL,
+    QuantityAvailable INT UNSIGNED NOT NULL,
+    Capacity INT UNSIGNED NOT NULL,
     Description VARCHAR(255) NULL,
 
     PRIMARY KEY (TicketID),
-
-    -- One row per ticket tier for a given event.
     UNIQUE KEY uq_tickets_event_type (EventID, TicketType),
-
     KEY idx_tickets_event (EventID),
     KEY idx_tickets_type (TicketType),
 
@@ -276,61 +235,33 @@ CREATE TABLE TICKETS (
 
     CONSTRAINT chk_tickets_price
         CHECK (Price >= 0),
-
     CONSTRAINT chk_tickets_capacity
         CHECK (Capacity > 0),
-
     CONSTRAINT chk_tickets_quantity
-        CHECK (
-            QuantityAvailable >= 0
-            AND QuantityAvailable <= Capacity
-        ),
-
+        CHECK (QuantityAvailable <= Capacity),
     CONSTRAINT chk_tickets_type
-        CHECK (
-            TicketType IN (
-                'General',
-                'VIP',
-                'Early Bird',
-                'Student'
-            )
-        )
-
+        CHECK (TicketType IN ('General','VIP','Early Bird','Student'))
 ) ENGINE=InnoDB
-DEFAULT CHARSET=utf8mb4
-COLLATE=utf8mb4_unicode_ci;
-
-
--- ============================================================
--- BOOKINGS
--- ============================================================
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE BOOKINGS (
     BookingID INT UNSIGNED NOT NULL AUTO_INCREMENT,
-
     EventID INT UNSIGNED NOT NULL,
     UserID INT UNSIGNED NOT NULL,
     TicketID INT UNSIGNED NOT NULL,
 
     BookingDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    Quantity INT NOT NULL,
+    Quantity INT UNSIGNED NOT NULL,
     TotalAmount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
 
-    Status ENUM(
-        'pending',
-        'paid',
-        'failed',
-        'refunded',
-        'canceled'
-    ) NOT NULL DEFAULT 'pending',
+    Status ENUM('pending','paid','failed','refunded','canceled')
+        NOT NULL DEFAULT 'pending',
 
     BookingReference VARCHAR(50) NOT NULL,
 
     PRIMARY KEY (BookingID),
-
     UNIQUE KEY uq_bookings_reference (BookingReference),
-
-    KEY idx_bookings_reference (BookingReference),
     KEY idx_bookings_event (EventID),
     KEY idx_bookings_user (UserID),
     KEY idx_bookings_ticket (TicketID),
@@ -357,54 +288,31 @@ CREATE TABLE BOOKINGS (
 
     CONSTRAINT chk_bookings_quantity
         CHECK (Quantity > 0),
-
     CONSTRAINT chk_bookings_total
         CHECK (TotalAmount >= 0)
-
 ) ENGINE=InnoDB
-DEFAULT CHARSET=utf8mb4
-COLLATE=utf8mb4_unicode_ci;
-
-
--- ============================================================
--- PAYMENTS
--- ============================================================
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE PAYMENTS (
     PaymentID INT UNSIGNED NOT NULL AUTO_INCREMENT,
-
     BookingID INT UNSIGNED NOT NULL,
 
     PaymentDate DATETIME NULL,
     Amount DECIMAL(10,2) NOT NULL,
     PaymentMethod VARCHAR(50) NULL,
 
-    PaymentStatus ENUM(
-        'success',
-        'failed',
-        'refunded'
-    ) NOT NULL,
-
+    PaymentStatus ENUM('success','failed','refunded') NOT NULL,
     TransactionID VARCHAR(100) NULL,
 
-    -- Approved simulated escrow extension.
-    Escrow_status ENUM(
-        'held',
-        'released',
-        'refunded'
-    ) NULL,
+    Escrow_status ENUM('held','released','refunded') NULL,
 
     PRIMARY KEY (PaymentID),
-
-    -- BookingID is intentionally NOT UNIQUE:
-    -- Retry Payment may create multiple payment-attempt records
-    -- while reusing the same BookingID.
     KEY idx_payments_booking (BookingID),
-
     KEY idx_payments_status (PaymentStatus),
     KEY idx_payments_date (PaymentDate),
     KEY idx_payments_transaction (TransactionID),
-
+    KEY idx_payments_escrow (Escrow_status),
     UNIQUE KEY uq_payments_transaction (TransactionID),
 
     CONSTRAINT fk_payments_booking
@@ -414,36 +322,36 @@ CREATE TABLE PAYMENTS (
         ON UPDATE CASCADE,
 
     CONSTRAINT chk_payments_amount
-        CHECK (Amount >= 0)
+        CHECK (Amount >= 0),
 
+    CONSTRAINT chk_payments_escrow_state
+        CHECK (
+            (PaymentStatus = 'failed' AND Escrow_status IS NULL)
+            OR
+            (PaymentStatus = 'success' AND Escrow_status IN ('held','released'))
+            OR
+            (PaymentStatus = 'refunded' AND Escrow_status = 'refunded')
+        )
 ) ENGINE=InnoDB
-DEFAULT CHARSET=utf8mb4
-COLLATE=utf8mb4_unicode_ci;
-
-
--- ============================================================
--- POSTS
--- ============================================================
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE POSTS (
     PostID INT UNSIGNED NOT NULL AUTO_INCREMENT,
-
     EventID INT UNSIGNED NOT NULL,
     OrganiserID INT UNSIGNED NOT NULL,
 
     Content TEXT NULL,
-
     Media_type ENUM('image','video') NULL,
     Media VARCHAR(255) NULL,
-
     Hashtags VARCHAR(255) NULL,
     PostDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY (PostID),
-
     KEY idx_posts_event (EventID),
     KEY idx_posts_organiser (OrganiserID),
     KEY idx_posts_date (PostDate),
+    KEY idx_posts_media_type (Media_type),
 
     CONSTRAINT fk_posts_event
         FOREIGN KEY (EventID)
@@ -457,39 +365,32 @@ CREATE TABLE POSTS (
         ON DELETE RESTRICT
         ON UPDATE CASCADE,
 
-    CONSTRAINT chk_posts_media_type
+    CONSTRAINT chk_posts_media_pair
         CHECK (
-            Media IS NULL
-            OR Media_type IS NOT NULL
+            (Media IS NULL AND Media_type IS NULL)
+            OR
+            (Media IS NOT NULL AND Media_type IS NOT NULL)
+        ),
+
+    CONSTRAINT chk_posts_content_or_media
+        CHECK (
+            (Content IS NOT NULL AND CHAR_LENGTH(TRIM(Content)) > 0)
+            OR Media IS NOT NULL
         )
-
 ) ENGINE=InnoDB
-DEFAULT CHARSET=utf8mb4
-COLLATE=utf8mb4_unicode_ci;
-
-
--- ============================================================
--- REACTIONS
--- ============================================================
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE REACTIONS (
     ReactionID INT UNSIGNED NOT NULL AUTO_INCREMENT,
-
     PostID INT UNSIGNED NOT NULL,
     UserID INT UNSIGNED NOT NULL,
 
-    ReactionType ENUM(
-        'thumbs_up',
-        'clap',
-        'lightbulb'
-    ) NOT NULL,
-
+    ReactionType ENUM('thumbs_up','clap','lightbulb') NOT NULL,
     ReactionDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY (ReactionID),
-
     UNIQUE KEY uq_reactions_user_post (UserID, PostID),
-
     KEY idx_reactions_post (PostID),
     KEY idx_reactions_user (UserID),
     KEY idx_reactions_type (ReactionType),
@@ -505,26 +406,17 @@ CREATE TABLE REACTIONS (
         REFERENCES USERS(UserID)
         ON DELETE RESTRICT
         ON UPDATE CASCADE
-
 ) ENGINE=InnoDB
-DEFAULT CHARSET=utf8mb4
-COLLATE=utf8mb4_unicode_ci;
-
-
--- ============================================================
--- POST CATEGORIES
--- ============================================================
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE Post_Categories (
     post_category_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-
     post_id INT UNSIGNED NOT NULL,
     category_id INT UNSIGNED NOT NULL,
 
     PRIMARY KEY (post_category_id),
-
     UNIQUE KEY uq_post_category (post_id, category_id),
-
     KEY idx_post_categories_post (post_id),
     KEY idx_post_categories_category (category_id),
 
@@ -539,38 +431,26 @@ CREATE TABLE Post_Categories (
         REFERENCES CATEGORIES(CategoryID)
         ON DELETE RESTRICT
         ON UPDATE CASCADE
-
 ) ENGINE=InnoDB
-DEFAULT CHARSET=utf8mb4
-COLLATE=utf8mb4_unicode_ci;
-
-
--- ============================================================
--- REVIEWS
--- ============================================================
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE REVIEWS (
     ReviewID INT UNSIGNED NOT NULL AUTO_INCREMENT,
-
     BookingID INT UNSIGNED NOT NULL,
     UserID INT UNSIGNED NOT NULL,
     EventID INT UNSIGNED NOT NULL,
 
-    Rating INT NOT NULL,
-
+    Rating INT UNSIGNED NOT NULL,
     Comment TEXT NULL,
     Tags VARCHAR(255) NULL,
 
     WantsContact BOOLEAN NOT NULL DEFAULT FALSE,
     ContactEmail VARCHAR(100) NULL,
-
     ReviewDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY (ReviewID),
-
     UNIQUE KEY uq_reviews_booking (BookingID),
-
-    KEY idx_reviews_booking (BookingID),
     KEY idx_reviews_user (UserID),
     KEY idx_reviews_event (EventID),
     KEY idx_reviews_date (ReviewDate),
@@ -596,34 +476,32 @@ CREATE TABLE REVIEWS (
     CONSTRAINT chk_reviews_rating
         CHECK (Rating BETWEEN 1 AND 5),
 
+    CONSTRAINT chk_reviews_content_by_rating
+        CHECK (
+            (Rating >= 4 AND Tags IS NOT NULL AND CHAR_LENGTH(TRIM(Tags)) > 0 AND Comment IS NULL)
+            OR
+            (Rating < 4 AND Comment IS NOT NULL AND CHAR_LENGTH(TRIM(Comment)) > 0 AND Tags IS NULL)
+        ),
+
     CONSTRAINT chk_reviews_contact
         CHECK (
-            WantsContact = FALSE
-            OR ContactEmail IS NOT NULL
+            (WantsContact = FALSE AND ContactEmail IS NULL)
+            OR
+            (WantsContact = TRUE AND ContactEmail IS NOT NULL AND CHAR_LENGTH(TRIM(ContactEmail)) > 0)
         )
-
 ) ENGINE=InnoDB
-DEFAULT CHARSET=utf8mb4
-COLLATE=utf8mb4_unicode_ci;
-
-
--- ============================================================
--- BLOCKS
--- ============================================================
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE BLOCKS (
     BlockID INT UNSIGNED NOT NULL AUTO_INCREMENT,
-
     OrganiserID INT UNSIGNED NOT NULL,
     BlockedEmail VARCHAR(100) NOT NULL,
     Reason VARCHAR(255) NULL,
     BlockDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY (BlockID),
-
-    UNIQUE KEY uq_blocks_organiser_email
-        (OrganiserID, BlockedEmail),
-
+    UNIQUE KEY uq_blocks_organiser_email (OrganiserID, BlockedEmail),
     KEY idx_blocks_organiser (OrganiserID),
     KEY idx_blocks_email (BlockedEmail),
     KEY idx_blocks_date (BlockDate),
@@ -633,9 +511,9 @@ CREATE TABLE BLOCKS (
         REFERENCES USERS(UserID)
         ON DELETE RESTRICT
         ON UPDATE CASCADE
-
 ) ENGINE=InnoDB
-DEFAULT CHARSET=utf8mb4
-COLLATE=utf8mb4_unicode_ci;
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;
+

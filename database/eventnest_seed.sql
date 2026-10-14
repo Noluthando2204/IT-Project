@@ -1,8 +1,5 @@
 USE eventnest;
 
--- ============================================================
--- 1. CATEGORIES
--- ============================================================
 INSERT IGNORE INTO CATEGORIES
     (CategoryID, CategoryName, Description)
 VALUES
@@ -15,11 +12,6 @@ VALUES
     (7, 'Cloud Computing', 'Cloud infrastructure, cloud engineering and related careers.'),
     (8, 'Career Development', 'Graduate, employability and career-development events.');
 
--- ============================================================
--- 2. USERS
--- PasswordHash values are bcrypt test hashes only.
--- No plaintext password is stored in this file.
--- ============================================================
 INSERT IGNORE INTO USERS
 (
     UserID,
@@ -46,7 +38,6 @@ INSERT IGNORE INTO USERS
     VerificationFeeGatewayReference
 )
 VALUES
--- Verified organiser with valid 12-month R99 verification-fee coverage.
 (
     1,
     'Kea',
@@ -71,7 +62,6 @@ VALUES
     'paid',
     'EN-VERIFY-KEAO01'
 ),
--- Pending organiser: registered but not yet allowed to create/publish events.
 (
     2,
     'Mpho',
@@ -96,7 +86,6 @@ VALUES
     'pending',
     'EN-VERIFY-MPHO02'
 ),
--- Active opted-in Technology attendee.
 (
     3,
     'Lethabo',
@@ -121,7 +110,6 @@ VALUES
     'unpaid',
     NULL
 ),
--- Design attendee with one active organiser block. One block is not a suspension.
 (
     4,
     'Priya',
@@ -146,7 +134,6 @@ VALUES
     'unpaid',
     NULL
 ),
--- Active opted-in Dermatology attendee.
 (
     5,
     'Ayanda',
@@ -171,7 +158,6 @@ VALUES
     'unpaid',
     NULL
 ),
--- Administrator test account.
 (
     6,
     'Zion',
@@ -196,7 +182,6 @@ VALUES
     'unpaid',
     NULL
 ),
--- Active Cloud Computing attendee used for field-gated/free-booking tests.
 (
     7,
     'Nandi',
@@ -221,7 +206,6 @@ VALUES
     'unpaid',
     NULL
 ),
--- Second active Design attendee for completed-event/review tests.
 (
     8,
     'Maya',
@@ -246,7 +230,6 @@ VALUES
     'unpaid',
     NULL
 ),
--- Deleted account state fixture; no new active transactions depend on it.
 (
     9,
     'Zola',
@@ -272,10 +255,6 @@ VALUES
     NULL
 );
 
--- ============================================================
--- 3. EVENTS
--- Public/draft examples all belong to the verified organiser.
--- ============================================================
 INSERT IGNORE INTO EVENTS
 (
     EventID,
@@ -296,7 +275,6 @@ INSERT IGNORE INTO EVENTS
     Province
 )
 VALUES
--- Published + featured + physical + no career gate.
 (
     1,
     1,
@@ -315,7 +293,6 @@ VALUES
     TRUE,
     'Gauteng'
 ),
--- Published + non-featured + online + field gate.
 (
     2,
     1,
@@ -334,7 +311,6 @@ VALUES
     FALSE,
     'Gauteng'
 ),
--- Draft + physical + field gate.
 (
     3,
     1,
@@ -353,7 +329,6 @@ VALUES
     FALSE,
     'Gauteng'
 ),
--- Completed event used for completed-booking/review/released-escrow tests.
 (
     4,
     1,
@@ -372,7 +347,6 @@ VALUES
     FALSE,
     'Western Cape'
 ),
--- Canceled + hybrid + email-domain gate.
 (
     5,
     1,
@@ -392,12 +366,6 @@ VALUES
     'KwaZulu-Natal'
 );
 
--- ============================================================
--- 4. USER EVENT RECOMMENDATIONS
--- Only active, opted-in attendees are cached.
--- Only published, upcoming, eligible events are referenced.
--- Cache lifetime is exactly 30 minutes.
--- ============================================================
 INSERT IGNORE INTO USER_EVENT_RECOMMENDATIONS
 (
     RecommendationID,
@@ -409,43 +377,10 @@ INSERT IGNORE INTO USER_EVENT_RECOMMENDATIONS
     ExpiresAt
 )
 VALUES
--- Lethabo can view Event 1 because it has no career/email gate.
-(
-    1,
-    3,
-    1,
-    0.8800,
-    'text-embedding-3-small',
-    NOW(),
-    DATE_ADD(NOW(), INTERVAL 30 MINUTE)
-),
--- Ayanda can also view Event 1 because it has no career/email gate.
-(
-    2,
-    5,
-    1,
-    0.8000,
-    'text-embedding-3-small',
-    NOW(),
-    DATE_ADD(NOW(), INTERVAL 30 MINUTE)
-),
--- Nandi matches the Cloud Computing field gate on Event 2.
-(
-    3,
-    7,
-    2,
-    0.9500,
-    'text-embedding-3-small',
-    NOW(),
-    DATE_ADD(NOW(), INTERVAL 30 MINUTE)
-);
+    (1, 3, 1, 0.8800, 'text-embedding-3-small', NOW(), DATE_ADD(NOW(), INTERVAL 30 MINUTE)),
+    (2, 5, 1, 0.8000, 'text-embedding-3-small', NOW(), DATE_ADD(NOW(), INTERVAL 30 MINUTE)),
+    (3, 7, 2, 0.9500, 'text-embedding-3-small', NOW(), DATE_ADD(NOW(), INTERVAL 30 MINUTE));
 
--- ============================================================
--- 5. TICKETS
--- QuantityAvailable reflects the seeded booking outcomes below:
--- pending and paid bookings reserve/consume capacity;
--- failed/refunded/canceled bookings are treated as restored.
--- ============================================================
 INSERT IGNORE INTO TICKETS
 (
     TicketID,
@@ -457,93 +392,16 @@ INSERT IGNORE INTO TICKETS
     Description
 )
 VALUES
-(
-    1,
-    1,
-    'General',
-    150.00,
-    98,
-    100,
-    'Standard access to the Graduate Career Summit.'
-),
-(
-    2,
-    1,
-    'VIP',
-    250.00,
-    100,
-    100,
-    'VIP access and premium networking area.'
-),
-(
-    3,
-    2,
-    'General',
-    0.00,
-    49,
-    50,
-    'Free online general-access ticket.'
-),
-(
-    4,
-    2,
-    'Student',
-    0.00,
-    50,
-    50,
-    'Free student ticket for eligible attendees.'
-),
-(
-    5,
-    3,
-    'General',
-    100.00,
-    30,
-    30,
-    'General admission to the Creative Design Lab.'
-),
-(
-    6,
-    3,
-    'Student',
-    50.00,
-    50,
-    50,
-    'Discounted student ticket.'
-),
-(
-    7,
-    4,
-    'General',
-    80.00,
-    38,
-    40,
-    'General admission to the completed creative event.'
-),
-(
-    8,
-    4,
-    'VIP',
-    150.00,
-    20,
-    20,
-    'VIP admission to the completed creative event.'
-),
-(
-    9,
-    5,
-    'Early Bird',
-    100.00,
-    30,
-    30,
-    'Early Bird ticket for the canceled event.'
-);
+    (1, 1, 'General', 150.00, 98, 100, 'Standard access to the Graduate Career Summit.'),
+    (2, 1, 'VIP', 250.00, 100, 100, 'VIP access and premium networking area.'),
+    (3, 2, 'General', 0.00, 49, 50, 'Free online general-access ticket.'),
+    (4, 2, 'Student', 0.00, 50, 50, 'Free student ticket for eligible attendees.'),
+    (5, 3, 'General', 100.00, 30, 30, 'General admission to the Creative Design Lab.'),
+    (6, 3, 'Student', 50.00, 50, 50, 'Discounted student ticket.'),
+    (7, 4, 'General', 80.00, 38, 40, 'General admission to the completed creative event.'),
+    (8, 4, 'VIP', 150.00, 20, 20, 'VIP admission to the completed creative event.'),
+    (9, 5, 'Early Bird', 100.00, 30, 30, 'Early Bird ticket for the canceled event.');
 
--- ============================================================
--- 6. BOOKINGS
--- Stored schema statuses are pending, paid, failed, refunded, canceled.
--- Free bookings bypass PayFast but still use the approved stored booking status.
--- ============================================================
 INSERT IGNORE INTO BOOKINGS
 (
     BookingID,
@@ -557,7 +415,6 @@ INSERT IGNORE INTO BOOKINGS
     BookingReference
 )
 VALUES
--- Current pending paid booking; age is below the four-minute timeout.
 (
     1,
     1,
@@ -569,98 +426,14 @@ VALUES
     'pending',
     'EN-BN-0001'
 ),
--- Successful paid future booking.
-(
-    2,
-    1,
-    5,
-    1,
-    '2026-10-03 09:00:00',
-    1,
-    150.00,
-    'paid',
-    'EN-BN-0002'
-),
--- Failed payment test. Priya was active at this booking date.
-(
-    3,
-    1,
-    4,
-    2,
-    '2026-09-29 09:00:00',
-    1,
-    250.00,
-    'failed',
-    'EN-BN-0003'
-),
--- Refunded completed-event booking; attendee satisfies the Design field gate.
-(
-    4,
-    4,
-    8,
-    7,
-    '2026-09-15 12:00:00',
-    1,
-    80.00,
-    'refunded',
-    'EN-CS-0002'
-),
--- Canceled booking for an attendee whose email satisfies the event email-domain gate.
-(
-    5,
-    5,
-    7,
-    9,
-    '2026-10-01 12:00:00',
-    1,
-    100.00,
-    'canceled',
-    'EN-BN-0005'
-),
--- Paid completed-event booking eligible for a private review.
-(
-    6,
-    4,
-    4,
-    7,
-    '2026-09-14 10:00:00',
-    1,
-    80.00,
-    'paid',
-    'EN-CS-0003'
-),
--- Second paid completed-event booking eligible for a private review.
-(
-    7,
-    4,
-    8,
-    7,
-    '2026-09-14 11:00:00',
-    1,
-    80.00,
-    'paid',
-    'EN-CS-0004'
-),
--- Free booking: valid and confirmed in application terms without a PAYMENTS row.
-(
-    8,
-    2,
-    7,
-    3,
-    '2026-10-04 09:00:00',
-    1,
-    0.00,
-    'paid',
-    'EN-FREE-0001'
-);
+(2, 1, 5, 1, '2026-10-03 09:00:00', 1, 150.00, 'paid', 'EN-BN-0002'),
+(3, 1, 4, 2, '2026-09-29 09:00:00', 1, 250.00, 'failed', 'EN-BN-0003'),
+(4, 4, 8, 7, '2026-09-15 12:00:00', 1, 80.00, 'refunded', 'EN-CS-0002'),
+(5, 5, 7, 9, '2026-10-01 12:00:00', 1, 100.00, 'canceled', 'EN-BN-0005'),
+(6, 4, 4, 7, '2026-09-14 10:00:00', 1, 80.00, 'paid', 'EN-CS-0003'),
+(7, 4, 8, 7, '2026-09-14 11:00:00', 1, 80.00, 'paid', 'EN-CS-0004'),
+(8, 2, 7, 3, '2026-10-04 09:00:00', 1, 0.00, 'paid', 'EN-FREE-0001');
 
--- ============================================================
--- 7. PAYMENTS
--- Paid future event -> held escrow.
--- Completed paid events -> released escrow.
--- Refunded booking -> refunded payment/escrow.
--- Free booking intentionally has no payment record.
--- ============================================================
 INSERT IGNORE INTO PAYMENTS
 (
     PaymentID,
@@ -673,62 +446,12 @@ INSERT IGNORE INTO PAYMENTS
     Escrow_status
 )
 VALUES
-(
-    1,
-    2,
-    '2026-10-03 09:02:00',
-    150.00,
-    'PayFast Sandbox',
-    'success',
-    'EN-TXN-0002',
-    'held'
-),
-(
-    2,
-    3,
-    '2026-09-29 09:02:00',
-    250.00,
-    'PayFast Sandbox',
-    'failed',
-    'EN-TXN-0003',
-    NULL
-),
-(
-    3,
-    4,
-    '2026-09-15 12:02:00',
-    80.00,
-    'PayFast Sandbox',
-    'refunded',
-    'EN-TXN-0004',
-    'refunded'
-),
-(
-    4,
-    6,
-    '2026-09-14 10:02:00',
-    80.00,
-    'PayFast Sandbox',
-    'success',
-    'EN-TXN-0006',
-    'released'
-),
-(
-    5,
-    7,
-    '2026-09-14 11:02:00',
-    80.00,
-    'PayFast Sandbox',
-    'success',
-    'EN-TXN-0007',
-    'released'
-);
+    (1, 2, '2026-10-03 09:02:00', 150.00, 'PayFast Sandbox', 'success', 'EN-TXN-0002', 'held'),
+    (2, 3, '2026-09-29 09:02:00', 250.00, 'PayFast Sandbox', 'failed', 'EN-TXN-0003', NULL),
+    (3, 4, '2026-09-15 12:02:00', 80.00, 'PayFast Sandbox', 'refunded', 'EN-TXN-0004', 'refunded'),
+    (4, 6, '2026-09-14 10:02:00', 80.00, 'PayFast Sandbox', 'success', 'EN-TXN-0006', 'released'),
+    (5, 7, '2026-09-14 11:02:00', 80.00, 'PayFast Sandbox', 'success', 'EN-TXN-0007', 'released');
 
--- ============================================================
--- 8. POSTS
--- The image/video files below are demo assets and must
--- exist under uploaded-content/ when media-display testing is performed.
--- ============================================================
 INSERT IGNORE INTO POSTS
 (
     PostID,
@@ -741,7 +464,6 @@ INSERT IGNORE INTO POSTS
     PostDate
 )
 VALUES
--- Text-only Event update.
 (
     1,
     1,
@@ -752,7 +474,6 @@ VALUES
     '#GraduateJobs #CareerDevelopment',
     '2026-10-01 09:00:00'
 ),
--- Image post.
 (
     2,
     2,
@@ -763,22 +484,17 @@ VALUES
     '#CloudCareers #CloudSkills',
     '2026-10-02 10:00:00'
 ),
--- Video post.
 (
     3,
-    3,
     1,
-    'Creative Design Lab short promotional video.',
+    1,
+    'Graduate Career Summit venue walkthrough video.',
     'video',
-    'uploaded-content/eventnest-creative-design-lab.mp4',
-    '#DesignCareers #CreativeDesign',
+    'uploaded-content/eventnest-graduate-career-summit.mp4',
+    '#GraduateJobs #EventVenue',
     '2026-10-03 11:00:00'
 );
 
--- ============================================================
--- 9. REACTIONS
--- One current reaction per UserID/PostID pair.
--- ============================================================
 INSERT IGNORE INTO REACTIONS
 (
     ReactionID,
@@ -788,38 +504,11 @@ INSERT IGNORE INTO REACTIONS
     ReactionDate
 )
 VALUES
-(
-    1,
-    1,
-    3,
-    'thumbs_up',
-    '2026-10-02 09:30:00'
-),
-(
-    2,
-    1,
-    5,
-    'clap',
-    '2026-10-02 09:35:00'
-),
-(
-    3,
-    2,
-    7,
-    'lightbulb',
-    '2026-10-03 10:30:00'
-),
-(
-    4,
-    3,
-    8,
-    'clap',
-    '2026-10-03 12:00:00'
-);
+    (1, 1, 3, 'thumbs_up', '2026-10-02 09:30:00'),
+    (2, 1, 5, 'clap', '2026-10-02 09:35:00'),
+    (3, 2, 7, 'lightbulb', '2026-10-03 10:30:00'),
+    (4, 3, 8, 'clap', '2026-10-03 12:00:00');
 
--- ============================================================
--- 10. POST CATEGORIES
--- ============================================================
 INSERT IGNORE INTO Post_Categories
 (
     post_category_id,
@@ -827,27 +516,10 @@ INSERT IGNORE INTO Post_Categories
     category_id
 )
 VALUES
-(
-    1,
-    1,
-    8
-),
-(
-    2,
-    2,
-    7
-),
-(
-    3,
-    3,
-    3
-);
+    (1, 1, 8),
+    (2, 2, 7),
+    (3, 3, 8);
 
--- ============================================================
--- 11. REVIEWS
--- Rating 4-5 uses Tags; rating below 4 uses Comment.
--- Reviews are private and linked to paid bookings for a completed event.
--- ============================================================
 INSERT IGNORE INTO REVIEWS
 (
     ReviewID,
@@ -862,7 +534,6 @@ INSERT IGNORE INTO REVIEWS
     ReviewDate
 )
 VALUES
--- Positive review: compliment tags only.
 (
     1,
     6,
@@ -875,7 +546,6 @@ VALUES
     NULL,
     '2026-09-21 10:00:00'
 ),
--- Below-4 review: complaint text only, with requested follow-up.
 (
     2,
     7,
@@ -889,12 +559,7 @@ VALUES
     '2026-09-21 11:00:00'
 );
 
--- ============================================================
--- 12. BLOCKS
--- One organiser/email pair only. This shows blocking without
--- pretending that a single organiser can trigger a suspension.
--- Priya has Blocks_count = 1 and remains active.
--- ============================================================
+
 INSERT IGNORE INTO BLOCKS
 (
     BlockID,
@@ -911,3 +576,4 @@ VALUES
     'Repeatedly inappropriate event interactions in a fictional moderation test scenario.',
     '2026-10-01 14:00:00'
 );
+
