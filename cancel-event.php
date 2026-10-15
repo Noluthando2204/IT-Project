@@ -2,8 +2,12 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/database-config/connection.php';
 require_once __DIR__ . '/shared-components/auth.php';
 require_once __DIR__ . '/shared-components/functions.php';
+
+
+//Normalise databse connection
 
 if (!isset($pdo) || !($pdo instanceof PDO)) {
     if (isset($conn) && $conn instanceof PDO) {
@@ -14,342 +18,1386 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
     }
 }
 
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+
+
+//Require verified organiser
+
 $auth_user = require_organiser_verified();
+
 $organiser_id = (int) $auth_user['UserID'];
 
-function cancel_event_id(mixed $value): int
+
+//Local helpers
+
+function cancel_event_positive_id(mixed $value): int
 {
-    return is_string($value) && ctype_digit($value) && (int) $value > 0 ? (int) $value : 0;
+    if (is_int($value)) {
+        return $value > 0 ? $value : 0;
+    }
+
+    if (
+        is_string($value)
+        && ctype_digit($value)
+        && (int) $value > 0
+    ) {
+        return (int) $value;
+    }
+
+    return 0;
 }
 
-function cancel_event_send_email(string $to, string $subject, string $body): bool
-{
+
+//Cancellation email
+
+function cancel_event_send_email(
+    string $to,
+    string $subject,
+    string $body
+): bool {
     if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
         return false;
     }
 
+    //Email helper
+
     if (function_exists('send_eventnest_email')) {
         try {
-            return (bool) send_eventnest_email($to, $subject, $body);
+            return (bool) send_eventnest_email(
+                $to,
+                $subject,
+                $body
+            );
         } catch (Throwable $exception) {
-            error_log('EventNest cancellation email helper failed: ' . get_class($exception));
+            error_log(
+                'EventNest cancellation email helper failed: '
+                . get_class($exception)
+                . ' - '
+                . $exception->getMessage()
+            );
+
             return false;
         }
     }
+
     if (function_exists('sendEmail')) {
         try {
-            return (bool) sendEmail($to, $subject, $body);
+            return (bool) sendEmail(
+                $to,
+                $subject,
+                $body
+            );
         } catch (Throwable $exception) {
-            error_log('EventNest cancellation email helper failed: ' . get_class($exception));
+            error_log(
+                'EventNest cancellation email helper failed: '
+                . get_class($exception)
+                . ' - '
+                . $exception->getMessage()
+            );
+
             return false;
         }
     }
 
-    $from = trim((string) getenv('EVENTNEST_SUPPORT_EMAIL'));
-    if ($from === '' || !filter_var($from, FILTER_VALIDATE_EMAIL)) {
-        error_log('EventNest cancellation email skipped: no configured mail helper/support sender.');
+
+    //PhpMailer falllback
+
+    $autoload = __DIR__ . '/vendor/autoload.php';
+
+    if (!is_file($autoload)) {
+        error_log(
+            'EventNest cancellation email skipped: '
+            . 'Composer autoload.php was not found.'
+        );
+
         return false;
     }
 
-    return @mail($to, $subject, $body, 'From: EventNest <' . $from . '>');
-}
+    require_once $autoload;
 
-function cancel_event_sandbox_refund(array $payment): bool
-{
-    // EventNest is a student prototype. Its escrow/refund behaviour is represented by
-    // sandbox transaction IDs and database states, not by holding real customer money.
-    // The PayFast sandbox merchant portal is used to test the external refund action.
-    // This function records that an eligible sandbox refund was initiated in EventNest;
-    // no card/bank data or secret credential is handled here.
-    if (($payment['PaymentStatus'] ?? '') !== 'success' || empty($payment['TransactionID'])) {
+    if (!class_exists(\PHPMailer\PHPMailer\PHPMailer::class)) {
+        error_log(
+            'EventNest cancellation email skipped: '
+            . 'PHPMailer is unavailable.'
+        );
+
         return false;
     }
 
-    error_log('EventNest sandbox refund initiated for PaymentID ' . (int) $payment['PaymentID']);
-    return true;
+    $host = trim(
+        (string) (getenv('EVENTNEST_SMTP_HOST') ?: 'smtp.gmail.com')
+    );
+
+    $username = trim(
+        (string) getenv('EVENTNEST_SMTP_USER')
+    );
+
+    $password = (string) getenv('EVENTNEST_SMTP_PASS');
+
+    $from = trim(
+        (string) (
+            getenv('EVENTNEST_FROM_EMAIL')
+            ?: $username
+        )
+    );
+
+    $from_name = trim(
+        (string) (
+            getenv('EVENTNEST_FROM_NAME')
+            ?: 'EventNest'
+        )
+    );
+
+    $port = (int) (
+        getenv('EVENTNEST_SMTP_PORT')
+        ?: 587
+    );
+
+    if (
+        $username === ''
+        || $password === ''
+        || !filter_var($from, FILTER_VALIDATE_EMAIL)
+    ) {
+        error_log(
+            'EventNest cancellation email skipped: '
+            . 'SMTP environment settings are incomplete.'
+        );
+
+        return false;
+    }
+
+    try {
+        $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+
+        $mail->isSMTP();
+        $mail->Host = $host;
+        $mail->SMTPAuth = true;
+        $mail->Username = $username;
+        $mail->Password = $password;
+        $mail->SMTPSecure =
+            \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port = $port;
+        $mail->CharSet = 'UTF-8';
+
+        $mail->setFrom(
+            $from,
+            $from_name
+        );
+
+        $mail->addAddress($to);
+
+        $mail->Subject = $subject;
+        $mail->Body = $body;
+        $mail->isHTML(false);
+
+        return $mail->send();
+    } catch (Throwable $exception) {
+        error_log(
+            'EventNest cancellation email error: '
+            . $exception->getMessage()
+        );
+
+        return false;
+    }
 }
 
-$event_id = cancel_event_id($_POST['event_id'] ?? $_GET['event_id'] ?? '');
+
+//Read event ID
+
+$event_id = cancel_event_positive_id(
+    $_POST['event_id']
+        ?? $_GET['event_id']
+        ?? ''
+);
+
 if ($event_id <= 0) {
     http_response_code(404);
     exit('Event not found.');
 }
 
+
+//Load owned event
+
 $event_stmt = $pdo->prepare(
-    'SELECT EventID, EventName, EventDate, Status, OrganiserID FROM EVENTS WHERE EventID = :event_id AND OrganiserID = :organiser_id LIMIT 1'
+    "
+    SELECT
+        EventID,
+        EventName,
+        EventDate,
+        Status,
+        OrganiserID
+
+    FROM EVENTS
+
+    WHERE EventID = :event_id
+      AND OrganiserID = :organiser_id
+
+    LIMIT 1
+    "
 );
-$event_stmt->execute([':event_id' => $event_id, ':organiser_id' => $organiser_id]);
-$event = $event_stmt->fetch(PDO::FETCH_ASSOC);
+
+$event_stmt->execute([
+    ':event_id' => $event_id,
+    ':organiser_id' => $organiser_id,
+]);
+
+$event = $event_stmt->fetch();
+
 if (!$event) {
     http_response_code(404);
     exit('Event not found.');
 }
 
+
+//Load confirmation summary
+
 $impact_stmt = $pdo->prepare(
-    "SELECT COUNT(DISTINCT b.BookingID) AS BookingCount,
-            COALESCE(SUM(CASE WHEN b.Status = 'paid' AND b.TotalAmount > 0 THEN b.TotalAmount ELSE 0 END), 0) AS PotentialRefundTotal
-     FROM BOOKINGS b
-     WHERE b.EventID = :event_id
-       AND b.Status IN ('pending','paid','failed')"
+    "
+    SELECT
+        COUNT(*) AS BookingCount,
+
+        COALESCE(
+            SUM(
+                CASE
+                    WHEN b.Status IN ('pending', 'paid')
+                     AND b.TotalAmount > 0
+                     AND EXISTS (
+                        SELECT 1
+
+                        FROM PAYMENTS p
+
+                        WHERE p.BookingID = b.BookingID
+                          AND p.PaymentStatus = 'success'
+                     )
+
+                    THEN b.TotalAmount
+
+                    ELSE 0
+                END
+            ),
+            0
+        ) AS PotentialRefundTotal
+
+    FROM BOOKINGS b
+
+    WHERE b.EventID = :event_id
+      AND b.Status IN (
+          'pending',
+          'paid',
+          'failed',
+          'refunded',
+          'canceled'
+      )
+    "
 );
-$impact_stmt->execute([':event_id' => $event_id]);
-$impact = $impact_stmt->fetch(PDO::FETCH_ASSOC) ?: ['BookingCount' => 0, 'PotentialRefundTotal' => 0];
+
+$impact_stmt->execute([
+    ':event_id' => $event_id,
+]);
+
+$impact = $impact_stmt->fetch();
+
+if (!$impact) {
+    $impact = [
+        'BookingCount' => 0,
+        'PotentialRefundTotal' => 0,
+    ];
+}
+
+
+//Page state
 
 $errors = [];
 $result = null;
-$cancellable = in_array($event['Status'], ['draft', 'published'], true);
+
+$cancellable = in_array(
+    $event['Status'],
+    ['draft', 'published'],
+    true
+);
+
+$reason = '';
+
 $csrf_token = get_csrf_token();
 
+
+//Confirm cancelation
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (($_POST['action'] ?? '') !== 'cancel_event') {
+    $action = is_string($_POST['action'] ?? null)
+        ? trim($_POST['action'])
+        : '';
+
+    $reason = is_string($_POST['cancellation_reason'] ?? null)
+        ? trim($_POST['cancellation_reason'])
+        : '';
+
+
+    //Validate form
+
+    if ($action !== 'cancel_event') {
         $errors[] = 'The cancellation action was invalid.';
     }
+
     if (!verify_csrf_token($_POST['csrf_token'] ?? null)) {
-        $errors[] = 'Your form session expired. Please try again.';
+        $errors[] =
+            'Your form session expired. Please try again.';
     }
 
+    $reason_length = mb_strlen($reason);
+
+    if (
+        $reason_length < 10
+        || $reason_length > 500
+    ) {
+        $errors[] =
+            'Please provide a cancellation reason between '
+            . '10 and 500 characters.';
+    }
+
+
+    //Process database changes 
+
     if (!$errors) {
-        $notification_rows = [];
-        $refund_total = 0.0;
-        $booking_changes = 0;
-        $refund_changes = 0;
+        $notifications = [];
+
+        $bookings_changed = 0;
+        $inventory_restored = 0;
+        $refunds_required = 0;
+        $refunds_already_recorded = 0;
         $attention_count = 0;
 
         try {
             $pdo->beginTransaction();
 
+
+            /*
+            |--------------------------------------------------------------------------
+            | LOCK EVENT
+            |--------------------------------------------------------------------------
+            */
+
             $lock_event = $pdo->prepare(
-                'SELECT EventID, EventName, Status, OrganiserID FROM EVENTS WHERE EventID = :event_id AND OrganiserID = :organiser_id LIMIT 1 FOR UPDATE'
+                "
+                SELECT
+                    EventID,
+                    EventName,
+                    Status,
+                    OrganiserID
+
+                FROM EVENTS
+
+                WHERE EventID = :event_id
+                  AND OrganiserID = :organiser_id
+
+                LIMIT 1
+
+                FOR UPDATE
+                "
             );
-            $lock_event->execute([':event_id' => $event_id, ':organiser_id' => $organiser_id]);
-            $locked_event = $lock_event->fetch(PDO::FETCH_ASSOC);
+
+            $lock_event->execute([
+                ':event_id' => $event_id,
+                ':organiser_id' => $organiser_id,
+            ]);
+
+            $locked_event = $lock_event->fetch();
+
             if (!$locked_event) {
-                throw new DomainException('You do not own this event.');
+                throw new DomainException(
+                    'You do not own this event.'
+                );
             }
+
             if ($locked_event['Status'] === 'canceled') {
-                throw new DomainException('This event has already been cancelled.');
+                throw new DomainException(
+                    'This event has already been cancelled.'
+                );
             }
-            if (!in_array($locked_event['Status'], ['draft', 'published'], true)) {
-                throw new DomainException('This event can no longer be cancelled.');
+
+            if (
+                !in_array(
+                    $locked_event['Status'],
+                    ['draft', 'published'],
+                    true
+                )
+            ) {
+                throw new DomainException(
+                    'This event can no longer be cancelled.'
+                );
             }
+
+
+            //Lock affected bookings
 
             $booking_stmt = $pdo->prepare(
-                "SELECT b.BookingID, b.BookingReference, b.Status, b.Quantity, b.TotalAmount,
-                        b.TicketID, u.Email, u.FirstName
-                 FROM BOOKINGS b
-                 INNER JOIN USERS u ON u.UserID = b.UserID
-                 WHERE b.EventID = :event_id
-                 ORDER BY b.BookingID ASC
-                 FOR UPDATE"
-            );
-            $booking_stmt->execute([':event_id' => $event_id]);
-            $bookings = $booking_stmt->fetchAll(PDO::FETCH_ASSOC);
+                "
+                SELECT
+                    b.BookingID,
+                    b.BookingReference,
+                    b.UserID,
+                    b.TicketID,
+                    b.Status,
+                    b.Quantity,
+                    b.TotalAmount,
 
-            $event_update = $pdo->prepare("UPDATE EVENTS SET Status = 'canceled', UpdatedAt = NOW() WHERE EventID = :event_id AND OrganiserID = :organiser_id AND Status IN ('draft','published')");
-            $event_update->execute([':event_id' => $event_id, ':organiser_id' => $organiser_id]);
+                    u.Email,
+                    u.FirstName
+
+                FROM BOOKINGS b
+
+                INNER JOIN USERS u
+                    ON u.UserID = b.UserID
+
+                WHERE b.EventID = :event_id
+
+                ORDER BY b.BookingID ASC
+
+                FOR UPDATE
+                "
+            );
+
+            $booking_stmt->execute([
+                ':event_id' => $event_id,
+            ]);
+
+            $bookings = $booking_stmt->fetchAll();
+
+
+            //Prepared statements
+
+            $payment_stmt = $pdo->prepare(
+                "
+                SELECT
+                    PaymentID,
+                    PaymentStatus,
+                    TransactionID,
+                    Escrow_status,
+                    Amount
+
+                FROM PAYMENTS
+
+                WHERE BookingID = :booking_id
+
+                ORDER BY PaymentID ASC
+
+                FOR UPDATE
+                "
+            );
+
+
+            $cancel_booking = $pdo->prepare(
+                "
+                UPDATE BOOKINGS
+
+                SET Status = 'canceled'
+
+                WHERE BookingID = :booking_id
+                  AND Status = :expected_status
+                "
+            );
+
+
+            $mark_booking_paid = $pdo->prepare(
+                "
+                UPDATE BOOKINGS
+
+                SET Status = 'paid'
+
+                WHERE BookingID = :booking_id
+                  AND Status = 'pending'
+                "
+            );
+
+
+            $mark_booking_refunded = $pdo->prepare(
+                "
+                UPDATE BOOKINGS
+
+                SET Status = 'refunded'
+
+                WHERE BookingID = :booking_id
+                  AND Status IN ('paid', 'canceled')
+                "
+            );
+
+
+            $restore_inventory = $pdo->prepare(
+                "
+                UPDATE TICKETS
+
+                SET QuantityAvailable = LEAST(
+                    Capacity,
+                    QuantityAvailable + :quantity
+                )
+
+                WHERE TicketID = :ticket_id
+                  AND EventID = :event_id
+                "
+            );
+
+
+            //Cancel event
+
+            $event_update = $pdo->prepare(
+                "
+                UPDATE EVENTS
+
+                SET
+                    Status = 'canceled',
+                    UpdatedAt = NOW()
+
+                WHERE EventID = :event_id
+                  AND OrganiserID = :organiser_id
+                  AND Status IN ('draft', 'published')
+                "
+            );
+
+            $event_update->execute([
+                ':event_id' => $event_id,
+                ':organiser_id' => $organiser_id,
+            ]);
+
             if ($event_update->rowCount() !== 1) {
-                throw new DomainException('The event changed state before cancellation could be completed.');
+                throw new DomainException(
+                    'The event changed state before '
+                    . 'cancellation could be completed.'
+                );
             }
+
+
+            // Process each booking
 
             foreach ($bookings as $booking) {
-                $booking_id = (int) $booking['BookingID'];
-                $old_status = (string) $booking['Status'];
-                $new_status = null;
-                $refund_message = 'No payment refund is required.';
+                $booking_id =
+                    (int) $booking['BookingID'];
 
-                if ($old_status === 'pending' || $old_status === 'failed') {
-                    $update_booking = $pdo->prepare("UPDATE BOOKINGS SET Status = 'canceled' WHERE BookingID = :booking_id AND Status = :old_status");
-                    $update_booking->execute([':booking_id' => $booking_id, ':old_status' => $old_status]);
-                    if ($update_booking->rowCount() === 1) {
-                        $new_status = 'canceled';
-                        $restore = $pdo->prepare('UPDATE TICKETS SET QuantityAvailable = LEAST(Capacity, QuantityAvailable + :quantity) WHERE TicketID = :ticket_id');
-                        $restore->execute([':quantity' => (int) $booking['Quantity'], ':ticket_id' => (int) $booking['TicketID']]);
-                        $booking_changes++;
+                $booking_status =
+                    (string) $booking['Status'];
+
+                $total_amount =
+                    (float) $booking['TotalAmount'];
+
+                $quantity =
+                    (int) $booking['Quantity'];
+
+                $ticket_id =
+                    (int) $booking['TicketID'];
+
+
+                //Load payment state
+
+                $payment_stmt->execute([
+                    ':booking_id' => $booking_id,
+                ]);
+
+                $payments =
+                    $payment_stmt->fetchAll();
+
+
+                $successful_payments = [];
+                $has_refunded_payment = false;
+                $has_released_payment = false;
+
+                foreach ($payments as $payment) {
+                    if (
+                        $payment['PaymentStatus'] === 'success'
+                    ) {
+                        $successful_payments[] = $payment;
+
+                        if (
+                            $payment['Escrow_status']
+                            === 'released'
+                        ) {
+                            $has_released_payment = true;
+                        }
                     }
-                } elseif ($old_status === 'paid') {
-                    $payments_stmt = $pdo->prepare(
-                        "SELECT PaymentID, PaymentStatus, TransactionID, Escrow_status, Amount
-                         FROM PAYMENTS
-                         WHERE BookingID = :booking_id
-                         ORDER BY PaymentID ASC
-                         FOR UPDATE"
-                    );
-                    $payments_stmt->execute([':booking_id' => $booking_id]);
-                    $payments = $payments_stmt->fetchAll(PDO::FETCH_ASSOC);
 
-                    if ((float) $booking['TotalAmount'] > 0.0) {
-                        $all_refundable = true;
-                        $processed_any = false;
-                        foreach ($payments as $payment) {
-                            if ($payment['PaymentStatus'] !== 'success') {
-                                continue;
-                            }
-                            if ($payment['Escrow_status'] === 'released') {
-                                $all_refundable = false;
-                                $attention_count++;
-                                continue;
-                            }
-                            if ($payment['PaymentStatus'] === 'refunded' || $payment['Escrow_status'] === 'refunded') {
-                                $processed_any = true;
-                                continue;
-                            }
-                            if (!cancel_event_sandbox_refund($payment)) {
-                                $all_refundable = false;
-                                $attention_count++;
-                                continue;
-                            }
+                    if (
+                        $payment['PaymentStatus']
+                            === 'refunded'
+                        || $payment['Escrow_status']
+                            === 'refunded'
+                    ) {
+                        $has_refunded_payment = true;
+                    }
+                }
 
-                            $refund_payment = $pdo->prepare(
-                                "UPDATE PAYMENTS
-                                 SET PaymentStatus = 'refunded', Escrow_status = 'refunded'
-                                 WHERE PaymentID = :payment_id
-                                   AND PaymentStatus = 'success'
-                                   AND (Escrow_status = 'held' OR Escrow_status IS NULL)"
+                $has_success =
+                    count($successful_payments) > 0;
+
+                $new_status = null;
+
+                $restore_ticket = false;
+
+                $refund_message =
+                    'No payment refund is required.';
+
+
+                //Pending booking
+
+                if ($booking_status === 'pending') {
+                    //Verified payment
+
+                    if ($has_success) {
+                        $mark_booking_paid->execute([
+                            ':booking_id' => $booking_id,
+                        ]);
+
+                        if (
+                            $mark_booking_paid->rowCount()
+                            !== 1
+                        ) {
+                            throw new RuntimeException(
+                                'Booking state changed while '
+                                . 'processing BookingID '
+                                . $booking_id
+                                . '.'
                             );
-                            $refund_payment->execute([':payment_id' => (int) $payment['PaymentID']]);
-                            if ($refund_payment->rowCount() === 1) {
-                                $refund_total += (float) $payment['Amount'];
-                                $refund_changes++;
-                                $processed_any = true;
-                            }
                         }
 
-                        if ($all_refundable && $processed_any) {
-                            $update_booking = $pdo->prepare("UPDATE BOOKINGS SET Status = 'refunded' WHERE BookingID = :booking_id AND Status = 'paid'");
-                            $update_booking->execute([':booking_id' => $booking_id]);
-                            if ($update_booking->rowCount() === 1) {
-                                $new_status = 'refunded';
-                                $restore = $pdo->prepare('UPDATE TICKETS SET QuantityAvailable = LEAST(Capacity, QuantityAvailable + :quantity) WHERE TicketID = :ticket_id');
-                                $restore->execute([':quantity' => (int) $booking['Quantity'], ':ticket_id' => (int) $booking['TicketID']]);
-                                $booking_changes++;
-                                $refund_message = 'The paid booking was moved to the EventNest sandbox refund state.';
-                            }
-                        } else {
-                            $refund_message = 'This paid booking needs administrator attention before its refund can be finalised.';
+                        $bookings_changed++;
+
+                        $new_status = 'paid';
+
+                        $refunds_required++;
+
+                        $refund_message =
+                            'Payment was verified successfully. '
+                            . 'Because the event is cancelled, '
+                            . 'this booking now requires the '
+                            . 'approved refund verification process.';
+
+                        foreach (
+                            $successful_payments as $payment
+                        ) {
+                            error_log(
+                                'EventNest refund required after '
+                                . 'EventID '
+                                . $event_id
+                                . ' cancellation: PaymentID '
+                                . (int) $payment['PaymentID']
+                            );
                         }
                     } else {
-                        $update_booking = $pdo->prepare("UPDATE BOOKINGS SET Status = 'canceled' WHERE BookingID = :booking_id AND Status = 'paid'");
-                        $update_booking->execute([':booking_id' => $booking_id]);
-                        if ($update_booking->rowCount() === 1) {
+                        //No successful payment
+
+                        $cancel_booking->execute([
+                            ':booking_id' =>
+                                $booking_id,
+
+                            ':expected_status' =>
+                                'pending',
+                        ]);
+
+                        if (
+                            $cancel_booking->rowCount()
+                            === 1
+                        ) {
+                            $bookings_changed++;
+
                             $new_status = 'canceled';
-                            $restore = $pdo->prepare('UPDATE TICKETS SET QuantityAvailable = LEAST(Capacity, QuantityAvailable + :quantity) WHERE TicketID = :ticket_id');
-                            $restore->execute([':quantity' => (int) $booking['Quantity'], ':ticket_id' => (int) $booking['TicketID']]);
-                            $booking_changes++;
+
+                            $restore_ticket = true;
+
+                            $refund_message =
+                                'No verified successful payment '
+                                . 'exists, so no refund is required.';
                         }
                     }
                 }
 
-                if ($new_status !== null) {
-                    $notification_rows[] = [
-                        'email' => (string) $booking['Email'],
-                        'first_name' => (string) $booking['FirstName'],
-                        'reference' => (string) $booking['BookingReference'],
-                        'status' => $new_status,
-                        'refund_message' => $refund_message,
-                    ];
+
+                //Paid booking
+
+                elseif ($booking_status === 'paid') {
+                    //Free booking
+
+                    if ($total_amount <= 0.0) {
+                        $cancel_booking->execute([
+                            ':booking_id' =>
+                                $booking_id,
+
+                            ':expected_status' =>
+                                'paid',
+                        ]);
+
+                        if (
+                            $cancel_booking->rowCount()
+                            === 1
+                        ) {
+                            $bookings_changed++;
+
+                            $new_status = 'canceled';
+
+                            $restore_ticket = true;
+
+                            $refund_message =
+                                'This was a free booking, '
+                                . 'so no payment refund is required.';
+                        }
+                    }
+
+                    // Provider refund was already recorded.
+                
+
+                    elseif ($has_refunded_payment) {
+                        $mark_booking_refunded->execute([
+                            ':booking_id' =>
+                                $booking_id,
+                        ]);
+
+                        if (
+                            $mark_booking_refunded->rowCount()
+                            === 1
+                        ) {
+                            $bookings_changed++;
+
+                            $new_status = 'refunded';
+
+                            $restore_ticket = true;
+
+                            $refunds_already_recorded++;
+
+                            $refund_message =
+                                'The payment record already shows '
+                                . 'a verified refund.';
+                        }
+                    }
+
+                    //Successful booking
+
+                    elseif ($has_success) {
+                        $new_status = 'paid';
+
+                        $refunds_required++;
+
+                        if ($has_released_payment) {
+                            $attention_count++;
+
+                            $refund_message =
+                                'This payment was previously released '
+                                . 'and requires administrator/payment-provider '
+                                . 'refund follow-up.';
+                        } else {
+                            $refund_message =
+                                'A verified successful payment exists. '
+                                . 'Refund handling has been flagged, but '
+                                . 'the payment will not be marked refunded '
+                                . 'until the approved refund process confirms it.';
+                        }
+
+                        foreach (
+                            $successful_payments as $payment
+                        ) {
+                            error_log(
+                                'EventNest refund required after '
+                                . 'EventID '
+                                . $event_id
+                                . ' cancellation: PaymentID '
+                                . (int) $payment['PaymentID']
+                            );
+                        }
+                    }
+
+                    /*
+                    | Paid booking but no success/refund payment record.
+                    | Do not silently guess.
+                    */
+
+                    else {
+                        throw new RuntimeException(
+                            'Paid BookingID '
+                            . $booking_id
+                            . ' has no verified successful '
+                            . 'or refunded payment record.'
+                        );
+                    }
                 }
+
+
+                //Failed booking
+
+                elseif ($booking_status === 'failed') {
+                    $cancel_booking->execute([
+                        ':booking_id' =>
+                            $booking_id,
+
+                        ':expected_status' =>
+                            'failed',
+                    ]);
+
+                    if (
+                        $cancel_booking->rowCount()
+                        === 1
+                    ) {
+                        $bookings_changed++;
+
+                        $new_status = 'canceled';
+
+                        $refund_message =
+                            'The booking had failed payment status. '
+                            . 'No refund is required.';
+                    }
+                }
+
+                elseif (
+                    $booking_status === 'refunded'
+                ) {
+                    $new_status = 'refunded';
+
+                    $refund_message =
+                        'The booking was already refunded.';
+                } elseif (
+                    $booking_status === 'canceled'
+                ) {
+                    $new_status = 'canceled';
+
+                    $refund_message =
+                        'The booking was already cancelled.';
+                }
+
+                //Restore ticket inventory
+
+                if ($restore_ticket) {
+                    $restore_inventory->execute([
+                        ':quantity' =>
+                            $quantity,
+
+                        ':ticket_id' =>
+                            $ticket_id,
+
+                        ':event_id' =>
+                            $event_id,
+                    ]);
+
+                    if (
+                        $restore_inventory->rowCount()
+                        !== 1
+                    ) {
+                        throw new RuntimeException(
+                            'Ticket inventory could not '
+                            . 'be restored safely for BookingID '
+                            . $booking_id
+                            . '.'
+                        );
+                    }
+
+                    $inventory_restored += $quantity;
+                }
+
+                //Attendee notification
+
+                $notifications[] = [
+                    'email' =>
+                        (string) $booking['Email'],
+
+                    'first_name' =>
+                        (string) $booking['FirstName'],
+
+                    'reference' =>
+                        (string) $booking['BookingReference'],
+
+                    'status' =>
+                        $new_status
+                        ?? $booking_status,
+
+                    'refund_message' =>
+                        $refund_message,
+                ];
             }
+
+
+            //Comit database transaction
 
             $pdo->commit();
 
+            //Send messages after comit. Email failure must not undo a valid database cancellation.
+
+
             $email_failures = 0;
-            foreach ($notification_rows as $notification) {
-                $body = "Hello " . ($notification['first_name'] !== '' ? $notification['first_name'] : 'EventNest attendee') . ",\n\n"
-                    . "The event \"" . $event['EventName'] . "\" has been cancelled by its organiser.\n"
-                    . "Booking reference: " . $notification['reference'] . "\n"
-                    . "Booking status: " . $notification['status'] . "\n"
-                    . $notification['refund_message'] . "\n\n"
-                    . "Open My Bookings in EventNest for the latest status.\n";
-                if (!cancel_event_send_email($notification['email'], 'EventNest event cancellation: ' . $event['EventName'], $body)) {
+
+            foreach ($notifications as $notification) {
+                $first_name =
+                    trim($notification['first_name']);
+
+                if ($first_name === '') {
+                    $first_name =
+                        'EventNest attendee';
+                }
+
+                $body =
+                    "Hello "
+                    . $first_name
+                    . ",\n\n"
+                    . "The EventNest event \""
+                    . $event['EventName']
+                    . "\" has been cancelled by its organiser.\n\n"
+                    . "Booking reference: "
+                    . $notification['reference']
+                    . "\n"
+                    . "Booking status: "
+                    . $notification['status']
+                    . "\n"
+                    . "Cancellation reason: "
+                    . $reason
+                    . "\n\n"
+                    . $notification['refund_message']
+                    . "\n\n"
+                    . "Please open My Bookings in EventNest "
+                    . "for the latest booking and refund status.\n";
+
+                if (
+                    !cancel_event_send_email(
+                        $notification['email'],
+                        'EventNest event cancellation: '
+                            . $event['EventName'],
+                        $body
+                    )
+                ) {
                     $email_failures++;
                 }
             }
 
+            //Result
+
             $event['Status'] = 'canceled';
+
             $cancellable = false;
+
             $result = [
-                'booking_changes' => $booking_changes,
-                'refund_changes' => $refund_changes,
-                'refund_total' => $refund_total,
-                'email_failures' => $email_failures,
-                'attention_count' => $attention_count,
+                'bookings_changed' =>
+                    $bookings_changed,
+
+                'inventory_restored' =>
+                    $inventory_restored,
+
+                'refunds_required' =>
+                    $refunds_required,
+
+                'refunds_already_recorded' =>
+                    $refunds_already_recorded,
+
+                'attention_count' =>
+                    $attention_count,
+
+                'email_failures' =>
+                    $email_failures,
             ];
         } catch (DomainException $exception) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
             }
-            $errors[] = $exception->getMessage();
+
+            $errors[] =
+                $exception->getMessage();
         } catch (Throwable $exception) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
             }
-            error_log('EventNest event cancellation error: ' . get_class($exception));
-            $errors[] = 'The event could not be cancelled safely. No partial database change was kept.';
+
+            error_log(
+                'EventNest event cancellation error: '
+                . get_class($exception)
+                . ' - '
+                . $exception->getMessage()
+            );
+
+            $errors[] =
+                'The event could not be cancelled safely. '
+                . 'No partial database change was kept.';
         }
+    }
+
+
+    //REFRESH EVENT/SUMMARY AFTER POST
+
+    $event_stmt->execute([
+        ':event_id' => $event_id,
+        ':organiser_id' => $organiser_id,
+    ]);
+
+    $refreshed_event =
+        $event_stmt->fetch();
+
+    if ($refreshed_event) {
+        $event = $refreshed_event;
+    }
+
+    $impact_stmt->execute([
+        ':event_id' => $event_id,
+    ]);
+
+    $refreshed_impact =
+        $impact_stmt->fetch();
+
+    if ($refreshed_impact) {
+        $impact = $refreshed_impact;
     }
 }
 
+
+/*
+ PAGE OUTPUT
+*/
+
 $page_title = 'Cancel event';
+
 require_once __DIR__ . '/shared-components/header.php';
+
 ?>
+
 <main class="page-content cancel-event-page">
-    <p><a class="btn btn-outline" href="manage-events.php">Back to manage events</a></p>
+
+    <p>
+        <a
+            class="btn btn-outline"
+            href="manage-events.php"
+        >
+            Back to manage events
+        </a>
+    </p>
+
 
     <?php if ($result): ?>
-        <section class="result-card">
-            <div class="status status-error">Cancelled</div>
-            <h1><?= escape_html($event['EventName']) ?> has been cancelled</h1>
-            <p>The event record was kept for booking, payment and audit history.</p>
-            <dl>
-                <div><dt>Bookings changed</dt><dd><?= (int) $result['booking_changes'] ?></dd></div>
-                <div><dt>Sandbox refunds recorded</dt><dd><?= (int) $result['refund_changes'] ?></dd></div>
-                <div><dt>Refund total</dt><dd><?= escape_html(format_money($result['refund_total'])) ?></dd></div>
-                <div><dt>Email delivery issues</dt><dd><?= (int) $result['email_failures'] ?></dd></div>
-                <div><dt>Items needing admin attention</dt><dd><?= (int) $result['attention_count'] ?></dd></div>
-            </dl>
-            <?php if ((int) $result['attention_count'] > 0 || (int) $result['email_failures'] > 0): ?>
-                <div class="alert alert-warning">The event cancellation is saved, but one or more refund/email items require follow-up. A notification failure does not reverse the valid database cancellation.</div>
-            <?php endif; ?>
-            <div class="button-row">
-                <a class="btn btn-secondary" href="manage-events.php">Back to events</a>
-                <a class="btn btn-outline" href="business-dashboard.php">Organiser dashboard</a>
+
+        <section
+            class="result-card"
+            aria-labelledby="cancel-result-heading"
+        >
+
+            <div class="status status-error">
+                Cancelled
             </div>
+
+            <h1 id="cancel-result-heading">
+                <?= escape_html($event['EventName']) ?>
+                has been cancelled
+            </h1>
+
+            <p>
+                The event record has been preserved for
+                booking, payment, refund and audit history.
+            </p>
+
+
+            <dl class="summary-list">
+
+                <div>
+                    <dt>Bookings changed</dt>
+
+                    <dd>
+                        <?= (int) $result['bookings_changed'] ?>
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Ticket quantity restored</dt>
+
+                    <dd>
+                        <?= (int) $result['inventory_restored'] ?>
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Paid refunds requiring processing</dt>
+
+                    <dd>
+                        <?= (int) $result['refunds_required'] ?>
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Refunds already recorded</dt>
+
+                    <dd>
+                        <?= (int) $result['refunds_already_recorded'] ?>
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Items needing admin attention</dt>
+
+                    <dd>
+                        <?= (int) $result['attention_count'] ?>
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Email delivery issues</dt>
+
+                    <dd>
+                        <?= (int) $result['email_failures'] ?>
+                    </dd>
+                </div>
+
+            </dl>
+
+
+            <?php if (
+                (int) $result['refunds_required'] > 0
+            ): ?>
+
+                <div class="alert alert-warning">
+
+                    <p>
+                        One or more paid bookings require the
+                        approved PayFast sandbox/provider refund
+                        verification process.
+                    </p>
+
+                    <p>
+                        EventNest has not falsely marked those
+                        payments as refunded. Their payment and
+                        booking refund states should be finalised
+                        only after the refund is verified.
+                    </p>
+
+                </div>
+
+            <?php endif; ?>
+
+
+            <?php if (
+                (int) $result['attention_count'] > 0
+                || (int) $result['email_failures'] > 0
+            ): ?>
+
+                <div class="alert alert-warning">
+
+                    The event cancellation has been saved, but one
+                    or more refund or email items require follow-up.
+                    A notification failure does not reverse the valid
+                    database cancellation.
+
+                </div>
+
+            <?php endif; ?>
+
+
+            <div class="button-row">
+
+                <a
+                    class="btn btn-secondary"
+                    href="manage-events.php"
+                >
+                    Back to events
+                </a>
+
+                <a
+                    class="btn btn-outline"
+                    href="business-dashboard.php"
+                >
+                    Organiser dashboard
+                </a>
+
+            </div>
+
         </section>
+
+
     <?php else: ?>
-        <h1>Cancel <?= escape_html($event['EventName']) ?>?</h1>
+
+        <h1>
+            Cancel
+            <?= escape_html($event['EventName']) ?>?
+        </h1>
+
 
         <?php if ($errors): ?>
-            <div class="alert alert-error" role="alert"><ul><?php foreach ($errors as $error): ?><li><?= escape_html($error) ?></li><?php endforeach; ?></ul></div>
+
+            <div
+                class="alert alert-error"
+                role="alert"
+            >
+
+                <ul>
+
+                    <?php foreach ($errors as $error): ?>
+
+                        <li>
+                            <?= escape_html($error) ?>
+                        </li>
+
+                    <?php endforeach; ?>
+
+                </ul>
+
+            </div>
+
         <?php endif; ?>
+
 
         <?php if (!$cancellable): ?>
+
             <div class="alert alert-warning">
-                <p>This event cannot be cancelled from this page because its current status is <?= escape_html($event['Status']) ?>.</p>
-                <a class="btn btn-outline" href="manage-events.php">Back to manage events</a>
+
+                <p>
+                    This event cannot be cancelled from this
+                    page because its current status is
+                    <strong>
+                        <?= escape_html($event['Status']) ?>
+                    </strong>.
+                </p>
+
+                <a
+                    class="btn btn-outline"
+                    href="manage-events.php"
+                >
+                    Back to manage events
+                </a>
+
             </div>
+
+
         <?php else: ?>
+
             <section class="summary-card">
-                <h2>Impact before confirmation</h2>
-                <dl>
-                    <div><dt>Current event status</dt><dd><?= escape_html($event['Status']) ?></dd></div>
-                    <div><dt>Affected active bookings</dt><dd><?= (int) $impact['BookingCount'] ?></dd></div>
-                    <div><dt>Potential paid refund value</dt><dd><?= escape_html(format_money($impact['PotentialRefundTotal'])) ?></dd></div>
+
+                <h2>
+                    Impact before confirmation
+                </h2>
+
+                <dl class="summary-list">
+
+                    <div>
+                        <dt>Current event status</dt>
+
+                        <dd>
+                            <?= escape_html($event['Status']) ?>
+                        </dd>
+                    </div>
+
+                    <div>
+                        <dt>Bookings associated with event</dt>
+
+                        <dd>
+                            <?= (int) $impact['BookingCount'] ?>
+                        </dd>
+                    </div>
+
+                    <div>
+                        <dt>
+                            Paid value requiring refund review
+                        </dt>
+
+                        <dd>
+                            <?= escape_html(
+                                format_money(
+                                    (float) $impact[
+                                        'PotentialRefundTotal'
+                                    ]
+                                )
+                            ) ?>
+                        </dd>
+                    </div>
+
                 </dl>
-                <p>EventNest will hide the event from new bookings, update eligible booking/payment states, restore ticket quantities only with valid booking state changes, and notify affected attendees.</p>
-                <p><strong>This action does not delete the event or its history.</strong></p>
+
+                <p>
+                    EventNest will stop new bookings by changing
+                    this event to cancelled, process eligible
+                    booking state changes, identify paid bookings
+                    requiring refunds, and notify affected
+                    attendees.
+                </p>
+
+                <p>
+                    <strong>
+                        A successful payment is not marked refunded
+                        until the approved refund process verifies
+                        the refund.
+                    </strong>
+                </p>
+
+                <p>
+                    <strong>
+                        This action does not delete the event,
+                        bookings or payment history.
+                    </strong>
+                </p>
+
             </section>
 
-            <form method="post" action="cancel-event.php">
-                <input type="hidden" name="event_id" value="<?= $event_id ?>">
-                <input type="hidden" name="action" value="cancel_event">
-                <input type="hidden" name="csrf_token" value="<?= escape_html($csrf_token) ?>">
-                <div class="button-row">
-                    <a class="btn btn-outline" href="manage-events.php">Keep event</a>
-                    <button class="btn btn-danger" type="submit">Confirm cancellation</button>
-                </div>
-            </form>
-        <?php endif; ?>
-    <?php endif; ?>
-</main>
-<?php require_once __DIR__ . '/shared-components/footer.php'; ?>
 
+            <form
+                method="post"
+                action="cancel-event.php"
+                class="form-stack"
+            >
+
+                <input
+                    type="hidden"
+                    name="event_id"
+                    value="<?= (int) $event_id ?>"
+                >
+
+                <input
+                    type="hidden"
+                    name="action"
+                    value="cancel_event"
+                >
+
+                <input
+                    type="hidden"
+                    name="csrf_token"
+                    value="<?= escape_html($csrf_token) ?>"
+                >
+
+
+                <div class="form-group">
+
+                    <label for="cancellation_reason">
+                        Cancellation reason
+                    </label>
+
+                    <textarea
+                        id="cancellation_reason"
+                        name="cancellation_reason"
+                        rows="5"
+                        minlength="10"
+                        maxlength="500"
+                        required
+                    ><?= escape_html($reason) ?></textarea>
+
+                    <p class="field-help">
+                        Enter between 10 and 500 characters.
+                        This explanation will be included in
+                        attendee cancellation notifications.
+                    </p>
+
+                </div>
+
+
+                <div class="button-row">
+
+                    <a
+                        class="btn btn-outline"
+                        href="manage-events.php"
+                    >
+                        Keep event
+                    </a>
+
+                    <button
+                        class="btn btn-danger"
+                        type="submit"
+                    >
+                        Confirm cancellation
+                    </button>
+
+                </div>
+
+            </form>
+
+        <?php endif; ?>
+
+    <?php endif; ?>
+
+</main>
+
+<?php
+
+require_once __DIR__ . '/shared-components/footer.php';
+
+?>
