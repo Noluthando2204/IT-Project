@@ -1,5 +1,3 @@
-
-
 <?php
 declare(strict_types=1);
 
@@ -82,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (
             $fullName === '' ||
             !preg_match('//u', $fullName) ||
-            preg_match('/[\x00-\x1F\x7F]/', $fullName)
+            preg_match('/\s/u', $fullName)
         ) {
             $message = 'Please enter a valid full name.';
         } elseif (
