@@ -240,7 +240,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $event = $eventQuery->fetch();
 }
 
-$pageTitle = 'Confirm event | EventNest';
+$page_title = 'Confirm event';
 require_once __DIR__ . '/shared-components/header.php';
 ?>
 <main class="container page-section">

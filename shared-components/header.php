@@ -54,3 +54,4 @@ $en_title = isset($page_title) && trim((string) $page_title) !== ''
         <?php en_render_account_menu($en_user); ?>
     </div>
 <?php endif; ?>
+</header>

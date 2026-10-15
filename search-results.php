@@ -237,8 +237,12 @@ if ($is_suggest) {
 }
 
 try {
-    // connection.php is local-only and must provide PDO in $conn.
+    // Local connection files use either supported PDO variable name.
     require_once __DIR__ . '/database-config/connection.php';
+
+    if ((!isset($conn) || !($conn instanceof PDO)) && isset($pdo) && $pdo instanceof PDO) {
+        $conn = $pdo;
+    }
 
     if (!isset($conn) || !($conn instanceof PDO)) {
         throw new RuntimeException('Database connection is unavailable.');

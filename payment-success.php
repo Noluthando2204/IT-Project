@@ -72,6 +72,11 @@ function payment_success_identifier(mixed $value): int
 
 function payment_success_record_itn(PDO $pdo, array $post): void
 {
+    foreach ($post as $value) {
+        if (!is_scalar($value)) {
+            throw new RuntimeException('Invalid payment notification value.');
+        }
+    }
     $merchant_id = trim((string) getenv('PAYFAST_MERCHANT_ID'));
     $passphrase = trim((string) getenv('PAYFAST_PASSPHRASE'));
 
@@ -85,7 +90,7 @@ function payment_success_record_itn(PDO $pdo, array $post): void
     if ($merchant_id === '' || $received_signature === '' || $reference === '' || $transaction_id === '' || !is_numeric($amount_gross)) {
         throw new RuntimeException('Invalid payment notification shape.');
     }
-    if ($posted_merchant !== '' && !hash_equals($merchant_id, $posted_merchant)) {
+    if ($posted_merchant === '' || !hash_equals($merchant_id, $posted_merchant)) {
         throw new RuntimeException('Payment merchant mismatch.');
     }
 
@@ -120,9 +125,21 @@ function payment_success_record_itn(PDO $pdo, array $post): void
             throw new RuntimeException('Payment amount mismatch.');
         }
 
-        $existing_stmt = $pdo->prepare('SELECT PaymentID, PaymentStatus FROM PAYMENTS WHERE TransactionID = :transaction_id LIMIT 1 FOR UPDATE');
+        $existing_stmt = $pdo->prepare('SELECT PaymentID, BookingID, PaymentStatus, Escrow_status FROM PAYMENTS WHERE TransactionID = :transaction_id LIMIT 1 FOR UPDATE');
         $existing_stmt->execute([':transaction_id' => $transaction_id]);
         $existing_payment = $existing_stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($existing_payment && (int) $existing_payment['BookingID'] !== (int) $booking['BookingID']) {
+            throw new RuntimeException('Payment transaction belongs to another booking.');
+        }
+        // Retries must never reset released escrow or undo a verified refund.
+        if ($existing_payment && in_array($existing_payment['PaymentStatus'], ['success', 'refunded'], true)) {
+            $pdo->commit();
+            return;
+        }
+        if ($booking['Status'] === 'refunded') {
+            throw new RuntimeException('Payment notification requires review for a refunded booking.');
+        }
 
         if ($provider_status === 'COMPLETE') {
             // Verified provider success is authoritative over an earlier explicit cancel or timeout.
@@ -132,8 +149,8 @@ function payment_success_record_itn(PDO $pdo, array $post): void
                 $ticket_stmt->execute([':ticket_id' => (int) $booking['TicketID']]);
                 $available = (int) ($ticket_stmt->fetchColumn() ?: 0);
                 if ($available >= (int) $booking['Quantity']) {
-                    $reserve_stmt = $pdo->prepare('UPDATE TICKETS SET QuantityAvailable = QuantityAvailable - :quantity WHERE TicketID = :ticket_id AND QuantityAvailable >= :quantity');
-                    $reserve_stmt->execute([':quantity' => (int) $booking['Quantity'], ':ticket_id' => (int) $booking['TicketID']]);
+                    $reserve_stmt = $pdo->prepare('UPDATE TICKETS SET QuantityAvailable = QuantityAvailable - :quantity WHERE TicketID = :ticket_id AND QuantityAvailable >= :minimum_quantity');
+                    $reserve_stmt->execute([':quantity' => (int) $booking['Quantity'], ':minimum_quantity' => (int) $booking['Quantity'], ':ticket_id' => (int) $booking['TicketID']]);
                 } else {
                     // Provider payment truth must not be discarded. The inventory mismatch is
                     // retained for admin review instead of inventing a new booking/payment state.

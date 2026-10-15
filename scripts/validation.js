@@ -167,7 +167,7 @@
         var studentEmail = form.querySelector('[name="student_email"]');
         if (studentEmail) {
             var studentNeeded = selectedTicketType(form).toLowerCase() === 'student';
-            var studentWrapper = studentEmail.closest('[data-student-email], .student-email-field, .conditional-field');
+            var studentWrapper = studentEmail.closest('[data-student-email-field], [data-student-email], .student-email-field, .conditional-field');
             if (studentWrapper) {
                 studentWrapper.hidden = !studentNeeded;
             }
@@ -183,7 +183,17 @@
             return true;
         }
 
-        if (field.type === 'checkbox' || field.type === 'radio') {
+        if (field.type === 'radio') {
+            var selected = Array.prototype.some.call(field.form.elements, function (other) {
+                return other.type === 'radio' && other.name === field.name && other.checked && !other.disabled;
+            });
+            if (!selected) {
+                showError(field, 'Please select an option before continuing.');
+            }
+            return selected;
+        }
+
+        if (field.type === 'checkbox') {
             if (!field.checked) {
                 showError(field, 'Please complete this field before continuing.');
                 return false;
@@ -231,6 +241,11 @@
         var value = Number(field.value);
         if (!Number.isFinite(value)) {
             showError(field, 'Enter a valid number.');
+            return false;
+        }
+
+        if ((name.indexOf('quantity') !== -1 || name.indexOf('capacity') !== -1) && !Number.isInteger(value)) {
+            showError(field, 'Enter a whole number.');
             return false;
         }
 
