@@ -391,7 +391,9 @@ summary:focus-visible {
    ========================================================================== */
 
 /* Public pages */
-.page-main {
+.page-main,
+.page-content,
+main.container {
     width: 100%;
     max-width: var(--en-content-width);
     margin: 0 auto;
@@ -1066,7 +1068,8 @@ a.btn.is-disabled {
 }
 
 /* Consistent aspect ratio; uploaded media is cropped, never stretched. */
-.event-card-media {
+.event-card-media,
+.event-card__image {
     aspect-ratio: 16 / 9;
     width: 100%;
     object-fit: cover;
@@ -1088,7 +1091,8 @@ a.btn.is-disabled {
     object-fit: contain;
 }
 
-.event-card-body {
+.event-card-body,
+.event-card__content {
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -1355,7 +1359,7 @@ a.btn.is-disabled {
     padding: var(--en-space-3) var(--en-space-4);
 }
 
-.footer-links ul {
+.footer-links {
     list-style: none;
     margin: 0;
     padding: 0;
@@ -1371,7 +1375,8 @@ a.btn.is-disabled {
     color: rgba(255, 255, 255, 0.6);
 }
 
-.footer-link {
+.footer-link,
+.footer-links a {
     display: inline-block;
     padding: 4px 0;
     color: #FFFFFF;

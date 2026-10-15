@@ -171,7 +171,7 @@ if (!$tickets && $blocking_error === '') {
 }
 
 $selected_ticket_id = booking_positive_int($_POST['ticket_id'] ?? $_GET['ticket_id'] ?? '');
-$quantity = booking_positive_int($_POST['quantity'] ?? '1') ?: 1;
+$quantity = booking_positive_int($_POST['quantity'] ?? ($_SERVER['REQUEST_METHOD'] === 'POST' ? '' : '1'));
 $student_email = is_string($_POST['student_email'] ?? null) ? trim($_POST['student_email']) : '';
 $age_confirm = ($_POST['age_confirm'] ?? '') === '1';
 $csrf_token = get_csrf_token();
@@ -235,9 +235,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $blocking_error === '') {
             }
 
             $reserve_stmt = $pdo->prepare(
-                'UPDATE TICKETS SET QuantityAvailable = QuantityAvailable - :quantity WHERE TicketID = :ticket_id AND QuantityAvailable >= :quantity'
+                'UPDATE TICKETS SET QuantityAvailable = QuantityAvailable - :quantity WHERE TicketID = :ticket_id AND QuantityAvailable >= :minimum_quantity'
             );
-            $reserve_stmt->execute([':quantity' => $quantity, ':ticket_id' => $selected_ticket_id]);
+            $reserve_stmt->execute([':quantity' => $quantity, ':minimum_quantity' => $quantity, ':ticket_id' => $selected_ticket_id]);
             if ($reserve_stmt->rowCount() !== 1) {
                 throw new DomainException('Those tickets were just taken by another booking. Please choose an available quantity.');
             }

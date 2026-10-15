@@ -31,19 +31,19 @@
         order: 2;
     }
 
-    /* Only collapse the nav when JavaScript can reopen it (.js set in header.php). */
-    .js .nav-toggle[aria-controls="en-primary-nav"] {
+    /* Only collapse the nav after main.js has attached its toggle handler. */
+    .en-nav-ready .nav-toggle[aria-controls="en-primary-nav"] {
         display: inline-flex;
         order: 3;
     }
 
-    .js .site-nav {
+    .en-nav-ready .site-nav {
         display: none;
         order: 4;
         flex-basis: 100%;
     }
 
-    .js .site-nav.is-open {
+    .en-nav-ready .site-nav.is-open {
         display: block;
     }
 
@@ -71,7 +71,9 @@
     }
 
     .dashboard-main,
-    .page-main {
+    .page-main,
+    .page-content,
+    main.container {
         padding: var(--en-space-3);
     }
 
@@ -152,7 +154,9 @@
     }
 
     .dashboard-main,
-    .page-main {
+    .page-main,
+    .page-content,
+    main.container {
         padding: var(--en-space-3) var(--en-space-2);
     }
 
