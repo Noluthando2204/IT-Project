@@ -1,66 +1,199 @@
+/* ==========================================================================
+   EventNest - styles/responsive.css
+   Owner: Thando
+
+   Loaded after styles/main.css by shared-components/header.php.
+   First pass for the dependency gate: shared header, navigation, role
+   sidebar, footer and the shared layout/component classes. The full
+   page-by-page responsive pass is due with Test 1 (5 October).
+
+   Breakpoints (Screen 54):
+     Tablet  <= 991px
+     Mobile  <= 767px
+   Rule: navigation is never hidden without an accessible replacement.
+   ========================================================================== */
 
 
-@media (max-width: 768px) {
+/* ==========================================================================
+   TABLET (<= 991px)
+   ========================================================================== */
 
-    .navbar {
-        flex-direction: column;
-        gap: 15px;
-    }
+@media (max-width: 991px) {
 
-    .navbar nav {
-        display: flex;
+    /* Header wraps: brand + actions + Menu button on row one, nav panel below. */
+    .site-header {
         flex-wrap: wrap;
-        justify-content: center;
+        gap: var(--en-space-2);
+        padding: var(--en-space-1) var(--en-space-3);
     }
 
-    .container {
-        width: 90%;
+    .site-header-actions {
+        order: 2;
     }
 
-    .form-section {
-        width: 100%;
+    /* Only collapse the nav after main.js has attached its toggle handler. */
+    .en-nav-ready .nav-toggle[aria-controls="en-primary-nav"] {
+        display: inline-flex;
+        order: 3;
     }
 
+    .en-nav-ready .site-nav {
+        display: none;
+        order: 4;
+        flex-basis: 100%;
+    }
+
+    .en-nav-ready .site-nav.is-open {
+        display: block;
+    }
+
+    .site-nav-list {
+        flex-direction: column;
+        gap: 0;
+        padding: var(--en-space-1) 0;
+        border-top: 1px solid var(--en-border-light);
+    }
+
+    .site-nav-link {
+        display: block;
+        min-height: 44px;
+        padding: 10px var(--en-space-1);
+        border-bottom: none;
+        border-left: 4px solid transparent;
+    }
+
+    .site-nav-link.active {
+        border-left-color: var(--en-teal);
+    }
+
+    .dashboard-sidebar {
+        width: 200px;
+    }
+
+    .dashboard-main,
+    .page-main,
+    .page-content,
+    main.container {
+        padding: var(--en-space-3);
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .dashboard-columns,
+    .dashboard-columns-secondary {
+        grid-template-columns: 1fr;
+    }
+
+    .event-row {
+        grid-template-columns: repeat(3, 1fr);
+    }
 }
 
 
+/* ==========================================================================
+   MOBILE (<= 767px)
+   ========================================================================== */
 
-@media (max-width: 480px) {
+@media (max-width: 767px) {
 
-    body {
-        font-size: 15px;
+    .site-header {
+        padding: var(--en-space-1) var(--en-space-2);
+        min-height: 64px;
     }
 
-    .navbar h1 {
-        font-size: 24px;
+    /* Logo scales proportionally; never clipped or stretched. */
+    .brand-logo {
+        height: 38px;
     }
 
-    .navbar nav {
+    .site-header-start {
+        gap: var(--en-space-1);
+    }
+
+    .site-header-actions {
+        gap: var(--en-space-1);
+    }
+
+    /* Non-functional placeholder; frees space for the account menu. */
+    .header-notifications {
+        display: none;
+    }
+
+    .account-menu-list {
+        min-width: 200px;
+    }
+
+    /* Screen 54: role sidebar collapses behind the header Menu button.
+       Without JavaScript it stays visible as a full-width list. */
+    .js .site-header .nav-toggle[aria-controls="en-role-nav"] {
+        display: inline-flex;
+        order: 3;
+    }
+
+    .dashboard-shell {
         flex-direction: column;
-        width: 100%;
-        text-align: center;
     }
 
-    .navbar nav a {
+    .dashboard-sidebar {
+        width: 100%;
+        padding: var(--en-space-1) 0;
+    }
+
+    .js .dashboard-sidebar {
+        display: none;
+    }
+
+    .js .dashboard-sidebar.is-open {
         display: block;
-        padding: 8px;
     }
 
-    .container {
-        width: 92%;
-        padding: 15px;
+    .sidebar-role {
+        display: none;
     }
 
-    input,
-    textarea,
-    select,
-    button {
+    .dashboard-main,
+    .page-main,
+    .page-content,
+    main.container {
+        padding: var(--en-space-3) var(--en-space-2);
+    }
+
+    h1 {
+        font-size: 1.45rem;
+    }
+
+    /* Stack multi-column layouts into one column. */
+    .stats-grid,
+    .event-row,
+    .booking-row {
+        grid-template-columns: 1fr;
+    }
+
+    .mobile-label {
+        display: block;
+    }
+
+    .welcome-card,
+    .booking-card,
+    .business-profile-content {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .form-actions {
+        flex-direction: column-reverse;
+    }
+
+    .form-actions .btn {
         width: 100%;
-        box-sizing: border-box;
     }
 
-    .booking-card {
-        padding: 15px;
+    .footer-container {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--en-space-2);
+        padding: var(--en-space-3) var(--en-space-2);
     }
-
 }
