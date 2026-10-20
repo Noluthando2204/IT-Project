@@ -1,13 +1,13 @@
 FROM php:8.2-apache
 
-# Install the mysqli extension (this is the missing piece)
+# 1. Install mysqli extension (Fixes the Class "mysqli" not found error)
 RUN docker-php-ext-install mysqli && docker-php-ext-enable mysqli
 
-# Copy the project into the web root
+# 2. Copy all project files (including ca.pem and connection-template.php)
 COPY . /var/www/html/
 
-# Generate connection.php from the template
-RUN cp database-config/connection-template.php database-config/connection.php
+# 3. Generate connection.php from the template (Since connection.php is gitignored)
+RUN cp /var/www/html/database-config/connection-template.php /var/www/html/database-config/connection.php
 
-# Enable Apache rewrite
+# 4. Enable Apache rewrite module
 RUN a2enmod rewrite
