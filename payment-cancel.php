@@ -17,6 +17,12 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
 $auth_user = require_attendee();
 $user_id = (int) $auth_user['UserID'];
 
+$cancel_requested = $_SERVER['REQUEST_METHOD'] === 'POST';
+if ($cancel_requested && !verify_csrf_token($_POST['csrf_token'] ?? null)) {
+    http_response_code(403);
+    exit('The cancellation request could not be verified.');
+}
+
 function payment_cancel_id(mixed $value): int
 {
     return is_string($value) && ctype_digit($value) && (int) $value > 0 ? (int) $value : 0;
@@ -69,13 +75,16 @@ try {
 
     if ($verified_success) {
         // Verified success always wins over a late browser cancellation return.
-        if ($booking['Status'] === 'pending') {
+        if ($cancel_requested && $booking['Status'] === 'pending') {
             $paid_stmt = $pdo->prepare("UPDATE BOOKINGS SET Status = 'paid' WHERE BookingID = :booking_id AND Status = 'pending'");
             $paid_stmt->execute([':booking_id' => $booking_id]);
             $booking['Status'] = 'paid';
         }
         $result_state = 'success';
         $result_message = 'Payment was already verified successfully. This late cancellation return did not change your booking.';
+    } elseif ($booking['Status'] === 'pending' && !$cancel_requested) {
+        $result_state = 'pending';
+        $result_message = 'Payment is not verified. Confirm cancellation below to cancel this pending booking and release its reserved tickets, or retry payment.';
     } elseif ($booking['Status'] === 'pending') {
         $cancel_stmt = $pdo->prepare("UPDATE BOOKINGS SET Status = 'canceled' WHERE BookingID = :booking_id AND Status = 'pending'");
         $cancel_stmt->execute([':booking_id' => $booking_id]);
@@ -151,6 +160,11 @@ require_once __DIR__ . '/shared-components/header.php';
 
         <div class="button-row">
             <?php if ($booking && $booking['Status'] === 'pending'): ?>
+                <form method="post" action="payment-cancel.php">
+                    <input type="hidden" name="booking_id" value="<?= (int) $booking['BookingID'] ?>">
+                    <input type="hidden" name="csrf_token" value="<?= escape_html(get_csrf_token()) ?>">
+                    <button class="btn btn-outline" type="submit">Confirm payment cancellation</button>
+                </form>
                 <a class="btn btn-primary" href="payment.php?booking_id=<?= (int) $booking['BookingID'] ?>">Retry payment</a>
             <?php endif; ?>
             <a class="btn btn-secondary" href="my-bookings.php">View my bookings</a>
