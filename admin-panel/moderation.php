@@ -1,211 +1,24 @@
 <?php
-// admin-panel/moderation.php
-// Shows recent blocks and the suspension state for each blocked email.
-// Only admins can open this page.
-
+declare(strict_types=1);
 require_once __DIR__ . '/../shared-components/auth.php';
-require_once __DIR__ . '/../database-config/connection.php';
-require_once __DIR__ . '/../shared-components/functions.php';
-
-requireRole('admin');
-
-$page_title = 'Moderation';
-
-// Count how many different organisers blocked each email.
-// Three different organisers = suspension is triggered.
-$emailCounts = $pdo->query(
-    "SELECT BlockedEmail, COUNT(DISTINCT OrganiserID) AS distinct_orgs
-     FROM BLOCKS
-     GROUP BY BlockedEmail
-     ORDER BY distinct_orgs DESC, BlockedEmail ASC"
-)->fetchAll();
-
-// Any user whose email matches a block.
-$affectedUsers = $pdo->query(
-    "SELECT u.UserID, u.FirstName, u.LastName, u.Email,
-            u.UserStatus, u.Blocks_count, u.Suspension_count,
-            u.Suspension_start_date
-     FROM USERS u
-     WHERE u.Email IN (SELECT DISTINCT BlockedEmail FROM BLOCKS)
-     ORDER BY u.Suspension_count DESC, u.Blocks_count DESC"
-)->fetchAll();
-
-// Recent blocks with the organiser's name.
-$recentBlocks = $pdo->query(
-    "SELECT b.BlockDate, b.BlockedEmail, b.Reason,
-            u.FirstName AS OrgFirstName, u.LastName AS OrgLastName
-     FROM BLOCKS b
-     JOIN USERS u ON u.UserID = b.OrganiserID
-     ORDER BY b.BlockDate DESC
-     LIMIT 100"
-)->fetchAll();
-
-$today = new DateTimeImmutable('now');
-
-require_once __DIR__ . '/../shared-components/header.php';
+auth_require_admin();
+$pdo = auth_db();
+function emod_h(mixed $v): string { return htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
+try {
+    $summary = $pdo->query("SELECT COUNT(*) AS total_blocks, COUNT(DISTINCT BlockedEmail) AS unique_emails, COUNT(DISTINCT OrganiserID) AS organisers FROM BLOCKS")->fetch(PDO::FETCH_ASSOC) ?: [];
+    $stmt = $pdo->query("SELECT b.BlockID,b.BlockedEmail,b.Reason,b.BlockDate, o.FirstName AS OrganiserFirstName,o.LastName AS OrganiserLastName, (SELECT COUNT(DISTINCT b2.OrganiserID) FROM BLOCKS b2 WHERE LOWER(b2.BlockedEmail)=LOWER(b.BlockedEmail)) AS organiser_count, u.UserID AS TargetUserID,u.UserStatus,u.Blocks_count,u.Suspension_count FROM BLOCKS b JOIN USERS o ON o.UserID=b.OrganiserID LEFT JOIN USERS u ON LOWER(u.Email)=LOWER(b.BlockedEmail) ORDER BY b.BlockDate DESC LIMIT 100");
+    $blocks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) { error_log('EventNest moderation query failed: '.$e->getMessage()); http_response_code(500); exit('Moderation data could not be loaded.'); }
 ?>
-
-<div class="dashboard-shell">
-    <?php en_render_sidebar(); ?>
-
-    <main id="main-content" class="dashboard-main">
-        <h1>Moderation</h1>
-
-        <section class="dashboard-panel">
-            <div class="panel-header">
-                <h2>Distinct organiser counts</h2>
-            </div>
-            <p class="text-muted">
-                Three different organisers blocking the same email triggers a suspension.
-                Repeated blocks from the same organiser only count once.
-            </p>
-
-            <?php if (empty($emailCounts)): ?>
-                <p class="empty-state">No blocks have been recorded yet.</p>
-            <?php else: ?>
-                <div class="table-wrap">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th scope="col">Blocked email</th>
-                                <th scope="col">Distinct organisers</th>
-                                <th scope="col">State</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($emailCounts as $row): ?>
-                                <?php
-                                $distinct = (int)$row['distinct_orgs'];
-
-                                if ($distinct >= 3) {
-                                    $stateText  = 'Suspension triggered';
-                                    $stateClass = 'status-badge status-suspended';
-                                } elseif ($distinct === 2) {
-                                    $stateText  = 'One more triggers suspension';
-                                    $stateClass = 'status-badge status-pending';
-                                } else {
-                                    $stateText  = 'Below threshold';
-                                    $stateClass = 'status-badge status-draft';
-                                }
-                                ?>
-                                <tr>
-                                    <td><?php echo en_e($row['BlockedEmail']); ?></td>
-                                    <td><?php echo $distinct; ?></td>
-                                    <td><span class="<?php echo $stateClass; ?>"><?php echo en_e($stateText); ?></span></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            <?php endif; ?>
-        </section>
-
-        <section class="dashboard-panel">
-            <div class="panel-header">
-                <h2>Affected users</h2>
-            </div>
-
-            <?php if (empty($affectedUsers)): ?>
-                <p class="empty-state">No users currently match a blocked email.</p>
-            <?php else: ?>
-                <div class="table-wrap">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th scope="col">Name</th>
-                                <th scope="col">Email</th>
-                                <th scope="col">Account state</th>
-                                <th scope="col">Blocks</th>
-                                <th scope="col">Suspensions</th>
-                                <th scope="col">Suspension end</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($affectedUsers as $u): ?>
-                                <?php
-                                // Work out when a 30-day suspension ends.
-                                $endText = '—';
-                                if (!empty($u['Suspension_start_date'])) {
-                                    $start = new DateTimeImmutable($u['Suspension_start_date']);
-                                    $end   = $start->modify('+30 days');
-                                    $endText = $end > $today
-                                        ? $end->format('d M Y')
-                                        : 'Expired';
-                                }
-
-                                $susCount = (int)$u['Suspension_count'];
-
-                                if ($susCount >= 2) {
-                                    $accountState = 'Permanent ban';
-                                    $accountClass = 'status-badge status-suspended';
-                                } elseif ($u['UserStatus'] === 'suspended') {
-                                    $accountState = 'Suspended';
-                                    $accountClass = 'status-badge status-suspended';
-                                } else {
-                                    $accountState = 'Active';
-                                    $accountClass = 'status-badge status-active';
-                                }
-                                ?>
-                                <tr>
-                                    <td>
-                                        <?php
-                                        echo en_e(trim(
-                                            ($u['FirstName'] ?? '') . ' ' . ($u['LastName'] ?? '')
-                                        ));
-                                        ?>
-                                    </td>
-                                    <td><?php echo en_e($u['Email']); ?></td>
-                                    <td><span class="<?php echo $accountClass; ?>"><?php echo en_e($accountState); ?></span></td>
-                                    <td><?php echo (int)$u['Blocks_count']; ?></td>
-                                    <td><?php echo $susCount; ?></td>
-                                    <td><?php echo en_e($endText); ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            <?php endif; ?>
-        </section>
-
-        <section class="dashboard-panel">
-            <div class="panel-header">
-                <h2>Recent blocks</h2>
-            </div>
-
-            <?php if (empty($recentBlocks)): ?>
-                <p class="empty-state">No blocks have been recorded yet.</p>
-            <?php else: ?>
-                <div class="table-wrap">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th scope="col">Date</th>
-                                <th scope="col">Organiser</th>
-                                <th scope="col">Blocked email</th>
-                                <th scope="col">Reason</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($recentBlocks as $b): ?>
-                                <tr>
-                                    <td><?php echo en_e(formatDate($b['BlockDate'])); ?></td>
-                                    <td>
-                                        <?php
-                                        echo en_e(trim(
-                                            ($b['OrgFirstName'] ?? '') . ' ' . ($b['OrgLastName'] ?? '')
-                                        ));
-                                        ?>
-                                    </td>
-                                    <td><?php echo en_e($b['BlockedEmail']); ?></td>
-                                    <td><?php echo en_e($b['Reason'] ?? '—'); ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            <?php endif; ?>
-        </section>
-    </main>
-</div>
-
-<?php require_once __DIR__ . '/../shared-components/footer.php'; ?>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Moderation | EventNest</title><link rel="stylesheet" href="../assets/css/style.css"></head><body><main class="container"><h1>Moderation overview</h1><p><a href="dashboard.php">Back to dashboard</a></p>
+<section class="dashboard-cards"><article class="card"><h2>Total block records</h2><p><?= (int)($summary['total_blocks'] ?? 0) ?></p></article><article class="card"><h2>Unique blocked emails</h2><p><?= (int)($summary['unique_emails'] ?? 0) ?></p></article><article class="card"><h2>Organisers who have blocked</h2><p><?= (int)($summary['organisers'] ?? 0) ?></p></article></section>
+<h2>Latest block records</h2><?php if (!$blocks): ?><p>No moderation records found.</p><?php else: ?><div class="table-responsive"><table><thead><tr><th>Date</th><th>Organiser</th><th>Blocked email</th><th>Reason</th><th>Distinct organisers</th><th>Account status</th><th>Block count</th><th>Suspensions</th></tr></thead><tbody><?php foreach ($blocks as $b): ?><tr><td><?= emod_h($b['BlockDate']) ?></td><td><?= emod_h(trim(($b['OrganiserFirstName'] ?? '').' '.($b['OrganiserLastName'] ?? ''))) ?></td><td><?= emod_h($b['BlockedEmail']) ?></td><td><?= emod_h($b['Reason'] ?: '—') ?></td><td><?= (int)$b['organiser_count'] ?></td><td><?= emod_h($b['UserStatus'] ?? 'No matching account') ?></td><td><?= isset($b['Blocks_count']) ? (int)$b['Blocks_count'] : '—' ?></td><td><?= isset($b['Suspension_count']) ? (int)$b['Suspension_count'] : '—' ?></td></tr><?php endforeach; ?></tbody></table></div><?php endif; ?></main></body></html>
+     
+        
+                                
+        
+                        
+                                   
+                   
+                                
+                       
