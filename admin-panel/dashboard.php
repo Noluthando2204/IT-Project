@@ -1,165 +1,42 @@
 <?php
-// admin-panel/dashboard.php
-// Admin overview page. Shows counters and the latest blocks.
-// Only admins can open this page.
-
+declare(strict_types=1);
 require_once __DIR__ . '/../shared-components/auth.php';
-require_once __DIR__ . '/../database-config/connection.php';
-require_once __DIR__ . '/../shared-components/functions.php';
+$admin = auth_require_admin();
+$pdo = auth_db();
 
-requireRole('admin');
+function edash_h(mixed $v): string { return htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
+function edash_count(PDO $pdo, string $sql): int { return (int)$pdo->query($sql)->fetchColumn(); }
 
-$page_title = 'Admin overview';
-
-// Count active users (nobody with UserStatus = deleted).
-$totalUsers = (int)$pdo->query(
-    "SELECT COUNT(*) FROM USERS WHERE UserStatus <> 'deleted'"
-)->fetchColumn();
-
-// Count organisers.
-$totalOrganisers = (int)$pdo->query(
-    "SELECT COUNT(*) FROM USERS WHERE Role = 'organiser' AND UserStatus <> 'deleted'"
-)->fetchColumn();
-
-// Organisers waiting for document approval.
-$pendingVerification = (int)$pdo->query(
-    "SELECT COUNT(*) FROM USERS WHERE Role = 'organiser' AND VerificationStatus = 'pending'"
-)->fetchColumn();
-
-// Published events.
-$publishedEvents = (int)$pdo->query(
-    "SELECT COUNT(*) FROM EVENTS WHERE Status = 'published'"
-)->fetchColumn();
-
-// Bookings that are still active (pending or paid).
-$activeBookings = (int)$pdo->query(
-    "SELECT COUNT(*) FROM BOOKINGS WHERE Status IN ('pending','paid')"
-)->fetchColumn();
-
-// Total amount still sitting in escrow.
-$heldEscrow = (float)$pdo->query(
-    "SELECT COALESCE(SUM(Amount), 0) FROM PAYMENTS WHERE Escrow_status = 'held'"
-)->fetchColumn();
-
-// Last 5 blocks so admins can see recent moderation activity.
-$recentBlocks = $pdo->query(
-    "SELECT b.BlockDate, b.BlockedEmail, b.Reason,
-            u.FirstName, u.LastName
-     FROM BLOCKS b
-     JOIN USERS u ON u.UserID = b.OrganiserID
-     ORDER BY b.BlockDate DESC
-     LIMIT 5"
-)->fetchAll();
-
-require_once __DIR__ . '/../shared-components/header.php';
+try {
+    $stats = [
+        'users' => edash_count($pdo, "SELECT COUNT(*) FROM USERS WHERE Role = 'attendee'"),
+        'organisers' => edash_count($pdo, "SELECT COUNT(*) FROM USERS WHERE Role = 'organiser'"),
+        'pending' => edash_count($pdo, "SELECT COUNT(*) FROM USERS WHERE Role = 'organiser' AND VerificationStatus = 'pending'"),
+        'published_events' => edash_count($pdo, "SELECT COUNT(*) FROM EVENTS WHERE Status = 'published'"),
+        'active_bookings' => edash_count($pdo, "SELECT COUNT(*) FROM BOOKINGS WHERE Status IN ('pending','paid')"),
+        'held_escrow' => (float)$pdo->query("SELECT COALESCE(SUM(p.Amount), 0) FROM PAYMENTS p WHERE p.PaymentStatus = 'success' AND p.Escrow_status = 'held'")->fetchColumn(),
+    ];
+    $stmt = $pdo->query("SELECT b.BlockID, b.BlockedEmail, b.Reason, b.BlockDate, u.FirstName, u.LastName FROM BLOCKS b JOIN USERS u ON u.UserID = b.OrganiserID ORDER BY b.BlockDate DESC LIMIT 10");
+    $recentBlocks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    error_log('EventNest admin dashboard query failed: '.$e->getMessage());
+    http_response_code(500);
+    exit('The dashboard could not be loaded. Please try again later.');
+}
 ?>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Admin dashboard | EventNest</title><link rel="stylesheet" href="../assets/css/style.css"></head><body>
+<main class="container"><h1>Admin dashboard</h1><p>Welcome, <?= edash_h(trim(($admin['FirstName'] ?? '').' '.($admin['LastName'] ?? ''))) ?>.</p>
+<section class="dashboard-cards" aria-label="Platform statistics">
+<?php foreach ([['Attendees',$stats['users']],['Organisers',$stats['organisers']],['Pending organiser verifications',$stats['pending']],['Published events',$stats['published_events']],['Active bookings',$stats['active_bookings']],['Escrow held',number_format($stats['held_escrow'],2)]] as [$label,$value]): ?>
+<article class="card"><h2><?= edash_h($label) ?></h2><p><?= edash_h($value) ?></p></article>
+<?php endforeach; ?></section>
+<p><a href="moderation.php">Manage moderation</a> | <a href="../logout.php">Log out</a></p>
+<h2>Recent blocks</h2><?php if (!$recentBlocks): ?><p>No blocks have been recorded.</p><?php else: ?><div class="table-responsive"><table><thead><tr><th>Organiser</th><th>Blocked email</th><th>Reason</th><th>Date</th></tr></thead><tbody>
+<?php foreach ($recentBlocks as $row): ?><tr><td><?= edash_h(trim($row['FirstName'].' '.$row['LastName'])) ?></td><td><?= edash_h($row['BlockedEmail']) ?></td><td><?= edash_h($row['Reason'] ?: '—') ?></td><td><?= edash_h($row['BlockDate']) ?></td></tr><?php endforeach; ?>
+</tbody></table></div><?php endif; ?></main></body></html>
 
-<div class="dashboard-shell">
-    <?php en_render_sidebar(); ?>
 
-    <main id="main-content" class="dashboard-main">
-        <h1>Admin overview</h1>
 
-        <section class="stats-grid">
-            <article class="stat-card">
-                <div class="stat-content">
-                    <span class="stat-label">Active users</span>
-                    <strong class="stat-value"><?php echo $totalUsers; ?></strong>
-                </div>
-            </article>
-            <article class="stat-card">
-                <div class="stat-content">
-                    <span class="stat-label">Organisers</span>
-                    <strong class="stat-value"><?php echo $totalOrganisers; ?></strong>
-                </div>
-            </article>
-            <article class="stat-card">
-                <div class="stat-content">
-                    <span class="stat-label">Awaiting verification</span>
-                    <strong class="stat-value"><?php echo $pendingVerification; ?></strong>
-                </div>
-            </article>
-            <article class="stat-card">
-                <div class="stat-content">
-                    <span class="stat-label">Published events</span>
-                    <strong class="stat-value"><?php echo $publishedEvents; ?></strong>
-                </div>
-            </article>
-        </section>
+               
 
-        <section class="stats-grid">
-            <article class="stat-card">
-                <div class="stat-content">
-                    <span class="stat-label">Active bookings</span>
-                    <strong class="stat-value"><?php echo $activeBookings; ?></strong>
-                </div>
-            </article>
-            <article class="stat-card">
-                <div class="stat-content">
-                    <span class="stat-label">Held escrow</span>
-                    <strong class="stat-value">
-                        R<?php echo number_format($heldEscrow, 2); ?>
-                    </strong>
-                </div>
-            </article>
-            <article class="stat-card">
-                <div class="stat-content">
-                    <span class="stat-label">Escrow</span>
-                    <strong class="stat-value">
-                        <a class="btn btn-outline btn-sm" href="escrow.php">View</a>
-                    </strong>
-                </div>
-            </article>
-            <article class="stat-card">
-                <div class="stat-content">
-                    <span class="stat-label">Moderation</span>
-                    <strong class="stat-value">
-                        <a class="btn btn-primary btn-sm" href="moderation.php">Open</a>
-                    </strong>
-                </div>
-            </article>
-        </section>
-
-        <section class="dashboard-panel">
-            <div class="panel-header">
-                <h2>Recent moderation activity</h2>
-                <a class="panel-link" href="moderation.php">View all</a>
-            </div>
-
-            <?php if (empty($recentBlocks)): ?>
-                <p class="empty-state">No blocks have been recorded yet.</p>
-            <?php else: ?>
-                <div class="table-wrap">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th scope="col">Date</th>
-                                <th scope="col">Organiser</th>
-                                <th scope="col">Blocked email</th>
-                                <th scope="col">Reason</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($recentBlocks as $b): ?>
-                                <tr>
-                                    <td><?php echo en_e(formatDate($b['BlockDate'])); ?></td>
-                                    <td>
-                                        <?php
-                                        echo en_e(trim(
-                                            ($b['FirstName'] ?? '') . ' ' . ($b['LastName'] ?? '')
-                                        ));
-                                        ?>
-                                    </td>
-                                    <td><?php echo en_e($b['BlockedEmail']); ?></td>
-                                    <td><?php echo en_e($b['Reason'] ?? '—'); ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            <?php endif; ?>
-        </section>
-    </main>
-</div>
-
-<?php require_once __DIR__ . '/../shared-components/footer.php'; ?>
+        
