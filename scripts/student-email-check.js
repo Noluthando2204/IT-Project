@@ -1,65 +1,66 @@
 document.addEventListener("DOMContentLoaded", function () {
 
-    const ticketTier =
-        document.getElementById("ticket_tier");
+    const ticketTiers = document.querySelectorAll('[name="ticket_id"]');
 
     const studentEmail =
         document.getElementById("student_email");
 
     const studentEmailGroup =
-        document.getElementById("studentEmailGroup");
+        document.querySelector('[data-student-email-field]');
 
 
-    if (!ticketTier || !studentEmail) {
+    if (!ticketTiers.length || !studentEmail || !studentEmailGroup) {
         return;
     }
 
 
-    ticketTier.addEventListener("change", function () {
+    function updateStudentField() {
+        const selected = document.querySelector('[name="ticket_id"]:checked');
 
-        if (this.value === "student") {
+        if (selected && selected.getAttribute('data-ticket-type') === 'Student') {
 
-            studentEmailGroup.style.display = "block";
+            studentEmailGroup.hidden = false;
 
             studentEmail.required = true;
 
         } else {
 
-            studentEmailGroup.style.display = "none";
+            studentEmailGroup.hidden = true;
 
             studentEmail.required = false;
 
-            studentEmail.value = "";
+            studentEmail.setCustomValidity('');
 
         }
 
-    });
+    }
+    ticketTiers.forEach(function (ticket) { ticket.addEventListener('change', updateStudentField); });
+    updateStudentField();
 
 
-    studentEmail.addEventListener("blur", function () {
+    studentEmail.addEventListener("input", function () {
 
         const email =
             this.value.trim().toLowerCase();
 
-        if (email === "") {
+        if (!this.required || email === "") {
+            this.setCustomValidity('');
             return;
         }
 
 
-        const validStudentEmail =
-            email.endsWith("ac.za") ||
-            email.endsWith("tuks.co.za");
+        const domain = email.split('@')[1] || '';
+        const validStudentEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+            && (domain.endsWith('.ac.za') || domain === 'tuks.co.za' || domain.endsWith('.tuks.co.za'));
 
 
         if (!validStudentEmail) {
 
-            alert(
+            this.setCustomValidity(
                 "Student tickets require an email address ending in ac.za or tuks.co.za."
             );
 
-            this.focus();
-
-        }
+        } else { this.setCustomValidity(''); }
 
     });
 
