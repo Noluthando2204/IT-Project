@@ -8,7 +8,7 @@
             var target = document.getElementById(button.getAttribute('aria-controls'));
             if (!target) { button.hidden = true; return; }
             button.hidden = false;
-            document.documentElement.classList.add('en-nav-ready');
+            document.documentElement.classList.add('js', 'en-nav-ready');
             function setOpen(open) {
                 button.setAttribute('aria-expanded', String(open));
                 target.classList.toggle('is-open', open);
