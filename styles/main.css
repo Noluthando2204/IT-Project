@@ -391,9 +391,7 @@ summary:focus-visible {
    ========================================================================== */
 
 /* Public pages */
-.page-main,
-.page-content,
-main.container {
+.page-main {
     width: 100%;
     max-width: var(--en-content-width);
     margin: 0 auto;
@@ -1068,8 +1066,7 @@ a.btn.is-disabled {
 }
 
 /* Consistent aspect ratio; uploaded media is cropped, never stretched. */
-.event-card-media,
-.event-card__image {
+.event-card-media {
     aspect-ratio: 16 / 9;
     width: 100%;
     object-fit: cover;
@@ -1091,8 +1088,7 @@ a.btn.is-disabled {
     object-fit: contain;
 }
 
-.event-card-body,
-.event-card__content {
+.event-card-body {
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -1359,7 +1355,7 @@ a.btn.is-disabled {
     padding: var(--en-space-3) var(--en-space-4);
 }
 
-.footer-links {
+.footer-links ul {
     list-style: none;
     margin: 0;
     padding: 0;
@@ -1375,8 +1371,7 @@ a.btn.is-disabled {
     color: rgba(255, 255, 255, 0.6);
 }
 
-.footer-link,
-.footer-links a {
+.footer-link {
     display: inline-block;
     padding: 4px 0;
     color: #FFFFFF;
@@ -1399,3 +1394,173 @@ a.btn.is-disabled {
 .site-footer a:focus-visible {
     outline-color: #FFFFFF;
 }
+
+
+/* ==========================================================================
+   EventNest shared layout corrections
+   ========================================================================== */
+
+/* Keep public page content centred and prevent oversized layouts. */
+.page-content,
+.page-shell {
+    width: 100%;
+    max-width: var(--en-content-width);
+    margin-inline: auto;
+    padding: var(--en-space-3) var(--en-space-4);
+    min-width: 0;
+}
+
+/* Align event filters and results in a controlled layout. */
+.search-layout {
+    display: grid;
+    grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+    align-items: start;
+    gap: var(--en-space-3);
+}
+
+.search-results,
+.search-layout > section,
+.tag-page > section {
+    min-width: 0;
+}
+
+.search-results > h2,
+.tag-page > section > h2 {
+    margin-bottom: var(--en-space-2);
+}
+
+/* Filters should use the available panel width, not stretch the page. */
+.filter-panel {
+    min-width: 0;
+    padding: var(--en-space-2);
+}
+
+.filter-panel form {
+    display: grid;
+    gap: var(--en-space-1);
+}
+
+.filter-panel label {
+    margin-top: 4px;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.filter-panel select,
+.filter-panel input:not([type="checkbox"]):not([type="radio"]) {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+}
+
+/* Consistent event card image dimensions. */
+.event-card {
+    min-width: 0;
+}
+
+.event-card > .event-card__image,
+.event-card > .event-card-media {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    object-position: center;
+    background: var(--en-bg);
+}
+
+/* Unify the different event-card body class names used by the pages. */
+.event-card-body,
+.event-card__body,
+.event-card__content {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: var(--en-space-2);
+}
+
+.event-card__body > p,
+.event-card__content > p {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.event-card__body > .btn,
+.event-card__content > .btn {
+    margin-top: auto;
+}
+
+/* Consistent hashtag and post result grids. */
+.post-grid {
+    display: grid;
+    grid-template-columns: repeat( auto-fit, minmax(min(100%, 280px), 1fr) );
+    gap: var(--en-space-3);
+    align-items: stretch;
+}
+
+.post-card {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.post-card__media {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    max-height: 320px;
+    aspect-ratio: 16 / 9;
+    object-fit: contain;
+    object-position: center;
+    background: var(--en-bg);
+}
+
+.post-card__body {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--en-space-1);
+    padding-top: var(--en-space-2);
+}
+
+.post-card__body > p {
+    overflow-wrap: anywhere;
+}
+
+.tag-list,
+.event-card__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 0;
+}
+
+.tag-list .tag,
+.event-card__tags a {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
+/* Keep reaction totals readable and grouped. */
+.reaction-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px var(--en-space-2);
+    margin: var(--en-space-1) 0;
+    color: var(--en-text-muted);
+    font-size: 0.825rem;
+}
+
+/* Compact, consistent page navigation. */
+.pagination {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: var(--en-space-2);
+    margin-top: var(--en-space-3);
+}
+
