@@ -2,45 +2,62 @@
    EventNest - styles/responsive.css
    Owner: Thando
 
-   Loaded after styles/main.css by shared-components/header.php.
-   First pass for the dependency gate: shared header, navigation, role
-   sidebar, footer and the shared layout/component classes. The full
-   page-by-page responsive pass is due with Test 1 (5 October).
+   Load AFTER styles/main.css.
 
-   Breakpoints (Screen 54):
-     Tablet  <= 991px
-     Mobile  <= 767px
-   Rule: navigation is never hidden without an accessible replacement.
+   Responsive breakpoints:
+     Tablet: <= 991px
+     Mobile: <= 767px
+     Small phones: <= 420px
+
+   Navigation compatibility:
+     - main.js adds .js and .en-nav-ready to <html>.
+     - Primary navigation uses .site-nav.is-open.
+     - Role sidebar uses .dashboard-sidebar.is-open.
    ========================================================================== */
 
 
 /* ==========================================================================
-   TABLET (<= 991px)
+   TABLET AND SMALL DESKTOP (<= 991px)
    ========================================================================== */
 
 @media (max-width: 991px) {
 
-    /* Header wraps: brand + actions + Menu button on row one, nav panel below. */
+    /* Header layout */
     .site-header {
         flex-wrap: wrap;
-        gap: var(--en-space-2);
-        padding: var(--en-space-1) var(--en-space-3);
+        align-items: center;
+        gap: var(--en-space-2, 16px);
+        padding: var(--en-space-1, 8px) var(--en-space-3, 24px);
+    }
+
+    .site-header-start {
+        flex: 0 1 auto;
+        min-width: 0;
     }
 
     .site-header-actions {
         order: 2;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--en-space-2, 16px);
+        min-width: 0;
+        margin-left: auto;
     }
 
-    /* Only collapse the nav after main.js has attached its toggle handler. */
+    /* Collapse primary navigation only when JavaScript is ready. */
     .en-nav-ready .nav-toggle[aria-controls="en-primary-nav"] {
         display: inline-flex;
         order: 3;
+        flex-shrink: 0;
     }
 
     .en-nav-ready .site-nav {
         display: none;
         order: 4;
-        flex-basis: 100%;
+        flex: 0 0 100%;
+        width: 100%;
+        min-width: 0;
     }
 
     .en-nav-ready .site-nav.is-open {
@@ -49,45 +66,92 @@
 
     .site-nav-list {
         flex-direction: column;
+        align-items: stretch;
         gap: 0;
-        padding: var(--en-space-1) 0;
-        border-top: 1px solid var(--en-border-light);
+        margin: 0;
+        padding: var(--en-space-1, 8px) 0;
+        border-top: 1px solid var(--en-border-light, #E9EEF5);
     }
 
     .site-nav-link {
         display: block;
         min-height: 44px;
-        padding: 10px var(--en-space-1);
-        border-bottom: none;
+        padding: 10px var(--en-space-1, 8px);
+        border-bottom: 0;
         border-left: 4px solid transparent;
     }
 
     .site-nav-link.active {
-        border-left-color: var(--en-teal);
+        border-left-color: var(--en-teal, #0B9FA5);
     }
 
+    /* Dashboard sidebar */
     .dashboard-sidebar {
         width: 200px;
+        flex: 0 0 200px;
     }
 
     .dashboard-main,
     .page-main,
     .page-content,
+    .page-shell,
     main.container {
-        padding: var(--en-space-3);
+        min-width: 0;
+        padding: var(--en-space-3, 24px);
     }
 
+    /* Dashboard statistics and panels */
     .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .dashboard-columns,
     .dashboard-columns-secondary {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
 
+    .stat-card {
+        min-width: 0;
+    }
+
+    /* Event rows */
     .event-row {
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    /* Search and filtering */
+    .search-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .search-layout > .filter-panel {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .filter-panel .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--en-space-2, 16px);
+    }
+
+    /* Event and post cards */
+    .event-grid,
+    .post-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .event-card,
+    .post-card {
+        min-width: 0;
+    }
+
+    /* Wide tables scroll horizontally instead of breaking the page. */
+    .table-wrap {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
 }
 
@@ -98,54 +162,79 @@
 
 @media (max-width: 767px) {
 
+    /* Header */
     .site-header {
-        padding: var(--en-space-1) var(--en-space-2);
+        gap: var(--en-space-1, 8px);
         min-height: 64px;
+        padding: var(--en-space-1, 8px) var(--en-space-2, 16px);
     }
 
-    /* Logo scales proportionally; never clipped or stretched. */
     .brand-logo {
+        width: auto;
         height: 38px;
+        max-width: min(48vw, 190px);
+        object-fit: contain;
     }
 
     .site-header-start {
-        gap: var(--en-space-1);
+        flex: 1 1 auto;
+        gap: var(--en-space-1, 8px);
+        min-width: 0;
     }
 
     .site-header-actions {
-        gap: var(--en-space-1);
+        flex: 0 1 auto;
+        gap: var(--en-space-1, 8px);
+        min-width: 0;
     }
 
-    /* Non-functional placeholder; frees space for the account menu. */
+    .header-role {
+        font-size: 0.8rem;
+    }
+
+    /* Hide nonessential placeholder notifications on narrow screens. */
     .header-notifications {
         display: none;
     }
 
     .account-menu-list {
-        min-width: 200px;
+        right: 0;
+        min-width: min(200px, calc(100vw - 24px));
+        max-width: calc(100vw - 24px);
     }
 
-    /* Screen 54: role sidebar collapses behind the header Menu button.
-       Without JavaScript it stays visible as a full-width list. */
-    .js .site-header .nav-toggle[aria-controls="en-role-nav"] {
+    /* Keep the primary navigation toggle visible. */
+    .en-nav-ready .nav-toggle[aria-controls="en-primary-nav"] {
         display: inline-flex;
         order: 3;
+        min-height: 44px;
     }
 
+    /* Dashboard stacks vertically. */
     .dashboard-shell {
         flex-direction: column;
+        min-width: 0;
     }
 
     .dashboard-sidebar {
         width: 100%;
-        padding: var(--en-space-1) 0;
+        flex: 0 0 auto;
+        padding: var(--en-space-1, 8px) 0;
     }
 
-    .js .dashboard-sidebar {
+    /*
+      Hide the role sidebar only when a matching toggle exists.
+      The toggle's aria-controls must match the sidebar's ID.
+    */
+    .js .dashboard-shell:has(
+        .nav-toggle[aria-controls="en-role-nav"]
+    ) .dashboard-sidebar {
         display: none;
     }
 
-    .js .dashboard-sidebar.is-open {
+    .js .dashboard-shell:has(
+        .nav-toggle[aria-controls="en-role-nav"]
+    ) .dashboard-sidebar.is-open {
         display: block;
     }
 
@@ -153,28 +242,56 @@
         display: none;
     }
 
+    .sidebar-nav {
+        padding: 0 var(--en-space-2, 16px);
+    }
+
+    /* Main content */
     .dashboard-main,
     .page-main,
     .page-content,
+    .page-shell,
     main.container {
-        padding: var(--en-space-3) var(--en-space-2);
+        width: 100%;
+        min-width: 0;
+        padding: var(--en-space-3, 24px) var(--en-space-2, 16px);
     }
 
     h1 {
         font-size: 1.45rem;
+        overflow-wrap: anywhere;
     }
 
-    /* Stack multi-column layouts into one column. */
+    h2 {
+        font-size: 1.1rem;
+    }
+
+    /* Stack dashboard layouts into one column. */
     .stats-grid,
     .event-row,
-    .booking-row {
-        grid-template-columns: 1fr;
+    .booking-row,
+    .dashboard-columns,
+    .dashboard-columns-secondary {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .stats-grid {
+        gap: var(--en-space-2, 16px);
+    }
+
+    .stat-card {
+        min-width: 0;
+    }
+
+    .event-row {
+        gap: var(--en-space-1, 8px);
     }
 
     .mobile-label {
         display: block;
     }
 
+    /* Dashboard cards and profile content */
     .welcome-card,
     .booking-card,
     .business-profile-content {
@@ -182,69 +299,161 @@
         align-items: flex-start;
     }
 
+    /* Forms and ticket tiers */
+    .form-row,
+    .ticket-tier-grid,
+    .filter-panel .form-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .form-group,
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .time-range {
+        flex-wrap: wrap;
+    }
+
     .form-actions {
         flex-direction: column-reverse;
+        align-items: stretch;
     }
 
-    .form-actions .btn {
+    .form-actions .btn,
+    .form-actions .primary-button,
+    .form-actions .outline-button {
         width: 100%;
+        white-space: normal;
     }
 
-    .footer-container {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: var(--en-space-2);
-        padding: var(--en-space-3) var(--en-space-2);
-    }
-}
-
-/* ==========================================================================
-   Responsive corrections for event and tag pages
-   ========================================================================== */
-
-@media (max-width: 991px) {
-    .search-layout {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .search-layout > .filter-panel {
-        width: 100%;
-    }
-
-    .filter-panel .form-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: var(--en-space-2);
-    }
-}
-
-@media (max-width: 767px) {
-    .page-content,
-    .page-shell {
-        padding: var(--en-space-2);
-    }
-
-    .filter-panel {
-        padding: var(--en-space-2);
-    }
-
-    .filter-panel .form-grid {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
+    /* Event listings and posts */
     .event-grid,
     .post-grid {
         grid-template-columns: minmax(0, 1fr);
-        gap: var(--en-space-2);
+        gap: var(--en-space-2, 16px);
+    }
+
+    .event-card,
+    .post-card,
+    .card,
+    .dashboard-panel {
+        min-width: 0;
     }
 
     .event-card__body,
     .event-card__content,
     .event-card-body {
-        padding: var(--en-space-2);
+        padding: var(--en-space-2, 16px);
+    }
+
+    /* Tables remain readable and scroll inside their wrapper. */
+    .data-table {
+        min-width: 620px;
     }
 
     .pagination {
-        gap: var(--en-space-1);
+        gap: var(--en-space-1, 8px);
     }
+
+    .pagination > * {
+        max-width: 100%;
+    }
+
+    /* Footer */
+    .footer-container {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--en-space-2, 16px);
+        padding: var(--en-space-3, 24px) var(--en-space-2, 16px);
+    }
+
+    .footer-links ul {
+        gap: 4px 0;
+    }
+
+    .footer-links li + li::before {
+        margin: 0 6px;
+    }
+}
+
+
+/* ==========================================================================
+   VERY NARROW PHONES (<= 420px)
+   ========================================================================== */
+
+@media (max-width: 420px) {
+
+    .site-header {
+        align-items: flex-start;
+    }
+
+    .site-header-start {
+        flex-basis: 100%;
+    }
+
+    .site-header-actions {
+        margin-left: 0;
+    }
+
+    .brand-logo {
+        max-width: 70vw;
+    }
+
+    .card,
+    .dashboard-panel,
+    .dashboard-welcome,
+    .welcome-card,
+    .filter-panel {
+        padding: var(--en-space-2, 16px);
+    }
+
+    .stat-card {
+        align-items: flex-start;
+    }
+
+    .form-actions {
+        gap: var(--en-space-1, 8px);
+    }
+}
+
+
+/* ==========================================================================
+   ACCESSIBILITY AND OVERFLOW PROTECTION
+   ========================================================================== */
+
+/* Respect reduced-motion preferences. */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Prevent media and code from exceeding their containers. */
+img,
+video,
+iframe,
+pre,
+code {
+    max-width: 100%;
+}
+
+pre {
+    overflow-x: auto;
+}
+
+/* Keep controls inside narrow viewports. */
+input,
+select,
+textarea,
+button {
+    max-width: 100%;
 }

@@ -1564,3 +1564,462 @@ a.btn.is-disabled {
     margin-top: var(--en-space-3);
 }
 
+
+
+/* ==========================================================================
+   16. PAGE CLASSES USED BY ACCOUNT, SETTINGS, POLICY AND EVENT FORMS
+   These additions support profile.php, setting.php, privacy-policy.php,
+   create-event.php, edit-event.php, organiser-account.php and user-dashboard.php.
+   ========================================================================== */
+
+.container {
+    width: min(100% - 32px, var(--en-content-width));
+    margin-inline: auto;
+    min-width: 0;
+}
+
+.form-page {
+    max-width: 860px;
+    padding-top: var(--en-space-4);
+    padding-bottom: var(--en-space-5);
+}
+
+.form-page > h1,
+.policy-page > h1 {
+    margin-bottom: var(--en-space-2);
+}
+
+.form-page > form,
+.form-page form[method="post"] {
+    background: var(--en-surface);
+    border: 1px solid var(--en-border-light);
+    border-radius: var(--en-radius-lg);
+    box-shadow: var(--en-shadow-card);
+    padding: var(--en-space-3);
+}
+
+.form-page .form-group {
+    min-width: 0;
+}
+
+.form-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.form-page select,
+.form-page textarea,
+.dashboard-panel input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.dashboard-panel select,
+.dashboard-panel textarea {
+    width: 100%;
+    max-width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid var(--en-border);
+    border-radius: var(--en-radius-sm);
+    background: var(--en-surface);
+    color: var(--en-text);
+    font: inherit;
+}
+
+.form-page textarea,
+.dashboard-panel textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+.form-page input[type="file"],
+.dashboard-panel input[type="file"] {
+    max-width: 100%;
+    font: inherit;
+}
+
+/* Legacy alert class names in the seven PHP pages map to the shared notice palette. */
+.alert {
+    padding: 12px 16px;
+    margin: 0 0 var(--en-space-2);
+    border: 1px solid transparent;
+    border-radius: var(--en-radius-md);
+    overflow-wrap: anywhere;
+}
+
+.alert-success {
+    color: var(--en-success-text);
+    background: var(--en-success-bg);
+    border-color: #BFE3D1;
+}
+
+.alert-warning {
+    color: var(--en-warning-text);
+    background: var(--en-warning-bg);
+    border-color: #F6D9B8;
+}
+
+.alert-danger,
+.alert-error {
+    color: var(--en-danger-text);
+    background: var(--en-danger-bg);
+    border-color: #F3C3C6;
+}
+
+.alert-info {
+    color: var(--en-info-text);
+    background: var(--en-info-bg);
+    border-color: #CBD5F5;
+}
+
+.policy-page {
+    max-width: 900px;
+    padding-top: var(--en-space-4);
+    padding-bottom: var(--en-space-5);
+}
+
+.policy-page h2 {
+    margin-top: var(--en-space-3);
+}
+
+.policy-page p,
+.policy-page li {
+    line-height: 1.75;
+    overflow-wrap: anywhere;
+}
+
+.policy-page ul,
+.policy-page ol {
+    padding-left: 1.5rem;
+    margin-bottom: var(--en-space-2);
+}
+
+.dashboard-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--en-space-2);
+    margin: var(--en-space-2) 0 var(--en-space-3);
+}
+
+.dashboard-panel {
+    min-width: 0;
+    margin-bottom: var(--en-space-3);
+}
+
+.dashboard-panel > :last-child {
+    margin-bottom: 0;
+}
+
+.dashboard-main .data-table td,
+.dashboard-main .data-table th {
+    overflow-wrap: anywhere;
+}
+
+/* The PHP pages may use either shared button naming convention. */
+button.btn,
+input.btn,
+a.btn {
+    font-family: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+    }
+}
+
+/* ======================================================================
+   16. WIREFRAME ALIGNMENT + PAGE CLASSES USED BY THE CURRENT PHP PAGES
+   These selectors intentionally support the current PHP markup, including
+   .container, .form-page and .alert, so pages do not fall back to browser
+   defaults when they are opened directly.
+   ====================================================================== */
+
+.container {
+    width: min(calc(100% - 48px), var(--en-content-width));
+    margin-inline: auto;
+    min-width: 0;
+}
+
+/* Public pages use the same centred content grid shown in the wireframe. */
+.container:not(.form-page):not(.policy-page):not(.dashboard-main) {
+    padding-block: var(--en-space-3) var(--en-space-4);
+}
+
+/* Form pages are one calm, readable column rather than full-width raw forms. */
+.form-page {
+    padding-block: var(--en-space-4) var(--en-space-5);
+}
+
+.form-page > h1,
+.policy-page > h1 {
+    margin-bottom: var(--en-space-1);
+}
+
+.form-page > h1 + p,
+.policy-page > h1 + p {
+    color: var(--en-text-muted);
+    max-width: 78ch;
+}
+
+.form-page > form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--en-space-3);
+    row-gap: 6px;
+    margin-top: var(--en-space-3);
+    padding: var(--en-space-3);
+    background: var(--en-surface);
+    border: 1px solid var(--en-border-light);
+    border-radius: var(--en-radius-lg);
+    box-shadow: var(--en-shadow-card);
+}
+
+.form-page > form > input[type="hidden"] {
+    display: none;
+}
+
+.form-page > form > label,
+.form-page > form > input,
+.form-page > form > select,
+.form-page > form > textarea,
+.form-page > form > fieldset,
+.form-page > form > h2,
+.form-page > form > p,
+.form-page > form > small,
+.form-page > form > button,
+.form-page > form > a {
+    min-width: 0;
+}
+
+.form-page > form > label {
+    align-self: end;
+    margin-top: 8px;
+    color: var(--en-navy);
+    font-size: 0.875rem;
+    font-weight: 700;
+}
+
+.form-page > form > input:not([type="hidden"]),
+.form-page > form > select,
+.form-page > form > textarea {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid var(--en-border);
+    border-radius: var(--en-radius-sm);
+    background: var(--en-surface);
+    color: var(--en-text);
+    font: inherit;
+}
+
+.form-page > form > textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+.form-page > form > input[readonly] {
+    background: var(--en-bg);
+    color: var(--en-text-muted);
+}
+
+.form-page > form > h2,
+.form-page > form > fieldset,
+.form-page > form > p,
+.form-page > form > small,
+.form-page > form > button,
+.form-page > form > a {
+    grid-column: 1 / -1;
+}
+
+.form-page > form > h2 {
+    margin: var(--en-space-2) 0 0;
+    padding-top: var(--en-space-2);
+    border-top: 1px solid var(--en-border-light);
+}
+
+.form-page > form > fieldset {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px var(--en-space-2);
+    margin: var(--en-space-1) 0;
+    padding: var(--en-space-2);
+    border: 1px solid var(--en-border);
+    border-radius: var(--en-radius-md);
+    background: #FBFCFE;
+}
+
+.form-page > form > fieldset legend {
+    padding-inline: 6px;
+    color: var(--en-navy);
+    font-weight: 800;
+}
+
+.form-page > form > fieldset label {
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.form-page > form > fieldset input {
+    width: 100%;
+    min-width: 0;
+    min-height: 42px;
+    padding: 9px 10px;
+    border: 1px solid var(--en-border);
+    border-radius: var(--en-radius-sm);
+    background: #FFFFFF;
+    font: inherit;
+}
+
+.form-page > form > button,
+.form-page > form > a.btn {
+    justify-self: start;
+    margin-top: var(--en-space-1);
+}
+
+/* Wireframe uses clear, text-labelled feedback panels rather than browser alerts. */
+.alert {
+    margin: var(--en-space-2) 0;
+    padding: 12px var(--en-space-2);
+    border: 1px solid transparent;
+    border-radius: var(--en-radius-md);
+    font-size: 0.925rem;
+}
+
+.alert-success {
+    color: var(--en-success-text);
+    background: var(--en-success-bg);
+    border-color: #BFE3D1;
+}
+
+.alert-warning {
+    color: var(--en-warning-text);
+    background: var(--en-warning-bg);
+    border-color: #F6D9B8;
+}
+
+.alert-danger {
+    color: var(--en-danger-text);
+    background: var(--en-danger-bg);
+    border-color: #F3C3C6;
+}
+
+.alert-info {
+    color: var(--en-info-text);
+    background: var(--en-info-bg);
+    border-color: #CBD5F5;
+}
+
+/* Dashboard content should begin beside the role navigation and remain aligned. */
+.dashboard-shell {
+    width: 100%;
+    align-items: stretch;
+}
+
+.dashboard-main.container {
+    width: auto;
+    max-width: calc(var(--en-content-width) + 2 * var(--en-space-4));
+    flex: 1 1 0;
+    margin: 0;
+    padding: var(--en-space-4);
+}
+
+.dashboard-main > h1 {
+    margin-bottom: 4px;
+}
+
+.dashboard-main > h1 + p {
+    margin-bottom: var(--en-space-3);
+    color: var(--en-text-muted);
+}
+
+.dashboard-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--en-space-1);
+    margin: 0 0 var(--en-space-3);
+    padding: var(--en-space-2);
+    background: var(--en-surface);
+    border: 1px solid var(--en-border-light);
+    border-radius: var(--en-radius-lg);
+}
+
+.dashboard-panel {
+    min-width: 0;
+    margin-bottom: var(--en-space-3);
+}
+
+.dashboard-panel > h2 {
+    margin-bottom: var(--en-space-2);
+}
+
+.dashboard-panel dl {
+    display: grid;
+    grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.3fr);
+    gap: 0;
+    margin: 0 0 var(--en-space-2);
+}
+
+.dashboard-panel dt,
+.dashboard-panel dd {
+    margin: 0;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--en-border-light);
+    overflow-wrap: anywhere;
+}
+
+.dashboard-panel dt {
+    color: var(--en-text-muted);
+    font-weight: 700;
+}
+
+.dashboard-panel dd {
+    color: var(--en-navy);
+}
+
+/* Privacy policy: readable line length and a clear hierarchy, like the policy wireframe. */
+.policy-page {
+    max-width: 1000px;
+    padding-block: var(--en-space-4) var(--en-space-6);
+}
+
+.policy-page h2 {
+    margin-top: var(--en-space-3);
+    padding-top: var(--en-space-2);
+    border-top: 1px solid var(--en-border-light);
+}
+
+.policy-page p {
+    max-width: 85ch;
+    line-height: 1.7;
+    color: #35465F;
+}
+
+/* Keep controls visually consistent even when markup does not use .form-group. */
+input,
+select,
+textarea,
+button {
+    font-family: inherit;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+select,
+textarea {
+    accent-color: var(--en-teal);
+}
+
+button,
+.btn,
+.primary-button,
+.outline-button {
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+    }
+}
