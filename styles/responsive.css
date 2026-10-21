@@ -193,3 +193,54 @@
         padding: var(--en-space-3) var(--en-space-2);
     }
 }
+
+/* ==========================================================================
+   Responsive corrections for event and tag pages
+   ========================================================================== */
+
+@media (max-width: 991px) {
+    .search-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .search-layout > .filter-panel {
+        width: 100%;
+    }
+
+    .filter-panel .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--en-space-2);
+    }
+}
+
+@media (max-width: 767px) {
+    .page-content,
+    .page-shell {
+        padding: var(--en-space-2);
+    }
+
+    .filter-panel {
+        padding: var(--en-space-2);
+    }
+
+    .filter-panel .form-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .event-grid,
+    .post-grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--en-space-2);
+    }
+
+    .event-card__body,
+    .event-card__content,
+    .event-card-body {
+        padding: var(--en-space-2);
+    }
+
+    .pagination {
+        gap: var(--en-space-1);
+    }
+}
