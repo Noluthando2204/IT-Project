@@ -29,7 +29,7 @@ $email = '';
 */
 
 if (!empty($_SESSION['user_id'])) {
-    header('Location: my-bookings.php');
+    header('Location: pages/my-bookings.php');
     exit;
 }
 
@@ -63,8 +63,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ) {
         $message = 'Your session has expired. Please refresh the page and try again.';
     } else {
-        $fullName = trim($_POST['name'] ?? '');
-        $email = strtolower(trim($_POST['email'] ?? ''));
+        $fullName = is_string($_POST['name'] ?? null) ? trim($_POST['name']) : '';
+        $email = is_string($_POST['email'] ?? null) ? strtolower(trim($_POST['email'])) : '';
         $password = $_POST['password'] ?? '';
 
         /*
@@ -79,8 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = 'Please enter valid registration details.';
         } elseif (
             $fullName === '' ||
-            !preg_match('//u', $fullName) ||
-            preg_match('/\s/u', $fullName)
+            !preg_match('//u', $fullName)
         ) {
             $message = 'Please enter a valid full name.';
         } elseif (

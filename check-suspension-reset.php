@@ -1,60 +1,20 @@
-
 <?php
-
-// Start the session
-session_start();
-
-// Connect to the database
-include 'database-config/connection.php';
-
-// Find users whose 30-day suspension has expired
-$sql = "
-    SELECT UserID, Suspension_count
-    FROM users
-    WHERE UserStatus = 'suspended'
-    AND Suspension_start_date IS NOT NULL
-    AND Suspension_start_date <= DATE_SUB(NOW(), INTERVAL 30 DAY)
-";
-
-$stmt = $conn->prepare($sql);
-$stmt->execute();
-
-$suspended_users = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Process each expired suspension
-foreach ($suspended_users as $user) {
-
-    // If the user has reached 2 suspensions,
-    // permanently ban the account.
-    if ($user['Suspension_count'] >= 2) {
-
-        $update_sql = "
-            UPDATE users
-            SET UserStatus = 'banned'
-            WHERE UserID = ?
-        ";
-
-        $update_stmt = $conn->prepare($update_sql);
-        $update_stmt->execute([
-            $user['UserID']
-        ]);
-
-    } else {
-
-        // Otherwise, the 30-day suspension has expired,
-        // so restore the user's account.
-        $update_sql = "
-            UPDATE users
-            SET UserStatus = 'active',
-                Suspension_start_date = NULL
-            WHERE UserID = ?
-        ";
-
-        $update_stmt = $conn->prepare($update_sql);
-        $update_stmt->execute([
-            $user['UserID']
-        ]);
-    }
+declare(strict_types=1);
+// Scheduled maintenance is never triggered by a public web request.
+if (PHP_SAPI !== 'cli') {
+    http_response_code(403);
+    exit('Command-line access only.');
 }
-
-?>
+require_once __DIR__ . '/database-config/connection.php';
+require_once __DIR__ . '/shared-components/functions.php';
+try {
+    // Repeat suspensions stay suspended; "banned" is not a schema status.
+    $stmt = eventnest_db()->prepare("UPDATE USERS SET UserStatus = 'active', Suspension_start_date = NULL
+        WHERE UserStatus = 'suspended' AND Suspension_count < 2
+        AND Suspension_start_date <= DATE_SUB(NOW(), INTERVAL 30 DAY)");
+    $stmt->execute();
+    echo $stmt->rowCount() . " expired suspension(s) reset.\n";
+} catch (Throwable $e) {
+    error_log('EventNest suspension reset failed: ' . get_class($e));
+    exit(1);
+}

@@ -210,8 +210,13 @@ require_once __DIR__ . '/../shared-components/header.php';
         <p>Administrator</p>
         <h1>Manage bookings</h1>
         <p>View booking, attendee, event, ticket and payment context for support, refunds and investigations.</p>
-        <p><a class="btn btn--outline" href="dashboard.php">Back to admin overview</a></p>
+        <p><a class="btn btn--outline" href="manage-verifications.php">Manage organiser verifications</a></p>
     </header>
+
+    <?php $escrow_flash = auth_get_flash(); ?>
+    <?php if ($escrow_flash !== null): ?>
+        <p role="status"><?= escape_html($escrow_flash['message']) ?></p>
+    <?php endif; ?>
 
     <?php if ($error_message !== ''): ?>
         <div class="message message--error" role="alert"><?= escape_html($error_message) ?></div>
@@ -349,8 +354,13 @@ require_once __DIR__ . '/../shared-components/header.php';
                             <td>
                                 <a class="btn btn--small btn--outline" href="<?= escape_html(eventnest_url('event-detail.php?event_id=' . (int) $booking['EventID'])) ?>">View event</a>
                                 <a class="btn btn--small btn--outline" href="<?= escape_html(eventnest_url('admin-panel/manage-users.php?user_id=' . (int) $booking['UserID'])) ?>">View user</a>
-                                <?php if (!empty($booking['PaymentID'])): ?>
-                                    <a class="btn btn--small btn--outline" href="<?= escape_html(eventnest_url('admin-panel/escrow.php?payment_id=' . (int) $booking['PaymentID'])) ?>">Payment / escrow</a>
+                                <?php if (!empty($booking['PaymentID']) && $escrow_status_value === 'held' && $payment_status_value === 'success'): ?>
+                                    <form method="post" action="<?= escape_html(eventnest_url('scheduled-tasks/escrow.php')) ?>">
+                                        <input type="hidden" name="csrf_token" value="<?= escape_html(eventnest_csrf_token()) ?>">
+                                        <input type="hidden" name="payment_id" value="<?= (int) $booking['PaymentID'] ?>">
+                                        <input type="hidden" name="action" value="release">
+                                        <button class="btn btn--small btn--outline" type="submit" data-confirm="Confirm you have reviewed this payment and there is no unresolved dispute or investigation requiring it to remain held. Record its escrow release?">Authorise escrow release</button>
+                                    </form>
                                 <?php endif; ?>
                             </td>
                         </tr>

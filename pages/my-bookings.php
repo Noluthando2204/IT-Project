@@ -1,19 +1,8 @@
-
-
 <?php
-session_start();
-
-// Only logged-in users may view their bookings.
-if (
-    empty($_SESSION['loggedin']) ||
-    empty($_SESSION['user_id'])
-) {
-    header('Location: login.php');
-    exit;
-}
-
-// Connect to the EventNest database.
-require_once 'database-config/connection.php';
+require_once __DIR__ . '/../shared-components/auth.php';
+require_once __DIR__ . '/../shared-components/functions.php';
+$auth_user = auth_require_attendee();
+$pdo = eventnest_db();
 
 $bookings = [];
 $error_message = '';
@@ -42,7 +31,7 @@ try {
             WHERE b.UserID = ?
             ORDER BY b.BookingDate DESC";
 
-    $stmt = $conn->prepare($sql);
+    $stmt = $pdo->prepare($sql);
     $stmt->execute([$_SESSION['user_id']]);
 
     $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -71,7 +60,7 @@ function formatBookingStatus($status)
 }
 ?>
 
-<?php include 'shared-components/header.php'; ?>
+<?php include __DIR__ . '/../shared-components/header.php'; ?>
 
 <main class="container">
 
@@ -94,7 +83,7 @@ function formatBookingStatus($status)
         <p>You have not made any event bookings yet.</p>
 
         <p>
-            <a href="index.php">Return to EventNest</a>
+            <a href="<?= escape_html(eventnest_url('index.php')) ?>">Return to EventNest</a>
             to explore events.
         </p>
 
@@ -203,9 +192,9 @@ function formatBookingStatus($status)
     <?php endif; ?>
 
     <p>
-        <a href="index.php">Back to Home</a>
+        <a href="<?= escape_html(eventnest_url('index.php')) ?>">Back to Home</a>
     </p>
 
 </main>
 
-<?php include 'shared-components/footer.php'; ?>
+<?php include __DIR__ . '/../shared-components/footer.php'; ?>

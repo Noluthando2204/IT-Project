@@ -1,199 +1,85 @@
-
-
 <?php
-session_start();
+declare(strict_types=1);
+require_once __DIR__ . '/shared-components/auth.php';
+require_once __DIR__ . '/shared-components/functions.php';
+$pdo = eventnest_db();
+$message = '';
+$message_type = 'error';
+$email = is_string($_POST['email'] ?? null) ? trim($_POST['email']) : '';
+$password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
 
-include 'database-config/connection.php';
-
-$message = "";
-$message_type = "";
-
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-
-    $email = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
-
-    if ($email === '' || $password === '') {
-
-        $message = "Please enter both email and password.";
-        $message_type = "error";
-
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-
-        $message = "Please enter a valid email address.";
-        $message_type = "error";
-
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!eventnest_verify_csrf_token($_POST['csrf_token'] ?? null)) {
+        $message = 'Your session expired. Please refresh and try again.';
+    } elseif ($email === '' || $password === '') {
+        $message = 'Please enter both email and password.';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 100) {
+        $message = 'Please enter a valid email address.';
     } else {
-
-        // Retrieve the user using the actual database column names.
-        $sql = "SELECT
-                    UserID,
-                    FirstName,
-                    LastName,
-                    Email,
-                    PasswordHash,
-                    UserStatus,
-                    Is_email_verified,
-                    Suspension_count,
-                    Suspension_start_date
-                FROM USERS
-                WHERE Email = ?";
-
-        $stmt = $conn->prepare($sql);
-        $stmt->execute([$email]);
-
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        // Use a generic error for unknown emails and incorrect passwords.
-        if (
-            !$user ||
-            empty($user['PasswordHash']) ||
-            !password_verify($password, $user['PasswordHash'])
-        ) {
-
-            $message = "Invalid email or password.";
-            $message_type = "error";
-
-        } elseif ((int) $user['Is_email_verified'] !== 1) {
-
-            // Users must verify their email before logging in.
-            $message = "Please verify your email address before logging in.";
-            $message_type = "error";
-
-        } elseif ($user['UserStatus'] === 'deleted') {
-
-            // Deleted and permanently banned accounts cannot log in.
-            $message = "This account is no longer available.";
-            $message_type = "error";
-
-        } else {
-
-            $account_status = $user['UserStatus'];
-
-            // Check whether a suspension has expired.
-            if ($account_status === 'suspended') {
-
-                if (empty($user['Suspension_start_date'])) {
-
-                    // Do not allow login if suspension timing is unknown.
-                    $message = "Your account is suspended. Please contact support.";
-                    $message_type = "error";
-
-                } else {
-
-                    $suspension_start = strtotime(
-                        $user['Suspension_start_date']
-                    );
-
-                    if ($suspension_start === false) {
-
-                        $message = "Your account is suspended. Please contact support.";
-                        $message_type = "error";
-
-                    } else {
-
-                        // A suspension lasts 30 days from its start date.
-                        $suspension_end = strtotime(
-                            '+30 days',
-                            $suspension_start
-                        );
-
-                        if (time() < $suspension_end) {
-
-                            $days_remaining = (int) ceil(
-                                ($suspension_end - time()) / 86400
-                            );
-
-                            $message = "Your account is suspended. "
-                                     . "Please try again after your "
-                                     . "30-day suspension period. "
-                                     . "Approximately "
-                                     . $days_remaining
-                                     . " day(s) remaining.";
-
-                            $message_type = "error";
-
-                        } else {
-
-                            // Reactivate an expired suspension.
-                            $update = $conn->prepare(
-                                "UPDATE USERS
-                                 SET UserStatus = 'active',
-                                     Suspension_start_date = NULL
-                                 WHERE UserID = ?
-                                   AND UserStatus = 'suspended'"
-                            );
-
-                            $update->execute([$user['UserID']]);
-
-                            if ($update->rowCount() !== 1) {
-
-                                $message = "Unable to verify account status. Please try again.";
-                                $message_type = "error";
-
-                            } else {
-
-                                $account_status = 'active';
-                            }
-                        }
-                    }
-                }
-
-            } elseif ($account_status !== 'active') {
-
-                // Deny login for any unexpected account status.
-                $message = "This account cannot log in.";
-                $message_type = "error";
+        try {
+            $pdo->beginTransaction();
+            $stmt = $pdo->prepare('SELECT UserID, FirstName, LastName, Email, PasswordHash,
+                UserStatus, Role, VerificationStatus, Is_email_verified,
+                Suspension_count, Suspension_start_date
+                FROM USERS WHERE Email = ? LIMIT 1 FOR UPDATE');
+            $stmt->execute([$email]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$user || !is_string($user['PasswordHash']) || !password_verify($password, $user['PasswordHash'])) {
+                throw new DomainException('Invalid email or password.');
             }
-
-            // Create a session only when all checks have passed.
-            if (
-                $account_status === 'active' &&
-                $message_type !== 'error'
-            ) {
-
-                $update = $conn->prepare(
-                    "UPDATE USERS
-                     SET LastLoginAt = CURRENT_TIMESTAMP
-                     WHERE UserID = ?
-                       AND UserStatus = 'active'
-                       AND Is_email_verified = TRUE"
-                );
-
-                $update->execute([$user['UserID']]);
-
-                if ($update->rowCount() !== 1) {
-
-                    $message = "Unable to complete login. Please try again.";
-                    $message_type = "error";
-
-                } else {
-
-                    // Prevent session fixation after authentication.
-                    session_regenerate_id(true);
-
-                    $full_name = trim(
-                        ($user['FirstName'] ?? '') . ' '
-                        . ($user['LastName'] ?? '')
-                    );
-
-                    $_SESSION['user_id'] = $user['UserID'];
-                    $_SESSION['name'] = $full_name;
-                    $_SESSION['email'] = $user['Email'];
-                    $_SESSION['loggedin'] = true;
-
-                    $message = "Login successful! Redirecting...";
-                    $message_type = "success";
-
-                    header("Refresh: 2; URL=index.php");
+            if ($user['UserStatus'] === 'deleted' || (int) $user['Suspension_count'] >= 2) {
+                throw new DomainException('This account is no longer available.');
+            }
+            if ((int) $user['Is_email_verified'] !== 1) {
+                throw new DomainException('Please verify your email address before logging in.');
+            }
+            if (!in_array($user['Role'], ['attendee', 'organiser', 'admin'], true)) {
+                throw new DomainException('This account cannot log in.');
+            }
+            if (!empty($user['Suspension_start_date']) || $user['UserStatus'] === 'suspended') {
+                $started = strtotime((string) ($user['Suspension_start_date'] ?? ''));
+                if ($started === false || strtotime('+30 days', $started) > time()) {
+                    throw new DomainException('Your account is suspended. Please contact support.');
+                }
+                if ($user['UserStatus'] === 'suspended') {
+                    $stmt = $pdo->prepare("UPDATE USERS SET UserStatus = 'active', Suspension_start_date = NULL
+                        WHERE UserID = ? AND UserStatus = 'suspended' AND Suspension_count < 2");
+                    $stmt->execute([(int) $user['UserID']]);
+                    $user['UserStatus'] = 'active';
                 }
             }
+            if ($user['UserStatus'] !== 'active') {
+                throw new DomainException('This account cannot log in.');
+            }
+            $stmt = $pdo->prepare('UPDATE USERS SET LastLoginAt = CURRENT_TIMESTAMP WHERE UserID = ?');
+            $stmt->execute([(int) $user['UserID']]);
+            // A second login in the same timestamp can correctly affect zero changed rows.
+            $pdo->commit();
+            session_regenerate_id(true);
+            $_SESSION = [
+                'user_id' => (int) $user['UserID'],
+                'role' => $user['Role'],
+                'user_status' => $user['UserStatus'],
+                'verification_status' => $user['VerificationStatus'],
+                'first_name' => (string) $user['FirstName'],
+                'name' => trim($user['FirstName'] . ' ' . $user['LastName']),
+                'email' => $user['Email'],
+                'loggedin' => true,
+            ];
+            auth_redirect($user['Role'] === 'admin' ? 'admin-panel/manage-bookings.php' : 'index.php');
+        } catch (DomainException $exception) {
+            if ($pdo->inTransaction()) { $pdo->rollBack(); }
+            $message = $exception->getMessage();
+        } catch (Throwable $exception) {
+            if ($pdo->inTransaction()) { $pdo->rollBack(); }
+            error_log('EventNest login failed: ' . get_class($exception));
+            $message = 'Login is temporarily unavailable. Please try again later.';
         }
     }
 }
 ?>
 
-<?php include 'shared-components/header.php'; ?>
+<?php require_once __DIR__ . '/shared-components/header.php'; ?>
 
 <div class="container">
 
@@ -208,13 +94,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <?php endif; ?>
 
     <form method="POST" action="login.php">
+        <input type="hidden" name="csrf_token" value="<?= escape_html(eventnest_csrf_token()) ?>">
 
         <input
             type="email"
             name="email"
             placeholder="Email Address"
             autocomplete="email"
-            value="<?= htmlspecialchars($_POST['email'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
+            value="<?= htmlspecialchars($email, ENT_QUOTES, 'UTF-8'); ?>"
             required
         >
 
@@ -241,4 +128,4 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 </div>
 
-<?php include 'shared-components/footer.php'; ?>
+<?php require_once __DIR__ . '/shared-components/footer.php'; ?>

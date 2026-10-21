@@ -54,32 +54,21 @@ function admin_verification_document_path(?string $database_path): ?array
         return null;
     }
 
-    $database_path = trim(str_replace('\\', '/', $database_path));
-    $database_path = ltrim($database_path, '/');
-
-    if (
-        $database_path === ''
-        || strpos($database_path, "\0") !== false
-        || preg_match('#(^|/)\.\.(/|$)#', $database_path) === 1
-        || strpos($database_path, 'uploaded-content/') !== 0
-    ) {
+    if ($database_path === '' || strpos($database_path, "\0") !== false) {
         return null;
     }
-
-    $uploads_root = realpath(eventnest_project_root() . '/uploaded-content');
-    $absolute_path = realpath(eventnest_project_root() . '/' . $database_path);
-
-    if (
-        $uploads_root === false
-        || $absolute_path === false
-        || !is_file($absolute_path)
-    ) {
+    $uploads_root = realpath(eventnest_verification_directory());
+    $absolute_path = realpath($database_path);
+    // Read previously stored documents without changing database records.
+    if (strpos(str_replace('\\', '/', $database_path), 'uploaded-content/') === 0) {
+        $uploads_root = realpath(eventnest_project_root() . '/uploaded-content');
+        $absolute_path = realpath(eventnest_project_root() . '/' . $database_path);
+    }
+    if ($uploads_root === false || $absolute_path === false || !is_file($absolute_path)) {
         return null;
     }
-
     $uploads_prefix = rtrim(str_replace('\\', '/', $uploads_root), '/') . '/';
     $normalised_file = str_replace('\\', '/', $absolute_path);
-
     if (strpos($normalised_file, $uploads_prefix) !== 0) {
         return null;
     }
@@ -365,7 +354,7 @@ require_once __DIR__ . '/../shared-components/header.php';
         <h1>Manage organiser verifications</h1>
         <p>Review private organiser documents, verification status and annual fee coverage as separate controls.</p>
         <div class="button-group">
-            <a class="btn btn--outline" href="dashboard.php">Back to admin overview</a>
+            <a class="btn btn--outline" href="manage-bookings.php">Manage bookings</a>
             <a class="btn btn--outline" href="manage-businesses.php">Manage businesses</a>
         </div>
     </header>

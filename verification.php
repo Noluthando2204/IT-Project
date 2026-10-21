@@ -19,16 +19,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 //CSRF VALIDATION
-$csrf_token = isset($_POST['csrf_token'])
-    ? (string) $_POST['csrf_token']
-    : null;
+$csrf_token = $_POST['csrf_token'] ?? null;
 
 if (!eventnest_verify_csrf_token($csrf_token)) {
     auth_set_flash(
         'Your verification request could not be confirmed. Please try again.'
     );
 
-    auth_redirect('organiser-verification.php');
+    auth_redirect('pages/organiser-verification.php');
 }
 
 //CHECK CURRENT VERIFICATION STATE
@@ -50,7 +48,7 @@ if (!in_array(
         'info'
     );
 
-    auth_redirect('organiser-verification.php');
+    auth_redirect('pages/organiser-verification.php');
 }
 
 //FILE EXISTS
@@ -62,10 +60,15 @@ if (
         'Please select a verification document.'
     );
 
-    auth_redirect('organiser-verification.php');
+    auth_redirect('pages/organiser-verification.php');
 }
 
 $file = $_FILES['verification_doc'];
+if (!is_int($file['error'] ?? null) || !is_string($file['tmp_name'] ?? null)
+    || !is_string($file['name'] ?? null) || !is_int($file['size'] ?? null)) {
+    auth_set_flash('The uploaded verification document is invalid.');
+    auth_redirect('pages/organiser-verification.php');
+}
 
 //PHP UPLOAD ERROR
 $upload_error = isset($file['error'])
@@ -93,7 +96,7 @@ if ($upload_error !== UPLOAD_ERR_OK) {
 
     auth_set_flash($message);
 
-    auth_redirect('organiser-verification.php');
+    auth_redirect('pages/organiser-verification.php');
 }
 
 //VERIFY TEMPORARY UPLOAD
@@ -109,7 +112,7 @@ if (
         'The uploaded verification document is invalid.'
     );
 
-    auth_redirect('organiser-verification.php');
+    auth_redirect('pages/organiser-verification.php');
 }
 
 //FILE SIZE
@@ -156,7 +159,7 @@ if ($file_size <= 0) {
         'The verification document is empty.'
     );
 
-    auth_redirect('organiser-verification.php');
+    auth_redirect('pages/organiser-verification.php');
 }
 
 //MAXIMUM FILE SIZE - 5 MB. This applies to PDF, JPG, JPEG and PNG files.
@@ -167,7 +170,7 @@ if ($file_size > $max_file_size) {
         'The verification document must not exceed 5 MB.'
     );
 
-    auth_redirect('organiser-verification.php');
+    auth_redirect('pages/organiser-verification.php');
 }
 
 $upload_max = verification_ini_bytes(
@@ -196,7 +199,7 @@ if (!empty($server_limits)) {
             'The verification document is too large.'
         );
 
-        auth_redirect('organiser-verification.php');
+        auth_redirect('pages/organiser-verification.php');
     }
 }
 
@@ -210,7 +213,7 @@ if (!class_exists('finfo')) {
         'Document verification is temporarily unavailable.'
     );
 
-    auth_redirect('organiser-verification.php');
+    auth_redirect('pages/organiser-verification.php');
 }
 
 $finfo = new finfo(FILEINFO_MIME_TYPE);
@@ -231,7 +234,7 @@ if (
         'Please upload a PDF, JPG, JPEG or PNG verification document.'
     );
 
-    auth_redirect('organiser-verification.php');
+    auth_redirect('pages/organiser-verification.php');
 }
 
 
@@ -255,7 +258,7 @@ if (
         'The verification document type does not match its file extension.'
     );
 
-    auth_redirect('organiser-verification.php');
+    auth_redirect('pages/organiser-verification.php');
 }
 
 //ADDITIONAL IMAGE VALIDATION
@@ -268,12 +271,15 @@ if (
             'The uploaded image is not valid.'
         );
 
-        auth_redirect('organiser-verification.php');
+        auth_redirect('pages/organiser-verification.php');
     }
 }
 
 //PROTECTED UPLOAD LOCATION
-$upload_directory = __DIR__ . '/uploaded-content';
+$upload_directory = eventnest_verification_directory();
+if (!is_dir($upload_directory)) {
+    @mkdir($upload_directory, 0700, true);
+}
 
 if (
     !is_dir($upload_directory)
@@ -287,7 +293,7 @@ if (
         'Verification document storage is temporarily unavailable.'
     );
 
-    auth_redirect('organiser-verification.php');
+    auth_redirect('pages/organiser-verification.php');
 }
 
 //Do not save original client filename for permanent storage.
@@ -303,7 +309,7 @@ try {
         'The verification document could not be saved.'
     );
 
-    auth_redirect('organiser-verification.php');
+    auth_redirect('pages/organiser-verification.php');
 }
 
 $stored_extension = $allowed_types[$mime_type][0];
@@ -321,9 +327,7 @@ $absolute_path =
     . DIRECTORY_SEPARATOR
     . $safe_filename;
 
-$database_path =
-    'uploaded-content/'
-    . $safe_filename;
+$database_path = $absolute_path;
 
 
 //MOVE UPLOAD
@@ -337,7 +341,7 @@ if (!move_uploaded_file($tmp_name, $absolute_path)) {
         'The verification document could not be saved.'
     );
 
-    auth_redirect('organiser-verification.php');
+    auth_redirect('pages/organiser-verification.php');
 }
 
 /*
@@ -407,7 +411,7 @@ try {
         'Your verification document could not be submitted. Please try again.'
     );
 
-    auth_redirect('organiser-verification.php');
+    auth_redirect('pages/organiser-verification.php');
 }
 
 // REMOVE PREVIOUS DOCUMENT AFTER SUCCESSFUL UPDATE
@@ -417,10 +421,7 @@ if (
 ) {
     $upload_real = realpath($upload_directory);
 
-    $old_absolute =
-        __DIR__
-        . DIRECTORY_SEPARATOR
-        . str_replace(
+    $old_absolute = str_replace(
             ['/', '\\'],
             DIRECTORY_SEPARATOR,
             $old_database_path
@@ -448,5 +449,5 @@ auth_set_flash(
     'success'
 );
 
-auth_redirect('organiser-verification.php');
+auth_redirect('pages/organiser-verification.php');
 

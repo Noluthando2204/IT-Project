@@ -14,11 +14,11 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
     }
 }
 
-$auth_user = require_attendee();
+$auth_user = auth_require_attendee();
 $user_id = (int) $auth_user['UserID'];
 
 $cancel_requested = $_SERVER['REQUEST_METHOD'] === 'POST';
-if ($cancel_requested && !verify_csrf_token($_POST['csrf_token'] ?? null)) {
+if ($cancel_requested && !eventnest_verify_csrf_token($_POST['csrf_token'] ?? null)) {
     http_response_code(403);
     exit('The cancellation request could not be verified.');
 }
@@ -162,12 +162,12 @@ require_once __DIR__ . '/shared-components/header.php';
             <?php if ($booking && $booking['Status'] === 'pending'): ?>
                 <form method="post" action="payment-cancel.php">
                     <input type="hidden" name="booking_id" value="<?= (int) $booking['BookingID'] ?>">
-                    <input type="hidden" name="csrf_token" value="<?= escape_html(get_csrf_token()) ?>">
+                    <input type="hidden" name="csrf_token" value="<?= escape_html(eventnest_csrf_token()) ?>">
                     <button class="btn btn-outline" type="submit">Confirm payment cancellation</button>
                 </form>
                 <a class="btn btn-primary" href="payment.php?booking_id=<?= (int) $booking['BookingID'] ?>">Retry payment</a>
             <?php endif; ?>
-            <a class="btn btn-secondary" href="my-bookings.php">View my bookings</a>
+            <a class="btn btn-secondary" href="pages/my-bookings.php">View my bookings</a>
             <?php if ($booking): ?>
                 <a class="btn btn-outline" href="event-detail.php?event_id=<?= (int) $booking['EventID'] ?>">View event</a>
             <?php else: ?>

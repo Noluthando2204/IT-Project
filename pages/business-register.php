@@ -1,28 +1,33 @@
-
-
 <?php
-session_start();
-
-require_once 'database-config/connection.php';
+require_once __DIR__ . '/../shared-components/auth.php';
+$pdo = eventnest_db();
 
 $message = '';
 $message_type = 'error';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $first_name = trim($_POST['first_name'] ?? '');
-    $last_name = trim($_POST['last_name'] ?? '');
-    $email = strtolower(trim($_POST['email'] ?? ''));
-    $phone = trim($_POST['phone'] ?? '');
-    $career_field = trim($_POST['career_field'] ?? '');
-    $password = $_POST['password'] ?? '';
-    $confirm_password = $_POST['confirm_password'] ?? '';
+    $first_name = trim_input($_POST['first_name'] ?? '');
+    $last_name = trim_input($_POST['last_name'] ?? '');
+    $email = strtolower(trim_input($_POST['email'] ?? ''));
+    $phone = trim_input($_POST['phone'] ?? '');
+    $career_field = trim_input($_POST['career_field'] ?? '');
+    $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
+    $confirm_password = is_string($_POST['confirm_password'] ?? null) ? $_POST['confirm_password'] : '';
 
     $document = $_FILES['verification_document'] ?? null;
     $document_path = null;
     $saved_file = null;
 
     try {
+        if (!eventnest_verify_csrf_token($_POST['csrf_token'] ?? null)) {
+            throw new RuntimeException('Your session expired. Please refresh and try again.');
+        }
+        foreach ([[$first_name, 50], [$last_name, 50], [$email, 100], [$phone, 15], [$career_field, 100]] as [$value, $limit]) {
+            if (mb_strlen((string) $value, 'UTF-8') > $limit) {
+                throw new RuntimeException('One or more fields exceed the allowed length.');
+            }
+        }
         // Validate required fields.
         if (
             $first_name === '' ||
@@ -40,8 +45,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new RuntimeException('Please enter a valid email address.');
         }
 
-        if (strlen($password) < 8) {
-            throw new RuntimeException('Your password must contain at least 8 characters.');
+        if (strlen($password) < 8 || strlen($password) > 72) {
+            throw new RuntimeException('Your password must be between 8 and 72 bytes.');
         }
 
         if ($password !== $confirm_password) {
@@ -50,13 +55,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // A CIPC or identity document is required for organiser verification.
         if (
-            !$document ||
-            $document['error'] !== UPLOAD_ERR_OK
+            !is_array($document) ||
+            ($document['error'] ?? null) !== UPLOAD_ERR_OK ||
+            !is_string($document['tmp_name'] ?? null) ||
+            !is_uploaded_file($document['tmp_name'])
         ) {
             throw new RuntimeException('Please upload your CIPC or identity verification document.');
         }
 
-        if ($document['size'] > 5 * 1024 * 1024) {
+        if (!is_int($document['size'] ?? null) || $document['size'] <= 0 || $document['size'] > 5 * 1024 * 1024) {
             throw new RuntimeException('The document must not exceed 5 MB.');
         }
 
@@ -75,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Check for an existing account with this email.
-        $check = $conn->prepare(
+        $check = $pdo->prepare(
             'SELECT UserID FROM USERS WHERE Email = ?'
         );
         $check->execute([$email]);
@@ -88,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Store verification documents in a non-public directory
         // where possible. Configure this path for your server.
-        $upload_directory = dirname(__DIR__) . '/eventnest-private/organiser-documents';
+        $upload_directory = eventnest_verification_directory();
 
         if (
             !is_dir($upload_directory) &&
@@ -112,11 +119,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $document_path = $saved_file;
-
-        // Generate an email verification token.
-        $token = bin2hex(random_bytes(32));
-        $token_hash = hash('sha256', $token);
-        $token_expiry = date('Y-m-d H:i:s', time() + 3600);
 
         // Hash the password before storing it.
         $password_hash = password_hash($password, PASSWORD_DEFAULT);
@@ -143,8 +145,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 Blocks_count,
                 Suspension_count,
                 Is_email_verified,
-                EmailVerificationToken,
-                EmailVerificationExpiresAt,
                 VerificationFeePaymentStatus
             ) VALUES (
                 ?, ?, ?, ?, ?, ?,
@@ -156,13 +156,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 0,
                 0,
                 0,
-                ?,
-                ?,
                 'unpaid'
             )
         ";
 
-        $stmt = $conn->prepare($sql);
+        $stmt = $pdo->prepare($sql);
         $stmt->execute([
             $first_name,
             $last_name,
@@ -170,51 +168,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $password_hash,
             $phone,
             $career_field,
-            $document_path,
-            $token_hash,
-            $token_expiry
+            $document_path
         ]);
 
-        // Set this to the actual URL of your EventNest project.
-        $base_url = 'http://localhost/IT-Project';
-        $verification_url = $base_url
-            . '/verify-email.php?token='
-            . urlencode($token);
-
-        $subject = 'Verify your EventNest organiser account';
-
-        $body = "Hello {$first_name},\n\n"
-            . "Thank you for registering as an EventNest organiser.\n\n"
-            . "Verify your email address using this link:\n"
-            . $verification_url . "\n\n"
-            . "This link expires in one hour.\n\n"
-            . "Your organiser verification and document review are still pending.\n"
-            . "Your verification fee has not been marked as paid.\n";
-
-        $headers = "From: no-reply@your-domain.example\r\n"
-            . "Content-Type: text/plain; charset=UTF-8";
-
-        if (!mail($email, $subject, $body, $headers)) {
-            throw new RuntimeException(
-                'Your registration could not complete email delivery. Please contact support.'
-            );
-        }
-
-        $message = 'Registration submitted. Please check your email to verify your address. Your organiser verification is pending.';
+        $message = 'Registration saved. Organiser review and email verification are pending. Email verification is not yet available; contact support before attempting login.';
         $message_type = 'success';
 
-    } catch (RuntimeException $e) {
-        $message = $e->getMessage();
-
-        if ($saved_file && is_file($saved_file)) {
-            unlink($saved_file);
+    } catch (Throwable $e) {
+        $message = $e instanceof RuntimeException && !$e instanceof PDOException
+            ? $e->getMessage() : 'Registration could not be completed. Please try again.';
+        if ($e instanceof PDOException) {
+            error_log('EventNest business registration database error: ' . $e->getCode());
         }
-
-    } catch (PDOException $e) {
-        error_log('EventNest business registration error: ' . $e->getMessage());
-
-        $message = 'Registration could not be completed. Please try again.';
-
         if ($saved_file && is_file($saved_file)) {
             unlink($saved_file);
         }
@@ -231,7 +196,7 @@ function escapeBusinessRegistration($value)
 }
 ?>
 
-<?php include 'shared-components/header.php'; ?>
+<?php include __DIR__ . '/../shared-components/header.php'; ?>
 
 <main class="container">
     <h2>EventNest Business / Organiser Registration</h2>
@@ -252,16 +217,17 @@ function escapeBusinessRegistration($value)
     <?php endif; ?>
 
     <form
-        action="business-registration.php"
+        action="business-register.php"
         method="POST"
         enctype="multipart/form-data"
     >
+        <input type="hidden" name="csrf_token" value="<?= escape_html(eventnest_csrf_token()) ?>">
         <label for="first_name">First name</label><br>
         <input
             type="text"
             id="first_name"
             name="first_name"
-            maxlength="100"
+            maxlength="50"
             autocomplete="given-name"
             required
         ><br><br>
@@ -271,7 +237,7 @@ function escapeBusinessRegistration($value)
             type="text"
             id="last_name"
             name="last_name"
-            maxlength="100"
+            maxlength="50"
             autocomplete="family-name"
             required
         ><br><br>
@@ -281,7 +247,7 @@ function escapeBusinessRegistration($value)
             type="email"
             id="email"
             name="email"
-            maxlength="254"
+            maxlength="100"
             autocomplete="email"
             required
         ><br><br>
@@ -291,7 +257,7 @@ function escapeBusinessRegistration($value)
             type="tel"
             id="phone"
             name="phone"
-            maxlength="30"
+            maxlength="15"
             autocomplete="tel"
             required
         ><br><br>
@@ -301,7 +267,7 @@ function escapeBusinessRegistration($value)
             type="text"
             id="career_field"
             name="career_field"
-            maxlength="150"
+            maxlength="100"
             required
         ><br><br>
 
@@ -341,8 +307,8 @@ function escapeBusinessRegistration($value)
 
     <p>
         Already registered?
-        <a href="login.php">Log in</a>
+        <a href="<?= escape_html(eventnest_url('login.php')) ?>">Log in</a>
     </p>
 </main>
 
-<?php include 'shared-components/footer.php'; ?>
+<?php include __DIR__ . '/../shared-components/footer.php'; ?>
