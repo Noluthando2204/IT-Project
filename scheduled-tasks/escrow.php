@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /*
 |--------------------------------------------------------------------------
-| EventNest - scheduled-taks/escrow.php
+| EventNest - scheduled-tasks/escrow.php
 |--------------------------------------------------------------------------
 | Canonical backend escrow checker and processor.
 |
@@ -20,9 +20,8 @@ $is_cli = PHP_SAPI === 'cli';
 |--------------------------------------------------------------------------
 | Dependency order
 |--------------------------------------------------------------------------
-| auth.php defines the CSRF helpers. functions.php only defines compatible
-| versions when they do not already exist. Therefore web mode loads auth.php
-| first, then functions.php. CLI mode loads connection.php then functions.php.
+| The shared functions.php owns CSRF helpers. Web mode loads auth.php
+| before accessing protected actions. CLI mode loads the connection directly.
 |--------------------------------------------------------------------------
 */
 if ($is_cli) {
@@ -416,10 +415,10 @@ function escrow_review_queue(PDO $pdo): array
 |--------------------------------------------------------------------------
 | CLI / trusted scheduled context
 |--------------------------------------------------------------------------
-| php scheduled-taks/escrow.php
-| php scheduled-taks/escrow.php --payment-id=12
-| php scheduled-taks/escrow.php --payment-id=12 --approve-release
-| php scheduled-taks/escrow.php --payment-id=12 --record-verified-refund
+| php scheduled-tasks/escrow.php
+| php scheduled-tasks/escrow.php --payment-id=12
+| php scheduled-tasks/escrow.php --payment-id=12 --approve-release
+| php scheduled-tasks/escrow.php --payment-id=12 --record-verified-refund
 |     --gateway-refund-verified
 |--------------------------------------------------------------------------
 */
@@ -613,7 +612,7 @@ if ($is_cli) {
 |--------------------------------------------------------------------------
 | Web / authorised administrator action
 |--------------------------------------------------------------------------
-| admin-panel/escrow.php submits payment_id, action and csrf_token.
+| admin-panel/manage-bookings.php submits payment_id, action and csrf_token.
 | escrow_status is never trusted from the browser.
 |--------------------------------------------------------------------------
 */
@@ -646,11 +645,12 @@ if ($action === 'refund') {
      * the payment provider already completed the refund.
      */
     escrow_log('refund', $payment_id, 'gateway_verification_required');
+    auth_set_flash('Refunds require payment-provider verification before they can be recorded.', 'info');
 
     header(
         'Location: '
         . eventnest_url(
-            'admin-panel/escrow.php?result=' .
+            'admin-panel/manage-bookings.php?result=' .
             rawurlencode('gateway_verification_required') .
             '&payment_id=' . $payment_id
         )
@@ -700,10 +700,17 @@ try {
     $result_code = 'error';
 }
 
+$result_messages = [
+    'released' => 'Escrow release was recorded. This action does not transfer funds through a payment provider.',
+    'already_released' => 'This escrow release was already recorded.',
+    'denied' => 'Release was denied: payment, booking, event or waiting-period requirements were not met.',
+    'error' => 'Escrow release could not be recorded. Please try again later.',
+];
+auth_set_flash($result_messages[$result_code] ?? 'Escrow action completed.', $result_code === 'released' ? 'success' : 'info');
 header(
     'Location: '
     . eventnest_url(
-        'admin-panel/escrow.php?result=' .
+        'admin-panel/manage-bookings.php?result=' .
         rawurlencode($result_code) .
         '&payment_id=' . $payment_id
     )

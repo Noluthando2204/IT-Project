@@ -24,7 +24,7 @@ $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 
 //Require verified organiser
 
-$auth_user = require_organiser_verified();
+$auth_user = auth_require_verified_organiser();
 
 $organiser_id = (int) $auth_user['UserID'];
 
@@ -319,7 +319,7 @@ $cancellable = in_array(
 
 $reason = '';
 
-$csrf_token = get_csrf_token();
+$csrf_token = eventnest_csrf_token();
 
 
 //Confirm cancelation
@@ -340,7 +340,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'The cancellation action was invalid.';
     }
 
-    if (!verify_csrf_token($_POST['csrf_token'] ?? null)) {
+    if (!eventnest_verify_csrf_token($_POST['csrf_token'] ?? null)) {
         $errors[] =
             'Your form session expired. Please try again.';
     }
@@ -1053,9 +1053,9 @@ require_once __DIR__ . '/shared-components/header.php';
     <p>
         <a
             class="btn btn-outline"
-            href="manage-events.php"
+            href="events.php"
         >
-            Back to manage events
+            Back to events
         </a>
     </p>
 
@@ -1180,14 +1180,14 @@ require_once __DIR__ . '/shared-components/header.php';
 
                 <a
                     class="btn btn-secondary"
-                    href="manage-events.php"
+                    href="events.php"
                 >
                     Back to events
                 </a>
 
                 <a
                     class="btn btn-outline"
-                    href="business-dashboard.php"
+                    href="pages/business-dashboard.php"
                 >
                     Organiser dashboard
                 </a>
@@ -1243,9 +1243,9 @@ require_once __DIR__ . '/shared-components/header.php';
 
                 <a
                     class="btn btn-outline"
-                    href="manage-events.php"
+                    href="events.php"
                 >
-                    Back to manage events
+                    Back to events
                 </a>
 
             </div>
@@ -1374,7 +1374,7 @@ require_once __DIR__ . '/shared-components/header.php';
 
                     <a
                         class="btn btn-outline"
-                        href="manage-events.php"
+                        href="events.php"
                     >
                         Keep event
                     </a>

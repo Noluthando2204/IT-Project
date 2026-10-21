@@ -14,7 +14,7 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
     }
 }
 
-$auth_user = require_attendee();
+$auth_user = auth_require_attendee();
 $user_id = (int) $auth_user['UserID'];
 
 function payment_positive_id(mixed $value): int
@@ -79,7 +79,7 @@ if (!$booking) {
     http_response_code(404);
     $page_title = 'Payment unavailable';
     require_once __DIR__ . '/shared-components/header.php';
-    echo '<main class="page-content"><div class="empty-state"><h1>Payment unavailable</h1><p>The booking could not be found.</p><a class="btn btn-outline" href="my-bookings.php">View my bookings</a></div></main>';
+    echo '<main class="page-content"><div class="empty-state"><h1>Payment unavailable</h1><p>The booking could not be found.</p><a class="btn btn-outline" href="pages/my-bookings.php">View my bookings</a></div></main>';
     require_once __DIR__ . '/shared-components/footer.php';
     exit;
 }
@@ -104,10 +104,10 @@ if (abs($expected_total - $stored_total) > 0.009) {
     $errors[] = 'The booking total could not be verified. Please contact EventNest support.';
 }
 
-$csrf_token = get_csrf_token();
+$csrf_token = eventnest_csrf_token();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errors) {
-    if (!verify_csrf_token($_POST['csrf_token'] ?? null)) {
+    if (!eventnest_verify_csrf_token($_POST['csrf_token'] ?? null)) {
         $errors[] = 'Your form session expired. Please try again.';
     } else {
         // Re-read the booking immediately before preparing the gateway request. Retry
@@ -154,7 +154,7 @@ $page_title = 'Secure sandbox payment';
 require_once __DIR__ . '/shared-components/header.php';
 ?>
 <main class="page-content payment-page">
-    <p><a class="btn btn-outline" href="my-bookings.php">Back to my bookings</a></p>
+    <p><a class="btn btn-outline" href="pages/my-bookings.php">Back to my bookings</a></p>
     <h1>Confirm and pay</h1>
     <p>Step 2 of 3 · PayFast sandbox</p>
 

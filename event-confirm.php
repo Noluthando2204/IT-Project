@@ -2,14 +2,7 @@
 
 declare(strict_types=1);
 
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
-
-require_once __DIR__ . '/database-config/connection.php';
-if (is_file(__DIR__ . '/shared-components/auth.php')) {
-    require_once __DIR__ . '/shared-components/auth.php';
-}
+require_once __DIR__ . '/shared-components/auth.php';
 
 $db = isset($pdo) && $pdo instanceof PDO ? $pdo : ($conn ?? null);
 if (!$db instanceof PDO) {
@@ -135,10 +128,10 @@ $noticeType = 'info';
 $justCompleted = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $action = (string)($_POST['action'] ?? '');
-    $csrf = (string)($_POST['csrf_token'] ?? '');
+    $action = trim_input($_POST['action'] ?? '');
+    $csrf = $_POST['csrf_token'] ?? null;
 
-    if ($action !== 'confirm_event' || !hash_equals((string)$_SESSION['csrf_token'], $csrf)) {
+    if ($action !== 'confirm_event' || !eventnest_verify_csrf_token($csrf)) {
         http_response_code(403);
         exit('Invalid confirmation request.');
     }
@@ -214,7 +207,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $failedEmails = 0;
         foreach ($mailQuery->fetchAll() as $recipient) {
-            $reviewLink = 'leave-review.php?booking_id=' . (int)$recipient['BookingID'];
+            $baseUrl = rtrim((string) getenv('EVENTNEST_BASE_URL'), '/');
+            $reviewRoute = 'pages/leave-review.php?booking_id=' . (int)$recipient['BookingID'];
+            $reviewLink = $baseUrl !== '' ? $baseUrl . '/' . $reviewRoute : eventnest_url($reviewRoute);
             $body =
                 "Your EventNest event has been marked completed: {$event['EventName']}\n" .
                 "Booking reference: {$recipient['BookingReference']}\n" .
@@ -283,7 +278,7 @@ require_once __DIR__ . '/shared-components/header.php';
         <?php endif; ?>
 
         <p>
-            <a class="btn btn-outline" href="manage-events.php">Back to manage events</a>
+            <a class="btn btn-outline" href="event-detail.php?event_id=<?= (int) $eventId ?>">Back to event</a>
         </p>
     </section>
 </main>

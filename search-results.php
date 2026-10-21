@@ -104,7 +104,7 @@ function search_query_url(array $base_params, array $changes = []): string
  * Resolve ordinary text such as "CloudCareers" to an existing public hashtag.
  * This is used only for full search, never for the JSON suggestion endpoint.
  */
-function search_resolve_hashtag(PDO $conn, string $query): ?string
+function search_resolve_hashtag(PDO $pdo, string $query): ?string
 {
     $candidate = ltrim(trim($query), '#');
 
@@ -118,7 +118,7 @@ function search_resolve_hashtag(PDO $conn, string $query): ?string
 
     $pattern = search_like('#' . $candidate);
 
-    $stmt = $conn->prepare(
+    $stmt = $pdo->prepare(
         "SELECT Tags
          FROM (
              SELECT e.Hashtags AS Tags
@@ -237,18 +237,14 @@ if ($is_suggest) {
 }
 
 try {
-    // Local connection files use either supported PDO variable name.
+    // Use the PDO connection provided by the project connection file.
     require_once __DIR__ . '/database-config/connection.php';
 
-    if ((!isset($conn) || !($conn instanceof PDO)) && isset($pdo) && $pdo instanceof PDO) {
-        $conn = $pdo;
-    }
-
-    if (!isset($conn) || !($conn instanceof PDO)) {
+    if (!isset($pdo) || !($pdo instanceof PDO)) {
         throw new RuntimeException('Database connection is unavailable.');
     }
 
-    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     /*
      * JSON LIVE-SUGGESTION MODE
@@ -262,7 +258,7 @@ try {
             $pattern = search_like($q);
 
             // Published event names only.
-            $stmt = $conn->prepare(
+            $stmt = $pdo->prepare(
                 "SELECT EventID, EventName
                  FROM EVENTS
                  WHERE Status = 'published'
@@ -284,7 +280,7 @@ try {
             }
 
             // Only categories that currently have a published event.
-            $stmt = $conn->prepare(
+            $stmt = $pdo->prepare(
                 "SELECT DISTINCT c.CategoryID, c.CategoryName
                  FROM CATEGORIES c
                  INNER JOIN EVENTS e
@@ -313,7 +309,7 @@ try {
              */
             $hashtag_term = search_like(ltrim($q, '#'));
 
-            $stmt = $conn->prepare(
+            $stmt = $pdo->prepare(
                 "SELECT e.Hashtags AS Tags
                  FROM EVENTS e
                  WHERE e.Status = 'published'
@@ -381,7 +377,7 @@ try {
      * use events-and-posts hashtag page.
      */
     if ($q !== '' && !str_starts_with($q, '#')) {
-        $resolved_tag = search_resolve_hashtag($conn, $q);
+        $resolved_tag = search_resolve_hashtag($pdo, $q);
 
         if ($resolved_tag !== null) {
             header(
@@ -394,7 +390,7 @@ try {
     }
 
     // Filter data shown in the full result page.
-    $categories = $conn
+    $categories = $pdo
         ->query(
             "SELECT CategoryID, CategoryName
              FROM CATEGORIES
@@ -402,7 +398,7 @@ try {
         )
         ->fetchAll(PDO::FETCH_ASSOC);
 
-    $provinces = $conn
+    $provinces = $pdo
         ->query(
             "SELECT DISTINCT Province
              FROM EVENTS
@@ -511,7 +507,7 @@ try {
         ' FROM EVENTS e
           INNER JOIN CATEGORIES c ON c.CategoryID = e.CategoryID ';
 
-    $count_stmt = $conn->prepare(
+    $count_stmt = $pdo->prepare(
         'SELECT COUNT(*)' . $from_sql . ' WHERE ' . $where_sql
     );
     $count_stmt->execute($bindings);
@@ -567,7 +563,7 @@ try {
         . ' ORDER BY ' . $order_sql
         . ' LIMIT :limit OFFSET :offset';
 
-    $stmt = $conn->prepare($sql);
+    $stmt = $pdo->prepare($sql);
 
     foreach ($bindings as $key => $value) {
         $stmt->bindValue(

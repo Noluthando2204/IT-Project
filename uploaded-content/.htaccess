@@ -1,1 +1,6 @@
 Options -Indexes
+
+# Legacy identity documents are served only through the authorised admin reader.
+<FilesMatch "^verification_.*\.(pdf|jpg|jpeg|png)$">
+    Require all denied
+</FilesMatch>

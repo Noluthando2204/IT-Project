@@ -26,6 +26,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 
 //DATABASE CONNECTION
 require_once __DIR__ . '/../database-config/connection.php';
+require_once __DIR__ . '/functions.php';
 
 
 /*
@@ -52,34 +53,7 @@ function auth_db(): PDO
 //PROJECT URL HELPERS
 function auth_project_base_url(): string
 {
-    $script_name = str_replace(
-        '\\',
-        '/',
-        (string) ($_SERVER['SCRIPT_NAME'] ?? '')
-    );
-
-    $directory = rtrim(
-        str_replace('\\', '/', dirname($script_name)),
-        '/'
-    );
-
-    if ($directory === '.' || $directory === '/') {
-        return '';
-    }
-
-    if (substr($directory, -12) === '/admin-panel') {
-        $directory = str_replace(
-            '\\',
-            '/',
-            dirname($directory)
-        );
-
-        if ($directory === '/' || $directory === '.') {
-            return '';
-        }
-    }
-
-    return rtrim($directory, '/');
+    return eventnest_base_url();
 }
 
 
@@ -138,39 +112,6 @@ function auth_get_flash(): ?array
     return $flash;
 }
 
-
-/**
- * Create/reuse secure CSRF token.
- */
-function eventnest_csrf_token(): string
-{
-    if (
-        empty($_SESSION['csrf_token'])
-        || !is_string($_SESSION['csrf_token'])
-    ) {
-        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-    }
-
-    return $_SESSION['csrf_token'];
-}
-
-
-/**
- * Verify a submitted CSRF token.
- */
-function eventnest_verify_csrf_token(?string $token): bool
-{
-    if (
-        $token === null
-        || $token === ''
-        || empty($_SESSION['csrf_token'])
-        || !is_string($_SESSION['csrf_token'])
-    ) {
-        return false;
-    }
-
-    return hash_equals($_SESSION['csrf_token'], $token);
-}
 
 //SESSION TERMINATION
 function auth_destroy_session(): void
@@ -309,6 +250,8 @@ function auth_current_user(): ?array
     //REFRESH SHARED SESSION VALUES FROM DATABASE
     $_SESSION['user_id'] = (int) $user['UserID'];
     $_SESSION['role'] = (string) $user['Role'];
+    $_SESSION['first_name'] = (string) $user['FirstName'];
+    $_SESSION['loggedin'] = true;
     $_SESSION['user_status'] = (string) $user['UserStatus'];
 
     /*
@@ -386,7 +329,7 @@ function auth_require_verified_organiser(): array
             'Your organiser account must be verified before you can use that feature.'
         );
 
-        auth_redirect('organiser-verification.php');
+        auth_redirect('pages/organiser-verification.php');
     }
 
     return $user;
@@ -434,4 +377,9 @@ function auth_has_current_verification_fee(
 
         return false;
     }
+}
+
+// Refresh database role/status even on public pages that read session values.
+if (isset($_SESSION['user_id'])) {
+    auth_current_user();
 }
