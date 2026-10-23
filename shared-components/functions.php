@@ -20,7 +20,7 @@ if (!function_exists('eventnest_db')) {
 if (!function_exists('trim_input')) {
     function trim_input($value): string
     {
-        return trim((string) $value);
+        return is_string($value) || is_numeric($value) ? trim((string) $value) : '';
     }
 }
 
@@ -205,11 +205,11 @@ if (!function_exists('eventnest_csrf_token')) {
 }
 
 if (!function_exists('eventnest_verify_csrf_token')) {
-    function eventnest_verify_csrf_token(?string $token): bool
+    function eventnest_verify_csrf_token(mixed $token): bool
     {
         eventnest_ensure_session();
 
-        return $token !== null
+        return is_string($token) && $token !== ''
             && isset($_SESSION['csrf_token'])
             && is_string($_SESSION['csrf_token'])
             && hash_equals($_SESSION['csrf_token'], $token);
@@ -635,4 +635,14 @@ if (!function_exists('eventnest_excerpt')) {
 
         return rtrim(substr($text, 0, $length - 1)) . '…';
     }
+}
+
+
+/** Private verification files live outside the web document root. */
+function eventnest_verification_directory(): string
+{
+    $configured_root = $_SERVER['DOCUMENT_ROOT'] ?? '';
+    $document_root = $configured_root !== '' ? realpath($configured_root) : false;
+    $document_root = $document_root ?: dirname(eventnest_project_root());
+    return dirname($document_root) . '/eventnest-private/organiser-documents';
 }

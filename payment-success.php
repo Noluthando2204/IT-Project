@@ -245,7 +245,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['m_payment_id'], $_POS
     exit;
 }
 
-$auth_user = require_attendee();
+$auth_user = auth_require_attendee();
 $user_id = (int) $auth_user['UserID'];
 $booking_id = payment_success_identifier($_GET['booking_id'] ?? '');
 
@@ -270,7 +270,7 @@ if (!$booking) {
     http_response_code(404);
     $page_title = 'Booking not found';
     require_once __DIR__ . '/shared-components/header.php';
-    echo '<main class="page-content"><div class="empty-state"><h1>Booking not found</h1><p>This booking is not available for your account.</p><a class="btn btn-outline" href="my-bookings.php">View my bookings</a></div></main>';
+    echo '<main class="page-content"><div class="empty-state"><h1>Booking not found</h1><p>This booking is not available for your account.</p><a class="btn btn-outline" href="pages/my-bookings.php">View my bookings</a></div></main>';
     require_once __DIR__ . '/shared-components/footer.php';
     exit;
 }
@@ -307,7 +307,7 @@ require_once __DIR__ . '/shared-components/header.php';
         </dl>
 
         <div class="button-row">
-            <a class="btn btn-secondary" href="my-bookings.php">View my bookings</a>
+            <a class="btn btn-secondary" href="pages/my-bookings.php">View my bookings</a>
             <?php if ($is_pending): ?>
                 <a class="btn btn-primary" href="payment.php?booking_id=<?= (int) $booking['BookingID'] ?>">Retry payment</a>
             <?php endif; ?>

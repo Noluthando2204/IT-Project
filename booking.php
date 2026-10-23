@@ -14,7 +14,7 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
     }
 }
 
-$auth_user = require_attendee();
+$auth_user = auth_require_attendee();
 $user_id = (int) $auth_user['UserID'];
 
 function booking_positive_int(mixed $value): int
@@ -174,10 +174,10 @@ $selected_ticket_id = booking_positive_int($_POST['ticket_id'] ?? $_GET['ticket_
 $quantity = booking_positive_int($_POST['quantity'] ?? ($_SERVER['REQUEST_METHOD'] === 'POST' ? '' : '1'));
 $student_email = is_string($_POST['student_email'] ?? null) ? trim($_POST['student_email']) : '';
 $age_confirm = ($_POST['age_confirm'] ?? '') === '1';
-$csrf_token = get_csrf_token();
+$csrf_token = eventnest_csrf_token();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $blocking_error === '') {
-    if (!verify_csrf_token($_POST['csrf_token'] ?? null)) {
+    if (!eventnest_verify_csrf_token($_POST['csrf_token'] ?? null)) {
         $errors[] = 'Your form session expired. Please try again.';
     }
     if ($selected_ticket_id <= 0) {

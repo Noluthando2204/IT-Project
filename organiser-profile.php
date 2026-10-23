@@ -233,7 +233,7 @@ require_once __DIR__ . '/shared-components/header.php';
             <div class="post-grid">
                 <?php foreach ($recent_posts as $post): ?>
                     <?php
-                    $safe_media = get_safe_public_media_path($post['Media']);
+                    $safe_media = eventnest_safe_media_path($post['Media']);
                     $post_excerpt = organiser_profile_excerpt($post['Content']);
                     ?>
                     <article class="post-card">
