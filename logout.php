@@ -1,7 +1,4 @@
 <?php
-
-
-<?php
 // Start the session so it can be cleared.
 session_start();
 
