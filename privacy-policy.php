@@ -1,0 +1,11 @@
+<?php
+require_once __DIR__.'/shared-components/functions.php';
+$page_title='Privacy Policy'; require __DIR__.'/shared-components/header.php'; ?>
+<main class="policy privacy-grid"><h1>Privacy Policy</h1>
+<section><h2>Account and verification data</h2><p>EventNest stores supported account details, password hashes, account status, consent and organiser verification records. Verification documents are private and accessible only to authorised administrators. Public organiser pages exclude account email, phone and private documents.</p></section>
+<section><h2>Bookings and payments</h2><p>Booking and payment records support ticket stock, payment verification, refund review and financial history. The browser never receives server API keys or payment passphrases.</p></section>
+<section><h2>Posts and private reviews</h2><p>Published event information, event-linked posts and reaction totals are public. Reviews, ratings, complaint text, compliment tags and optional contact details are private to the owning organiser and authorised administrators. Contact email is shown only when follow-up is requested.</p></section>
+<section><h2>Optional AI recommendations</h2><p>Personalised recommendations require attendee opt-in and a server-side OpenAI environment key. Only a selected career category and event category/format labels are sent to OpenAI. Names, email addresses, payments, booking records, private reviews, moderation and verification documents are not sent. Settings can disable personal rankings and clear their cache. SQL recommendations and ordinary discovery work when AI is unavailable.</p></section>
+<section><h2>Moderation, support and deletion</h2><p>Blocks and suspension history support account safety. Contact and event reports are emailed to configured support. Account deletion requires password confirmation and may be blocked by future bookings, held payments, refunds or moderation review. Eligible deletion anonymises personal account details while retaining required booking/payment relationships. Contact support about unresolved reports before deletion.</p></section>
+<p><a class="btn btn-orange" href="events.php">Browse events</a> <a class="btn btn-outline" href="contact.php">Contact support</a> <a href="business-register.php">Organiser registration</a></p></main>
+<?php require __DIR__.'/shared-components/footer.php'; ?>

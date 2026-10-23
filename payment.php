@@ -16,6 +16,7 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
 
 $auth_user = auth_require_attendee();
 $user_id = (int) $auth_user['UserID'];
+eventnest_expire_pending($pdo, $user_id);
 
 function payment_positive_id(mixed $value): int
 {
@@ -24,32 +25,12 @@ function payment_positive_id(mixed $value): int
 
 function payment_absolute_url(string $path): string
 {
-    $configured = trim((string) getenv('EVENTNEST_BASE_URL'));
-    if ($configured !== '') {
-        return rtrim($configured, '/') . '/' . ltrim($path, '/');
-    }
-
-    $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['SERVER_PORT'] ?? '') === '443');
-    $scheme = $https ? 'https' : 'http';
-    $host = (string) ($_SERVER['HTTP_HOST'] ?? 'localhost');
-    return $scheme . '://' . $host . eventnest_url($path);
+    return eventnest_absolute_url($path);
 }
 
 function payment_payfast_signature(array $data, string $passphrase = ''): string
 {
-    $parts = [];
-    foreach ($data as $key => $value) {
-        if ($key === 'signature' || $value === '' || $value === null) {
-            continue;
-        }
-        $encoded = urlencode(trim((string) $value));
-        $parts[] = $key . '=' . $encoded;
-    }
-    $query = implode('&', $parts);
-    if ($passphrase !== '') {
-        $query .= '&passphrase=' . urlencode(trim($passphrase));
-    }
-    return md5($query);
+    return payfast_signature($data, $passphrase);
 }
 
 function payment_load_booking(PDO $pdo, int $booking_id, int $user_id): ?array
@@ -79,7 +60,7 @@ if (!$booking) {
     http_response_code(404);
     $page_title = 'Payment unavailable';
     require_once __DIR__ . '/shared-components/header.php';
-    echo '<main class="page-content"><div class="empty-state"><h1>Payment unavailable</h1><p>The booking could not be found.</p><a class="btn btn-outline" href="pages/my-bookings.php">View my bookings</a></div></main>';
+    echo '<main class="page-content"><div class="empty-state"><h1>Payment unavailable</h1><p>The booking could not be found.</p><a class="btn btn-outline" href="my-bookings.php">View my bookings</a></div></main>';
     require_once __DIR__ . '/shared-components/footer.php';
     exit;
 }
@@ -128,8 +109,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errors) {
         $merchant_key = trim((string) getenv('PAYFAST_MERCHANT_KEY'));
         $passphrase = trim((string) getenv('PAYFAST_PASSPHRASE'));
 
-        if ($merchant_id === '' || $merchant_key === '') {
-            $errors[] = 'Sandbox payment is not configured on this server yet.';
+        if ($merchant_id === '' || $merchant_key === '' || !filter_var(getenv('EVENTNEST_BASE_URL'), FILTER_VALIDATE_URL) || parse_url((string)getenv('EVENTNEST_BASE_URL'), PHP_URL_SCHEME) !== 'https') {
+            $errors[] = 'Sandbox payment and trusted HTTPS callback URLs must be configured on this server.';
         } else {
             $payfast_form = [
                 'merchant_id' => $merchant_id,
@@ -154,7 +135,7 @@ $page_title = 'Secure sandbox payment';
 require_once __DIR__ . '/shared-components/header.php';
 ?>
 <main class="page-content payment-page">
-    <p><a class="btn btn-outline" href="pages/my-bookings.php">Back to my bookings</a></p>
+    <p><a class="btn btn-outline" href="my-bookings.php">Back to my bookings</a></p>
     <h1>Confirm and pay</h1>
     <p>Step 2 of 3 · PayFast sandbox</p>
 

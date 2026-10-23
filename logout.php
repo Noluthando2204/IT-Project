@@ -1,35 +1,15 @@
-
-
 <?php
-// Start the session so it can be cleared.
-session_start();
-
-// Clear all session variables.
-$_SESSION = [];
-
-// Remove the session cookie from the browser.
-if (ini_get('session.use_cookies')) {
-
-    $cookie_params = session_get_cookie_params();
-
-    setcookie(
-        session_name(),
-        '',
-        time() - 42000,
-        $cookie_params['path'],
-        $cookie_params['domain'],
-        $cookie_params['secure'],
-        $cookie_params['httponly']
-    );
+declare(strict_types=1);
+require_once __DIR__ . '/shared-components/auth.php';
+$user = auth_current_user();
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    eventnest_require_post();
+    auth_destroy_session();
+    auth_redirect('index.php?logged_out=1');
 }
-
-// Destroy the session on the server.
-session_destroy();
-
-// Prevent the browser from displaying a cached authenticated page.
-header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
-header('Pragma: no-cache');
-
-// Redirect the user to the login page.
-header('Location: login.php');
-exit;
+$page_title = 'Log out';
+require __DIR__ . '/shared-components/header.php';
+?>
+<main class="result-card"><h1>Log out of EventNest?</h1><p>Confirm to end your current session.</p>
+<form method="post"><?php eventnest_csrf_field(); ?><div class="form-actions"><button class="btn btn-red">Confirm log out</button><a class="btn btn-outline" href="<?= escape_html(eventnest_url('index.php')) ?>">Stay signed in</a></div></form></main>
+<?php require __DIR__ . '/shared-components/footer.php'; ?>

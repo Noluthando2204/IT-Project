@@ -11,6 +11,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
         isset($_SERVER['HTTPS'])
         && $_SERVER['HTTPS'] !== ''
         && strtolower((string) $_SERVER['HTTPS']) !== 'off';
+    $is_https = $is_https || parse_url((string)getenv('EVENTNEST_BASE_URL'), PHP_URL_SCHEME) === 'https';
 
     session_set_cookie_params([
         'lifetime' => 0,
@@ -31,7 +32,7 @@ require_once __DIR__ . '/functions.php';
 
 /*
  Return the shared EventNest PDO connection.
- */
+*/
 function auth_db(): PDO
 {
     global $conn, $pdo;
@@ -57,20 +58,21 @@ function auth_project_base_url(): string
 }
 
 
-/**
- * Safely redirect to a known EventNest project route.
- */
+/*
+Safely redirect to a known EventNest project route.
+*/
 function auth_redirect(string $relative_url): void
 {
     $relative_url = ltrim($relative_url, '/');
 
     /*
-     * Prevent this helper from ever becoming an open redirect.
-     */
+Prevent this helper from ever becoming an open redirect.
+*/
     if (
         stripos($relative_url, 'http://') === 0
         || stripos($relative_url, 'https://') === 0
         || strpos($relative_url, '//') === 0
+        || preg_match('/[\r\n]/', $relative_url)
     ) {
         $relative_url = 'index.php';
     }
@@ -93,9 +95,9 @@ function auth_set_flash(
 }
 
 
-/**
- * Read and remove the current authentication flash message.
- */
+/*
+Read and remove the current authentication flash message.
+*/
 function auth_get_flash(): ?array
 {
     if (
@@ -141,7 +143,7 @@ function auth_destroy_session(): void
  Load the currently authenticated user from USERS.
  Session Role/UserStatus/
  VerificationStatus values are refreshed from the database.
- */
+*/
 function auth_current_user(): ?array
 {
     if (
@@ -162,6 +164,9 @@ function auth_current_user(): ?array
                 FirstName,
                 LastName,
                 Email,
+                Phone,
+                CareerField,
+                RecommendationOptIn,
                 UserStatus,
                 Role,
                 VerificationStatus,
@@ -226,7 +231,7 @@ function auth_current_user(): ?array
         } catch (Exception $e) {
             /*
             Fail closed if a malformed suspension date is stored.
-             */
+*/
             error_log(
                 'EventNest auth: invalid Suspension_start_date for UserID '
                 . $user_id
@@ -255,9 +260,9 @@ function auth_current_user(): ?array
     $_SESSION['user_status'] = (string) $user['UserStatus'];
 
     /*
-     * Compatibility session key only.
-     * USERS.VerificationStatus remains the real source of truth.
-     */
+Compatibility session key only.
+USERS.VerificationStatus remains the real source of truth.
+*/
     $_SESSION['verification_status'] =
         (string) $user['VerificationStatus'];
 
@@ -294,11 +299,11 @@ function auth_require_attendee(): array
 
 
 /*
- Require organiser login, regardless of verification state. 
+ Require organiser login, regardless of verification state.
  Use this for pages such as organiser-verification.php and the
  organiser dashboard where pending/rejected organisers need to
  see their current verification state.
- */
+*/
 function auth_require_organiser(): array
 {
     $user = auth_require_login();
@@ -319,7 +324,7 @@ function auth_require_organiser(): array
  Require an organiser whose database VerificationStatus is verified.
  Use this for event creation, organiser posts, private organiser
  management and other verification-gated functionality.
- */
+*/
 function auth_require_verified_organiser(): array
 {
     $user = auth_require_organiser();
@@ -329,7 +334,7 @@ function auth_require_verified_organiser(): array
             'Your organiser account must be verified before you can use that feature.'
         );
 
-        auth_redirect('pages/organiser-verification.php');
+        auth_redirect('organiser-verification.php');
     }
 
     return $user;

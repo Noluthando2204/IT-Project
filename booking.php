@@ -16,6 +16,7 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
 
 $auth_user = auth_require_attendee();
 $user_id = (int) $auth_user['UserID'];
+eventnest_expire_pending($pdo, $user_id);
 
 function booking_positive_int(mixed $value): int
 {
@@ -216,6 +217,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $blocking_error === '') {
                 throw new DomainException($locked_gate_error);
             }
 
+            // Reuse an unpaid reservation for the same ticket and quantity within its four-minute window.
+            $retry = $pdo->prepare("SELECT BookingID FROM BOOKINGS WHERE UserID=? AND EventID=? AND TicketID=? AND Quantity=? AND Status='pending' AND BookingDate>DATE_SUB(NOW(), INTERVAL 4 MINUTE) ORDER BY BookingID DESC LIMIT 1 FOR UPDATE");
+            $retry->execute([$user_id,$event_id,$selected_ticket_id,$quantity]);
+            $retry_id = $retry->fetchColumn();
+            if ($retry_id) {
+                $pdo->commit(); auth_redirect('payment.php?booking_id='.(int)$retry_id);
+            }
+
             $ticket_lock = $pdo->prepare(
                 'SELECT TicketID, EventID, TicketType, Price, QuantityAvailable, Capacity, Description FROM TICKETS WHERE TicketID = :ticket_id AND EventID = :event_id LIMIT 1 FOR UPDATE'
             );
@@ -269,6 +278,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $blocking_error === '') {
             $pdo->commit();
 
             if ($total_amount <= 0.0) {
+                // A repeated free-booking submission must not reserve another set of tickets.
+                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 header('Location: ' . eventnest_url('payment-success.php?booking_id=' . $booking_id . '&free=1'));
             } else {
                 header('Location: ' . eventnest_url('payment.php?booking_id=' . $booking_id));
@@ -314,6 +325,7 @@ require_once __DIR__ . '/shared-components/header.php';
             <input type="hidden" name="event_id" value="<?= $event_id ?>">
             <input type="hidden" name="csrf_token" value="<?= escape_html($csrf_token) ?>">
 
+            <div class="booking-layout"><div>
             <fieldset>
                 <legend>Ticket tier</legend>
                 <div class="ticket-tier-list">
@@ -339,6 +351,8 @@ require_once __DIR__ . '/shared-components/header.php';
                 </div>
             </fieldset>
 
+            </div><aside class="summary-card">
+            <h2>Booking summary</h2><p><?= escape_html($event['EventName']) ?></p><p><?= escape_html(format_datetime($event['EventDate'])) ?></p>
             <div class="form-field">
                 <label for="quantity">Quantity</label>
                 <input id="quantity" name="quantity" type="number" min="1" step="1" value="<?= $quantity ?>" required data-validate-number="positive">
@@ -365,7 +379,9 @@ require_once __DIR__ . '/shared-components/header.php';
                 <p class="alert alert-info">Your verified EventNest account email must meet this event's domain restriction.</p>
             <?php endif; ?>
 
+            <p>Total estimate: <strong data-booking-total>Select a ticket</strong></p>
             <button class="btn btn-primary" type="submit">Continue</button>
+            </aside></div>
         </form>
     <?php endif; ?>
 </main>

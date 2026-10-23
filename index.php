@@ -105,11 +105,11 @@ function home_service_recommendations(PDO $pdo, int $user_id): array
         }
         $normalised[] = [
             'event_id' => $id,
-            'reason' => trim((string) ($row['WhyRecommended'] ?? $row['why_recommended'] ?? $row['reason'] ?? 'Recommended from your selected career information.')),
+            'reason' => trim((string) ($row['WhyRecommended'] ?? $row['why_recommended'] ?? $row['reason'] ?? $row['_reason'] ?? 'Recommended from your selected career information.')),
         ];
     }
 
-    $fallback = (bool) ($result['fallback'] ?? $result['is_fallback'] ?? false);
+    $fallback = (bool) ($result['fallback'] ?? $result['is_fallback'] ?? !($result['personalised'] ?? false));
     $message = trim((string) ($result['message'] ?? ''));
 
     return ['events' => array_slice($normalised, 0, 5), 'fallback' => $fallback, 'message' => $message];
@@ -275,7 +275,7 @@ if ($attendee) {
             $recommendation_message = $service_result['message'] ?: 'Showing standard EventNest recommendations while personalised ranking is unavailable.';
         }
     } else {
-        $recommendation_events = home_sql_fallback($pdo, $attendee, 5);
+        $recommendation_events = home_sql_fallback($pdo, array_replace($attendee, ['CareerField' => '']), 5);
         $recommendation_mode = 'fallback';
         $recommendation_message = 'Personalised recommendations are off. These are standard EventNest suggestions.';
     }
@@ -310,7 +310,7 @@ if ($attendee) {
 $page_title = 'Home';
 require_once __DIR__ . '/shared-components/header.php';
 ?>
-<main class="page-content home-page" id="main-content">
+<main class="page-content home-page">
     <section class="hero" aria-labelledby="home-heading">
         <div class="hero__content">
             <?php if ($attendee): ?>
@@ -340,6 +340,8 @@ require_once __DIR__ . '/shared-components/header.php';
                     <a class="btn btn-primary" href="event-detail.php?event_id=<?= (int) $hero_event['EventID'] ?>">View details</a>
                 </div>
             </article>
+        <?php else: ?>
+            <div class="hero-empty"><img src="<?= escape_html(eventnest_url('images/eventnest-logo.png')) ?>" alt="EventNest"></div>
         <?php endif; ?>
     </section>
 
@@ -347,7 +349,7 @@ require_once __DIR__ . '/shared-components/header.php';
         <section aria-labelledby="recommended-heading">
             <div class="section-heading">
                 <div>
-                    <h2 id="recommended-heading">Recommended for you</h2>
+                    <h2 id="recommended-heading"><?= $attendee['RecommendationOptIn'] ? 'Recommended for you' : 'Explore events' ?></h2>
                     <p>Search and browsing remain available across every eligible career field.</p>
                 </div>
                 <a class="btn btn-outline" href="settings.php">Recommendation settings</a>

@@ -1,0 +1,11 @@
+{
+    "name": "eventnest/student-project",
+    "description": "EventNest server-side email dependency",
+    "require": {
+        "php": "^8.2",
+        "phpmailer/phpmailer": "^6.10 || ^7.0"
+    },
+    "config": {
+        "sort-packages": true
+    }
+}

@@ -14,22 +14,24 @@ $options = [
     PDO::ATTR_EMULATE_PREPARES => false,
 ];
 
-$sslCa = '/var/www/html/ca.pem';
+$sslCa = getenv('DB_SSL_CA') ?: '/var/www/html/ca.pem';
 
 if (is_file($sslCa)) {
     $options[PDO::MYSQL_ATTR_SSL_CA] = $sslCa;
 }
 
 try {
+    if (!$host || !$dbname || !$username) { throw new PDOException('Database environment is incomplete.'); }
     $pdo = new PDO(
         "mysql:host={$host};port={$port};dbname={$dbname};charset=utf8mb4",
         $username,
         $password,
         $options
     );
+    // Match the application's South African event times and cancellation window.
+    $pdo->exec("SET time_zone = '+02:00'");
 } catch (PDOException $exception) {
     error_log('EventNest database connection failed: ' . $exception->getCode());
     http_response_code(503);
     exit('EventNest is temporarily unavailable.');
 }
-?>

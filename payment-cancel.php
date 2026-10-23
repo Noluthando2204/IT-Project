@@ -167,7 +167,7 @@ require_once __DIR__ . '/shared-components/header.php';
                 </form>
                 <a class="btn btn-primary" href="payment.php?booking_id=<?= (int) $booking['BookingID'] ?>">Retry payment</a>
             <?php endif; ?>
-            <a class="btn btn-secondary" href="pages/my-bookings.php">View my bookings</a>
+            <a class="btn btn-secondary" href="my-bookings.php">View my bookings</a>
             <?php if ($booking): ?>
                 <a class="btn btn-outline" href="event-detail.php?event_id=<?= (int) $booking['EventID'] ?>">View event</a>
             <?php else: ?>

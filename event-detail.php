@@ -172,6 +172,7 @@ require_once __DIR__ . '/shared-components/header.php';
         <div class="alert alert-info" role="status">This event has been completed and is shown as part of the organiser's public history.</div>
     <?php endif; ?>
 
+    <div class="event-detail-layout">
     <article class="event-detail-card">
         <img class="event-detail__image" src="<?= escape_html(eventnest_url($image)) ?>" alt="Image for <?= escape_html($event['EventName']) ?>">
         <div class="event-detail__content">
@@ -197,21 +198,7 @@ require_once __DIR__ . '/shared-components/header.php';
         </div>
     </article>
 
-    <section class="event-information" aria-labelledby="event-information-heading">
-        <h2 id="event-information-heading">Event information</h2>
-        <dl>
-            <div><dt>Format</dt><dd><?= escape_html(ucfirst($event['Format'])) ?></dd></div>
-            <div><dt>Venue / location</dt><dd><?= escape_html(event_detail_public_venue($event)) ?></dd></div>
-            <?php if ($event['Province']): ?><div><dt>Province</dt><dd><?= escape_html($event['Province']) ?></dd></div><?php endif; ?>
-            <?php if ($event['AgeRestriction']): ?><div><dt>Age requirement</dt><dd><?= escape_html($event['AgeRestriction']) ?></dd></div><?php endif; ?>
-            <?php if ($event['CareerGoalType'] === 'field'): ?>
-                <div><dt>Career restriction</dt><dd>This event is restricted to the selected career field. Your account career field is checked again during booking.</dd></div>
-            <?php elseif ($event['CareerGoalType'] === 'email_domain'): ?>
-                <div><dt>Email restriction</dt><dd>A verified account email ending in <?= escape_html(ltrim((string) $event['AllowedEmailDomain'], '@')) ?> is required.</dd></div>
-            <?php endif; ?>
-        </dl>
-    </section>
-
+    <div class="event-detail-sidebar">
     <section class="ticket-options" aria-labelledby="ticket-options-heading">
         <h2 id="ticket-options-heading">Choose a ticket tier</h2>
 
@@ -254,6 +241,22 @@ require_once __DIR__ . '/shared-components/header.php';
         </div>
     </section>
 
+    <section class="event-information" aria-labelledby="event-information-heading">
+        <h2 id="event-information-heading">Event information</h2>
+        <dl>
+            <div><dt>Format</dt><dd><?= escape_html(ucfirst($event['Format'])) ?></dd></div>
+            <div><dt>Venue / location</dt><dd><?= escape_html(event_detail_public_venue($event)) ?></dd></div>
+            <?php if ($event['Province']): ?><div><dt>Province</dt><dd><?= escape_html($event['Province']) ?></dd></div><?php endif; ?>
+            <?php if ($event['AgeRestriction']): ?><div><dt>Age requirement</dt><dd><?= escape_html($event['AgeRestriction']) ?></dd></div><?php endif; ?>
+            <?php if ($event['CareerGoalType'] === 'field'): ?>
+                <div><dt>Career restriction</dt><dd>This event is restricted to the selected career field. Your account career field is checked again during booking.</dd></div>
+            <?php elseif ($event['CareerGoalType'] === 'email_domain'): ?>
+                <div><dt>Email restriction</dt><dd>A verified account email ending in <?= escape_html(ltrim((string) $event['AllowedEmailDomain'], '@')) ?> is required.</dd></div>
+            <?php endif; ?>
+        </dl>
+    </section>
+
+    </div></div>
     <?php if ($current_role === 'attendee' && strtotime((string) $event['EventDate']) > time()): ?>
         <?php $more_than_24h = strtotime((string) $event['EventDate']) - time() > 86400; ?>
         <section class="event-cancellation-note">

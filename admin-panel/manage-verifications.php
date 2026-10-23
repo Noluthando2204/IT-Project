@@ -98,11 +98,8 @@ function admin_verification_document_path(?string $database_path): ?array
 }
 
 /*
-|--------------------------------------------------------------------------
-| Protected document view
-|--------------------------------------------------------------------------
-| The real upload path is never exposed to the browser.
-|--------------------------------------------------------------------------
+Protected document view
+The real upload path is never exposed to the browser.
 */
 if (
     $_SERVER['REQUEST_METHOD'] === 'GET'
@@ -144,9 +141,7 @@ if (
 }
 
 /*
-|--------------------------------------------------------------------------
-| Approve / reject
-|--------------------------------------------------------------------------
+Approve / reject
 */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $csrf_token = isset($_POST['csrf_token']) && is_string($_POST['csrf_token'])
@@ -205,7 +200,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->beginTransaction();
 
         $lock_statement = $pdo->prepare(
-            "SELECT UserID, VerificationStatus
+            "SELECT UserID, VerificationStatus, Verification_docs_path
             FROM USERS
             WHERE UserID = :user_id
               AND Role = 'organiser'
@@ -218,6 +213,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (
             !$locked_organiser
             || (string) $locked_organiser['VerificationStatus'] !== 'pending'
+            || $locked_organiser['Verification_docs_path'] !== $organiser['Verification_docs_path']
         ) {
             throw new DomainException(
                 'The verification state changed before the decision was saved.'
@@ -247,15 +243,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($action === 'reject') {
             /*
-             * The current approved schema has no rejection-reason column.
-             * Do not invent one. The reason is validated for the admin decision,
-             * and can later be passed to an approved notification mechanism.
-             */
+The current approved schema has no rejection-reason column.
+Do not invent one. The reason is validated for the admin decision,
+and can later be passed to an approved notification mechanism.
+*/
             error_log(
                 'EventNest organiser verification rejected for UserID '
                 . $user_id
                 . '. Rejection guidance was supplied by the administrator.'
             );
+        }
+
+        $notification_sent = eventnest_send_mail(
+            (string) $organiser['Email'],
+            'EventNest organiser verification',
+            $action === 'reject' ? 'Your organiser verification was rejected. ' . $rejection_reason : 'Your organiser document verification was approved. Annual fee coverage is checked separately.'
+        );
+        if (!$notification_sent) {
+            auth_set_flash('Decision saved. The notification email could not be delivered; contact the organiser through the support workflow.', 'info');
         }
 
         header(
@@ -348,7 +353,7 @@ $page_title = 'Manage organiser verifications';
 require_once __DIR__ . '/../shared-components/header.php';
 ?>
 
-<main class="container">
+<div class="dashboard-layout"><?php eventnest_sidebar('admin'); ?><main class="dashboard-main">
     <header class="page-header">
         <p>Administrator</p>
         <h1>Manage organiser verifications</h1>
@@ -474,12 +479,8 @@ require_once __DIR__ . '/../shared-components/header.php';
         <?php endif; ?>
     </section>
 
-    <section class="panel" aria-labelledby="verification-note-heading">
-        <h2 id="verification-note-heading">Implementation note</h2>
-        <p>Verification status and annual verification-fee coverage are intentionally separate. Coverage expiry does not automatically change <code>USERS.VerificationStatus</code>.</p>
-        <p>The current approved schema has no rejection-reason column. This page validates the administrator's rejection guidance but does not invent a database field. Persisting or emailing a specific reason must use an approved notification/schema mechanism.</p>
-    </section>
-</main>
+
+</main></div>
 
 <?php
 require_once __DIR__ . '/../shared-components/footer.php';

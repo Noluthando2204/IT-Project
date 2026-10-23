@@ -24,7 +24,8 @@ $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 
 //Require verified organiser
 
-$auth_user = auth_require_verified_organiser();
+$auth_user = auth_require_login();
+if ($auth_user['Role'] !== 'admin') { $auth_user = auth_require_verified_organiser(); }
 
 $organiser_id = (int) $auth_user['UserID'];
 
@@ -217,6 +218,13 @@ if ($event_id <= 0) {
 }
 
 
+// Administrators use the same cancellation and refund-preservation workflow.
+if ($auth_user['Role'] === 'admin') {
+    $owner_lookup = $pdo->prepare('SELECT OrganiserID FROM EVENTS WHERE EventID = ?');
+    $owner_lookup->execute([$event_id]);
+    $organiser_id = (int) $owner_lookup->fetchColumn();
+}
+
 //Load owned event
 
 $event_stmt = $pdo->prepare(
@@ -357,7 +365,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
 
-    //Process database changes 
+    //Process database changes
 
     if (!$errors) {
         $notifications = [];
@@ -373,10 +381,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
             /*
-            |--------------------------------------------------------------------------
-            | LOCK EVENT
-            |--------------------------------------------------------------------------
-            */
+LOCK EVENT
+*/
 
             $lock_event = $pdo->prepare(
                 "
@@ -740,7 +746,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
 
                     // Provider refund was already recorded.
-                
+
 
                     elseif ($has_refunded_payment) {
                         $mark_booking_refunded->execute([
@@ -802,9 +808,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
 
                     /*
-                    | Paid booking but no success/refund payment record.
-                    | Do not silently guess.
-                    */
+Paid booking but no success/refund payment record.
+Do not silently guess.
+*/
 
                     else {
                         throw new RuntimeException(
@@ -1048,7 +1054,7 @@ require_once __DIR__ . '/shared-components/header.php';
 
 ?>
 
-<main class="page-content cancel-event-page">
+<div class="dashboard-layout"><?php eventnest_sidebar($auth_user['Role']); ?><main class="dashboard-main cancel-event-page">
 
     <p>
         <a
@@ -1187,7 +1193,7 @@ require_once __DIR__ . '/shared-components/header.php';
 
                 <a
                     class="btn btn-outline"
-                    href="pages/business-dashboard.php"
+                    href="<?= escape_html(eventnest_url($auth_user['Role'] === 'admin' ? 'admin-panel/dashboard.php' : 'business-dashboard.php')) ?>"
                 >
                     Organiser dashboard
                 </a>
@@ -1394,7 +1400,7 @@ require_once __DIR__ . '/shared-components/header.php';
 
     <?php endif; ?>
 
-</main>
+</main></div>
 
 <?php
 

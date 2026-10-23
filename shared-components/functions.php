@@ -2,6 +2,145 @@
 
 declare(strict_types=1);
 
+// Event dates and booking cutoffs use South African time throughout the application.
+date_default_timezone_set('Africa/Johannesburg');
+
+// Keep shared layout names connected to the existing project helpers.
+function e($value): string { return escape_html($value); }
+function app_url(string $path = ''): string { return eventnest_url($path); }
+
+function eventnest_id(mixed $value): int
+{
+    if (!is_string($value) && !is_int($value)) { return 0; }
+    $id = filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    return $id === false ? 0 : (int) $id;
+}
+
+function eventnest_require_post(): void
+{
+    if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+        header('Allow: POST'); http_response_code(405); exit('Method not allowed.');
+    }
+    if (!eventnest_verify_csrf_token($_POST['csrf_token'] ?? null)) {
+        http_response_code(403); exit('The request could not be verified. Refresh the form.');
+    }
+}
+
+function eventnest_csrf_field(): void
+{
+    echo '<input type="hidden" name="csrf_token" value="' . escape_html(eventnest_csrf_token()) . '">';
+}
+
+function eventnest_status_badge(string $status): string
+{
+    return '<span class="' . eventnest_status_class($status) . '">' . escape_html(eventnest_status_label($status)) . '</span>';
+}
+
+// Sidebars use fixed project routes; endpoints still check their own permissions.
+function eventnest_sidebar(string $role): void
+{
+    $links = $role === 'admin' ? [
+        'admin-panel/dashboard.php' => 'Overview', 'admin-panel/manage-verifications.php' => 'Verifications',
+        'admin-panel/manage-events.php' => 'Events', 'admin-panel/manage-bookings.php' => 'Bookings',
+        'admin-panel/manage-businesses.php' => 'Organisers', 'admin-panel/manage-users.php' => 'Users',
+        'admin-panel/moderation.php' => 'Moderation', 'admin-panel/categories.php' => 'Categories',
+        'admin-panel/escrow.php' => 'Payments and escrow',
+    ] : ($role === 'organiser' ? [
+        'business-dashboard.php' => 'Overview', 'create-event.php' => 'Create event', 'manage-events.php' => 'Manage events',
+        'manage-bookings.php' => 'Manage bookings', 'create-post.php' => 'Posts', 'manage-reviews.php' => 'Private reviews',
+        'organiser-account.php' => 'Organiser account', 'organiser-verification.php' => 'Verification',
+    ] : ['user-dashboard.php' => 'Overview', 'my-bookings.php' => 'My bookings', 'profile.php' => 'Profile', 'settings.php' => 'Settings']);
+    $links['logout.php'] = 'Log out';
+    echo '<aside class="dashboard-sidebar" aria-label="Account navigation"><strong class="sidebar-role">' . escape_html(ucfirst($role)) . '</strong>';
+    foreach ($links as $path => $label) {
+        $active = basename($_SERVER['SCRIPT_NAME'] ?? '') === basename($path);
+        echo '<a class="sidebar-link' . ($active ? ' active' : '') . '"' . ($active ? ' aria-current="page"' : '') . ' href="' . escape_html(eventnest_url($path)) . '">' . escape_html($label) . '</a>';
+    }
+    echo '</aside>';
+}
+
+function eventnest_password_valid(string $password): bool
+{
+    return strlen($password) >= 8 && strlen($password) <= 72;
+}
+
+function event_booking_eligibility(PDO $pdo, array $event, array $user): array
+{
+    $stmt = $pdo->prepare('SELECT 1 FROM BLOCKS WHERE OrganiserID = ? AND BlockedEmail = ?');
+    $stmt->execute([$event['OrganiserID'], $user['Email']]);
+    if ($stmt->fetchColumn()) { return [false, 'Organiser block']; }
+    if ($event['CareerGoalType'] === 'field') {
+        $stmt = $pdo->prepare('SELECT CategoryName FROM CATEGORIES WHERE CategoryID = ?');
+        $stmt->execute([$event['AllowedCareerField']]);
+        if (strcasecmp((string) $stmt->fetchColumn(), trim((string) $user['CareerField'])) !== 0) { return [false, 'Career field restriction']; }
+    }
+    if ($event['CareerGoalType'] === 'email_domain') {
+        $domain = strtolower(substr(strrchr($user['Email'], '@') ?: '', 1));
+        $allowed = strtolower(ltrim((string) $event['AllowedEmailDomain'], '@'));
+        if (empty($user['Is_email_verified']) || $allowed === '' || !($domain === $allowed || str_ends_with($domain, '.' . $allowed))) { return [false, 'Email restriction']; }
+    }
+    return [true, ''];
+}
+
+// Only a configured support address can receive contact and report messages.
+function eventnest_send_mail(string $to, string $subject, string $body, ?string $reply_to = null): bool
+{
+    $autoload = eventnest_project_root() . '/vendor/autoload.php';
+    if (!is_file($autoload) || !filter_var($to, FILTER_VALIDATE_EMAIL)) { return false; }
+    require_once $autoload;
+    if (!class_exists('PHPMailer\\PHPMailer\\PHPMailer') || !getenv('EVENTNEST_SMTP_HOST')) { return false; }
+    try {
+        $mail = new PHPMailer\PHPMailer\PHPMailer(true);
+        $mail->isSMTP(); $mail->Host = (string) getenv('EVENTNEST_SMTP_HOST');
+        $mail->Port = (int) (getenv('EVENTNEST_SMTP_PORT') ?: 587);
+        $mail->SMTPAuth = true; $mail->Username = (string) getenv('EVENTNEST_SMTP_USER');
+        $mail->Password = (string) getenv('EVENTNEST_SMTP_PASS');
+        $mail->SMTPSecure = $mail->Port === 465 ? 'ssl' : 'tls';
+        $mail->Timeout = 8; $mail->CharSet = 'UTF-8';
+        $mail->setFrom((string) getenv('EVENTNEST_FROM_EMAIL'), (string) (getenv('EVENTNEST_FROM_NAME') ?: 'EventNest'));
+        $mail->addAddress($to);
+        if ($reply_to && filter_var($reply_to, FILTER_VALIDATE_EMAIL)) { $mail->addReplyTo($reply_to); }
+        $mail->Subject = $subject; $mail->Body = $body;
+        return $mail->send();
+    } catch (Throwable $exception) {
+        error_log('EventNest mail delivery failed: ' . get_class($exception)); return false;
+    }
+}
+
+// Booking locks are shared with callbacks. Only the first pending transition restores stock.
+function eventnest_expire_pending(PDO $pdo, ?int $user_id = null): int
+{
+    $sql = "SELECT BookingID FROM BOOKINGS WHERE Status = 'pending' AND BookingDate <= DATE_SUB(NOW(), INTERVAL 4 MINUTE)";
+    $params = [];
+    if ($user_id !== null) { $sql .= ' AND UserID = ?'; $params[] = $user_id; }
+    $stmt = $pdo->prepare($sql . ' ORDER BY BookingID LIMIT 200'); $stmt->execute($params);
+    $expired = 0;
+    foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+        try {
+            $pdo->beginTransaction();
+            $lock = $pdo->prepare('SELECT BookingID, TicketID, Quantity, Status FROM BOOKINGS WHERE BookingID = ? FOR UPDATE');
+            $lock->execute([$id]); $booking = $lock->fetch();
+            if ($booking && $booking['Status'] === 'pending') {
+                $paid = $pdo->prepare("SELECT PaymentID FROM PAYMENTS WHERE BookingID = ? AND PaymentStatus IN ('success','refunded') FOR UPDATE");
+                $paid->execute([$id]);
+                if (!$paid->fetchColumn()) {
+                    $change = $pdo->prepare("UPDATE BOOKINGS SET Status = 'canceled' WHERE BookingID = ? AND Status = 'pending' AND BookingDate <= DATE_SUB(NOW(), INTERVAL 4 MINUTE)");
+                    $change->execute([$id]);
+                    if ($change->rowCount() === 1) {
+                        $restore = $pdo->prepare('UPDATE TICKETS SET QuantityAvailable = LEAST(Capacity, QuantityAvailable + ?) WHERE TicketID = ?');
+                        $restore->execute([$booking['Quantity'], $booking['TicketID']]); $expired++;
+                    }
+                }
+            }
+            $pdo->commit();
+        } catch (Throwable $exception) {
+            if ($pdo->inTransaction()) { $pdo->rollBack(); }
+            throw $exception;
+        }
+    }
+    return $expired;
+}
+
 if (!function_exists('eventnest_db')) {
     function eventnest_db(): PDO
     {
@@ -32,9 +171,9 @@ if (!function_exists('escape_html')) {
 }
 
 /*
- * Legacy-compatible display helper. Prepared statements must still be used
- * for database values; this helper is not SQL sanitisation.
- */
+Legacy-compatible display helper. Prepared statements must still be used
+for database values; this helper is not SQL sanitisation.
+*/
 if (!function_exists('sanitizeInput')) {
     function sanitizeInput($value): string
     {
@@ -171,7 +310,8 @@ if (!function_exists('eventnest_ensure_session')) {
         ini_set('session.use_strict_mode', '1');
         ini_set('session.cookie_httponly', '1');
 
-        $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+        $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || parse_url((string)getenv('EVENTNEST_BASE_URL'), PHP_URL_SCHEME) === 'https';
 
         if (PHP_VERSION_ID >= 70300) {
             session_set_cookie_params([
@@ -638,11 +778,159 @@ if (!function_exists('eventnest_excerpt')) {
 }
 
 
-/** Private verification files live outside the web document root. */
+/*
+Private verification files live outside the web document root.
+*/
 function eventnest_verification_directory(): string
 {
     $configured_root = $_SERVER['DOCUMENT_ROOT'] ?? '';
     $document_root = $configured_root !== '' ? realpath($configured_root) : false;
     $document_root = $document_root ?: dirname(eventnest_project_root());
     return dirname($document_root) . '/eventnest-private/organiser-documents';
+}
+
+// Bookings and organiser fees use the same server-side PayFast verification.
+function payfast_signature(array $data, string $passphrase = ''): string
+{
+    $parts = [];
+    foreach ($data as $key => $value) {
+        if ($key === 'signature' || $value === '' || $value === null || is_array($value)) {
+            continue;
+        }
+        $parts[] = $key . '=' . urlencode(trim((string) $value));
+    }
+    $query = implode('&', $parts);
+    if ($passphrase !== '') {
+        $query .= '&passphrase=' . urlencode(trim($passphrase));
+    }
+    return md5($query);
+}
+
+function payfast_validate_with_provider(array $data): bool
+{
+    if (!function_exists('curl_init')) {
+        error_log('EventNest PayFast validation unavailable: cURL extension missing.');
+        return false;
+    }
+
+    $validation_data = $data;
+    unset($validation_data['signature']);
+    $body = http_build_query($validation_data, '', '&', PHP_QUERY_RFC3986);
+
+    $curl = curl_init('https://sandbox.payfast.co.za/eng/query/validate');
+    if ($curl === false) {
+        return false;
+    }
+
+    curl_setopt_array($curl, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $body,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HEADER => false,
+        CURLOPT_TIMEOUT => 10,
+        CURLOPT_CONNECTTIMEOUT => 5,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2,
+        CURLOPT_USERAGENT => 'EventNest-PayFast-Sandbox/1.0',
+    ]);
+
+    $response = curl_exec($curl);
+    $status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+    curl_close($curl);
+
+    return $status === 200 && is_string($response) && trim($response) === 'VALID';
+}
+
+
+function eventnest_absolute_url(string $path): string
+{
+    $base = rtrim((string) getenv('EVENTNEST_BASE_URL'), '/');
+    if (!filter_var($base, FILTER_VALIDATE_URL) || parse_url($base, PHP_URL_SCHEME) !== 'https'
+        || parse_url($base, PHP_URL_USER) !== null || parse_url($base, PHP_URL_QUERY) !== null) {
+        throw new DomainException('Configure EVENTNEST_BASE_URL with the trusted HTTPS site URL.');
+    }
+    return $base . '/' . ltrim($path, '/');
+}
+
+function eventnest_verify_payfast_notification(array $post): void
+{
+    foreach ($post as $value) {
+        if (!is_scalar($value)) { throw new RuntimeException('Invalid notification field.'); }
+    }
+    $merchant = trim((string) getenv('PAYFAST_MERCHANT_ID'));
+    if ($merchant === '' || !hash_equals($merchant, trim((string) ($post['merchant_id'] ?? '')))
+        || !hash_equals(payfast_signature($post, (string) getenv('PAYFAST_PASSPHRASE')), strtolower(trim((string) ($post['signature'] ?? ''))))
+        || !payfast_validate_with_provider($post)) {
+        throw new RuntimeException('Payment verification failed.');
+    }
+}
+
+function eventnest_prepare_verification_fee(PDO $pdo, array $user): array
+{
+    $merchant = trim((string) getenv('PAYFAST_MERCHANT_ID'));
+    $merchant_key = trim((string) getenv('PAYFAST_MERCHANT_KEY'));
+    if ($merchant === '' || $merchant_key === '') { throw new DomainException('Sandbox fee payment is not configured on this server.'); }
+    $return_url = eventnest_absolute_url('organiser-verification.php');
+    $notify_url = eventnest_absolute_url('verification.php');
+    $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM USERS WHERE UserID = ? AND Role = 'organiser' AND UserStatus = 'active' FOR UPDATE");
+        $stmt->execute([$user['UserID']]); $current = $stmt->fetch();
+        if (!$current) { throw new DomainException('Organiser account is unavailable.'); }
+        if (auth_has_current_verification_fee($current)) { throw new DomainException('Your annual fee coverage is already active.'); }
+        $reference = $current['VerificationFeeGatewayReference'];
+        if ($current['VerificationFeePaymentStatus'] !== 'pending' || !$reference || !str_starts_with($reference, 'EN-VERIFY-')) {
+            $reference = 'EN-VERIFY-' . strtoupper(bin2hex(random_bytes(16)));
+            $stmt = $pdo->prepare("UPDATE USERS SET VerificationFeePaymentStatus = 'pending', VerificationFeeGatewayReference = ? WHERE UserID = ?");
+            $stmt->execute([$reference, $current['UserID']]);
+        }
+        $pdo->commit();
+    } catch (Throwable $exception) {
+        if ($pdo->inTransaction()) { $pdo->rollBack(); }
+        throw $exception;
+    }
+    $form = [
+        'merchant_id' => $merchant, 'merchant_key' => $merchant_key,
+        'return_url' => $return_url, 'cancel_url' => $return_url . '?fee=not-completed', 'notify_url' => $notify_url,
+        'name_first' => (string) $current['FirstName'], 'name_last' => (string) $current['LastName'],
+        'email_address' => (string) $current['Email'], 'm_payment_id' => $reference,
+        'amount' => '99.00', 'item_name' => 'EventNest annual organiser verification',
+    ];
+    // PayFast requires its checkout merchant fields; the signing passphrase stays on the server.
+    $form['signature'] = payfast_signature($form, (string) getenv('PAYFAST_PASSPHRASE'));
+    return $form;
+}
+
+function eventnest_record_verification_fee(PDO $pdo, array $post): void
+{
+    eventnest_verify_payfast_notification($post);
+    $reference = trim((string) ($post['m_payment_id'] ?? ''));
+    $status = strtoupper(trim((string) ($post['payment_status'] ?? '')));
+    if (!str_starts_with($reference, 'EN-VERIFY-') || strlen($reference) > 100
+        || trim((string) ($post['pf_payment_id'] ?? '')) === ''
+        || !is_numeric($post['amount_gross'] ?? null) || abs((float) $post['amount_gross'] - 99.0) > 0.009
+        || !in_array($status, ['COMPLETE', 'FAILED'], true)) {
+        throw new RuntimeException('Invalid annual fee notification.');
+    }
+    $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare("SELECT UserID, VerificationFeePaymentStatus FROM USERS WHERE Role = 'organiser' AND VerificationFeeGatewayReference = ? FOR UPDATE");
+        $stmt->execute([$reference]); $user = $stmt->fetch();
+        if (!$user) { throw new RuntimeException('Unknown annual fee reference.'); }
+        // Replayed success must not extend coverage again, and later failure cannot downgrade it.
+        if ($user['VerificationFeePaymentStatus'] !== 'paid') {
+            if ($status === 'COMPLETE') {
+                $stmt = $pdo->prepare("UPDATE USERS SET VerificationFeePaidAt = NOW(), VerificationFeePaidUntil = DATE_ADD(NOW(), INTERVAL 1 YEAR), VerificationFeePaymentStatus = 'paid' WHERE UserID = ?");
+                $stmt->execute([$user['UserID']]);
+            } else {
+                $stmt = $pdo->prepare("UPDATE USERS SET VerificationFeePaymentStatus = 'failed' WHERE UserID = ? AND VerificationFeePaymentStatus = 'pending'");
+                $stmt->execute([$user['UserID']]);
+            }
+        }
+        // This fee belongs to USERS; PAYMENTS remains exclusively linked to ticket bookings.
+        $pdo->commit();
+    } catch (Throwable $exception) {
+        if ($pdo->inTransaction()) { $pdo->rollBack(); }
+        throw $exception;
+    }
 }
