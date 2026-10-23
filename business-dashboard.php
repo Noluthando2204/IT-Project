@@ -1,165 +1,17 @@
 <?php
-// business-dashboard.php
-// The organiser's private dashboard. Shows counts and quick links.
-
+declare(strict_types=1);
 require_once __DIR__ . '/shared-components/auth.php';
-require_once __DIR__ . '/database-config/connection.php';
-require_once __DIR__ . '/shared-components/functions.php';
-
-requireOrganiserVerified();
-
-$userId = (int)$_SESSION['user_id'];
-$page_title = 'Organiser dashboard';
-
-// Load the organiser row fresh from the database.
-$stmt = $pdo->prepare(
-    "SELECT FirstName, LastName, Email, CareerField,
-            VerificationStatus, VerificationFeePaidUntil
-     FROM USERS
-     WHERE UserID = ? AND Role = 'organiser'"
-);
-$stmt->execute([$userId]);
-$me = $stmt->fetch();
-
-if (!$me) {
-    http_response_code(403);
-    exit('Access denied.');
-}
-
-// Count this organiser's events.
-$stmt = $pdo->prepare('SELECT COUNT(*) FROM EVENTS WHERE OrganiserID = ?');
-$stmt->execute([$userId]);
-$eventCount = (int)$stmt->fetchColumn();
-
-// Count bookings on this organiser's events.
-$stmt = $pdo->prepare(
-    'SELECT COUNT(*) FROM BOOKINGS b
-     JOIN EVENTS e ON e.EventID = b.EventID
-     WHERE e.OrganiserID = ?'
-);
-$stmt->execute([$userId]);
-$bookingCount = (int)$stmt->fetchColumn();
-
-// Five most recent events.
-$stmt = $pdo->prepare(
-    'SELECT EventID, EventName, EventDate, Status
-     FROM EVENTS
-     WHERE OrganiserID = ?
-     ORDER BY EventDate DESC
-     LIMIT 5'
-);
-$stmt->execute([$userId]);
-$recentEvents = $stmt->fetchAll();
-
-require_once __DIR__ . '/shared-components/header.php';
+$organiser = auth_require_verified_organiser();
+$pdo = auth_db();
+function bd_h(mixed $v): string { return htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
+$id = (int)$organiser['UserID'];
+try {
+    $stmt=$pdo->prepare("SELECT COUNT(*) FROM EVENTS WHERE OrganiserID=:id"); $stmt->execute([':id'=>$id]); $eventCount=(int)$stmt->fetchColumn();
+    $stmt=$pdo->prepare("SELECT COUNT(DISTINCT b.BookingID) FROM BOOKINGS b JOIN EVENTS e ON e.EventID=b.EventID WHERE e.OrganiserID=:id AND b.Status IN ('pending','paid')"); $stmt->execute([':id'=>$id]); $bookingCount=(int)$stmt->fetchColumn();
+    $stmt=$pdo->prepare("SELECT e.EventID,e.EventName,e.EventDate,e.Status,e.Venue,COUNT(b.BookingID) AS booking_count FROM EVENTS e LEFT JOIN BOOKINGS b ON b.EventID=e.EventID AND b.Status IN ('pending','paid') WHERE e.OrganiserID=:id GROUP BY e.EventID,e.EventName,e.EventDate,e.Status,e.Venue ORDER BY e.Created_at DESC LIMIT 10"); $stmt->execute([':id'=>$id]); $events=$stmt->fetchAll(PDO::FETCH_ASSOC);
+    $stmt=$pdo->prepare("SELECT COUNT(*) FROM POSTS WHERE OrganiserID=:id"); $stmt->execute([':id'=>$id]); $postCount=(int)$stmt->fetchColumn();
+} catch(PDOException $e) { error_log('EventNest business dashboard failed: '.$e->getMessage()); http_response_code(500); exit('Your dashboard could not be loaded.'); }
 ?>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Organiser dashboard | EventNest</title><link rel="stylesheet" href="assets/css/style.css"></head><body><main class="container"><h1>Organiser dashboard</h1><p>Welcome, <?= bd_h(trim(($organiser['FirstName']??'').' '.($organiser['LastName']??''))) ?>.</p><section class="dashboard-cards"><article class="card"><h2>Your events</h2><p><?= $eventCount ?></p></article><article class="card"><h2>Active bookings</h2><p><?= $bookingCount ?></p></article><article class="card"><h2>Your posts</h2><p><?= $postCount ?></p></article></section><nav aria-label="Organiser actions"><a href="create-event.php">Create event</a> | <a href="create-post.php">Create post</a> | <a href="manage-reviews.php">Manage reviews</a> | <a href="block-user.php">Block attendee</a> | <a href="logout.php">Log out</a></nav><h2>Your recent events</h2><?php if(!$events): ?><p>You have not created any events yet.</p><?php else: ?><div class="table-responsive"><table><thead><tr><th>Event</th><th>Date</th><th>Venue</th><th>Status</th><th>Bookings</th><th>Actions</th></tr></thead><tbody><?php foreach($events as $e): ?><tr><td><?= bd_h($e['EventName']) ?></td><td><?= bd_h($e['EventDate']) ?></td><td><?= bd_h($e['Venue']??'—') ?></td><td><?= bd_h($e['Status']) ?></td><td><?= (int)$e['booking_count'] ?></td><td><a href="create-post.php?event_id=<?= (int)$e['EventID'] ?>">Post update</a></td></tr><?php endforeach; ?></tbody></table></div><?php endif; ?></main></body></html>
 
-<div class="dashboard-shell">
-    <?php en_render_sidebar(); ?>
 
-    <main id="main-content" class="dashboard-main">
-        <h1>Hi, <?php echo en_e($me['FirstName']); ?></h1>
-
-        <?php if ($me['VerificationStatus'] !== 'verified'): ?>
-            <div class="form-notice form-notice-warning" role="status">
-                <p>
-                    Your organiser account is
-                    <strong><?php echo en_e(ucfirst($me['VerificationStatus'])); ?></strong>.
-                    You cannot publish events or posts until an admin approves your document.
-                </p>
-                <p>
-                    <a class="btn btn-primary" href="organiser-verification.php">
-                        Upload verification document
-                    </a>
-                </p>
-            </div>
-        <?php endif; ?>
-
-        <section class="stats-grid">
-            <article class="stat-card">
-                <div class="stat-content">
-                    <span class="stat-label">Events</span>
-                    <strong class="stat-value"><?php echo $eventCount; ?></strong>
-                </div>
-            </article>
-            <article class="stat-card">
-                <div class="stat-content">
-                    <span class="stat-label">Bookings</span>
-                    <strong class="stat-value"><?php echo $bookingCount; ?></strong>
-                </div>
-            </article>
-            <article class="stat-card">
-                <div class="stat-content">
-                    <span class="stat-label">Verification</span>
-                    <strong class="stat-value"><?php echo en_e(ucfirst($me['VerificationStatus'])); ?></strong>
-                </div>
-            </article>
-            <article class="stat-card">
-                <div class="stat-content">
-                    <span class="stat-label">Coverage until</span>
-                    <strong class="stat-value">
-                        <?php
-                        echo !empty($me['VerificationFeePaidUntil'])
-                            ? en_e(formatDate($me['VerificationFeePaidUntil']))
-                            : '—';
-                        ?>
-                    </strong>
-                </div>
-            </article>
-        </section>
-
-        <div class="form-actions">
-            <a class="btn btn-primary" href="create-event.php">Create event</a>
-            <a class="btn btn-secondary" href="create-post.php">Create post</a>
-            <a class="btn btn-outline" href="manage-reviews.php">Private reviews</a>
-            <a class="btn btn-outline" href="organiser-account.php">Account</a>
-        </div>
-
-        <section class="dashboard-panel">
-            <div class="panel-header">
-                <h2>Recent events</h2>
-            </div>
-
-            <?php if (empty($recentEvents)): ?>
-                <p class="empty-state">
-                    You have not created any events yet.
-                    <a href="create-event.php">Create your first event</a>.
-                </p>
-            <?php else: ?>
-                <div class="table-wrap">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th scope="col">Event</th>
-                                <th scope="col">Date</th>
-                                <th scope="col">Status</th>
-                                <th scope="col">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($recentEvents as $ev): ?>
-                                <tr>
-                                    <td><?php echo en_e($ev['EventName']); ?></td>
-                                    <td><?php echo en_e(formatDate($ev['EventDate'])); ?></td>
-                                    <td>
-                                        <span class="status-badge status-<?php echo en_e($ev['Status']); ?>">
-                                            <?php echo en_e($ev['Status']); ?>
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <a class="btn btn-outline btn-sm"
-                                           href="event-detail.php?event_id=<?php echo (int)$ev['EventID']; ?>">
-                                            View
-                                        </a>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            <?php endif; ?>
-        </section>
-    </main>
-</div>
-
-<?php require_once __DIR__ . '/shared-components/footer.php'; ?>
