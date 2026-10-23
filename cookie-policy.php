@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../shared-components/functions.php';
+require_once __DIR__ . '/shared-components/functions.php';
 
 $page_title = 'Cookie Policy';
 
-require_once __DIR__ . '/../shared-components/header.php';
+require_once __DIR__ . '/shared-components/header.php';
 ?>
 
 <main class="page-shell legal-page">
@@ -19,7 +19,7 @@ require_once __DIR__ . '/../shared-components/header.php';
         </p>
     </header>
 
-    <section class="content-card" aria-labelledby="cookies-what">
+    <div class="policy-layout"><nav class="policy-contents" aria-label="On this page"><h2>On this page</h2><a class="sidebar-link" href="#cookies-what">What EventNest uses</a><a class="sidebar-link" href="#cookies-essential">Essential session cookies</a><a class="sidebar-link" href="#cookies-preferences">Preferences and analytics</a><a class="sidebar-link" href="#cookies-control">Browser controls</a><a class="sidebar-link" href="#cookies-related">Related information</a></nav><div>    <section class="content-card" aria-labelledby="cookies-what">
         <h2 id="cookies-what">1. What EventNest uses</h2>
 
         <p>
@@ -91,8 +91,8 @@ require_once __DIR__ . '/../shared-components/header.php';
             <a href="terms.php">Terms and Conditions</a>.
         </p>
     </section>
-</main>
+</div></div></main>
 
 <?php
-require_once __DIR__ . '/../shared-components/footer.php';
+require_once __DIR__ . '/shared-components/footer.php';
 ?>

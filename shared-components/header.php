@@ -1,57 +1,35 @@
 <?php
-/* EventNest shared document/header. Protected pages must call their auth guard before this include. */
-if (session_status() === PHP_SESSION_NONE) { session_start(); }
-require_once __DIR__ . '/navbar.php';
-$en_user = en_session_user();
-$en_title = isset($page_title) && trim((string) $page_title) !== ''
-    ? trim((string) $page_title) . ' | EventNest' : 'EventNest';
+require_once __DIR__ . '/functions.php';
+eventnest_ensure_session();
+$page_title = isset($page_title) ? $page_title : 'EventNest';
+$flash = function_exists('auth_get_flash') ? auth_get_flash() : null;
+$flashes = $flash ? [$flash] : [];
 ?>
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title><?= en_e($en_title) ?></title>
-    <link rel="icon" type="image/png" href="<?= en_e(en_url('images/eventnest-logo.png')) ?>">
-    <link rel="stylesheet" href="<?= en_e(en_url('styles/main.css')) ?>">
-    <link rel="stylesheet" href="<?= en_e(en_url('styles/responsive.css')) ?>">
-    <script src="<?= en_e(en_url('scripts/main.js')) ?>" defer></script>
+    <meta name="description" content="EventNest career-event discovery and booking platform">
+    <title><?= e($page_title) ?> | EventNest</title>
+    <link rel="stylesheet" href="<?= e(app_url('styles/main.css')) ?>">
+    <link rel="stylesheet" href="<?= e(app_url('styles/responsive.css')) ?>">
 </head>
 <body>
-<a class="skip-link" href="#main-content">Skip to main content</a>
+<a class="skip-link" href="#main-content">Skip to content</a>
 <header class="site-header">
-    <div class="site-header-start">
-        <a href="<?= en_e(en_url('index.php')) ?>" class="brand" aria-label="EventNest homepage">
-            <img src="<?= en_e(en_url('images/eventnest-logo.png')) ?>" alt="EventNest" class="brand-logo">
+    <div class="site-header-inner">
+        <a class="brand" href="<?= e(app_url('index.php')) ?>" aria-label="EventNest home">
+            <img src="<?= e(app_url('images/eventnest-logo.png')) ?>" alt="EventNest">
         </a>
-        <?php if ($en_user['logged_in']): ?>
-            <span class="header-role"><?= en_e($en_user['role'] !== '' ? ucfirst($en_user['role']) : 'Account') ?></span>
-        <?php endif; ?>
+        <?php require __DIR__ . '/navbar.php'; ?>
     </div>
-   <?php if (!$en_user['logged_in']): ?>
-    <button
-        type="button"
-        class="nav-toggle"
-        aria-controls="en-primary-nav"
-        aria-expanded="false"
-        hidden
-    >
-        <span class="nav-toggle-icon" aria-hidden="true"></span>
-        <span>Menu</span>
-    </button>
-
-    <?php en_render_public_nav(); ?>
-
-    <div class="site-header-actions">
-        <a href="<?= en_e(en_url('login.php')) ?>" class="header-login">Log in</a>
-        <a href="<?= en_e(en_url('register.php')) ?>" class="btn btn-teal btn-sm">Create account</a>
-    </div>
-<?php else: ?>
-    <?php en_render_public_nav(); ?>
-
-    <div class="site-header-actions">
-        <span class="header-notifications" aria-label="Notifications placeholder">Notifications</span>
-        <?php en_render_account_menu($en_user); ?>
-    </div>
-<?php endif; ?>
 </header>
+<?php if ($flashes): ?>
+<div class="flash-stack" aria-live="polite">
+    <?php foreach ($flashes as $flash): ?>
+        <div class="alert alert-<?= e($flash['type']) ?>"><?= e($flash['message']) ?></div>
+    <?php endforeach; ?>
+</div>
+<?php endif; ?>
+<div id="main-content" class="page-shell">

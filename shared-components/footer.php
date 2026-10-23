@@ -1,29 +1,17 @@
-<?php
-/* Shared public footer. Page content and dashboard-shell must be closed by the including page. */
-require_once __DIR__ . '/navbar.php';
-$en_footer_links = [
-    ['label' => 'Events', 'path' => 'events.php'],
-    ['label' => 'Terms', 'path' => 'pages/terms.php'],
-    ['label' => 'Privacy', 'path' => 'pages/privacy-policy.php'],
-    ['label' => 'Cookies', 'path' => 'pages/cookie-policy.php'],
-    ['label' => 'Contact', 'path' => 'pages/contact.php'],
-];
-?>
+</div>
 <footer class="site-footer">
-    <div class="footer-container">
-        <div class="footer-brand">
-            <strong>About EventNest</strong>
-            <p>Connecting people through career and professional-development events.</p>
-            <small>&copy; <?= en_e(date('Y')) ?> EventNest. All rights reserved.</small>
+    <div class="footer-grid">
+        <div><a href="<?= e(app_url('about.php')) ?>"><strong>About EventNest</strong></a><p>Connecting people through career-focused events across South Africa.</p></div>
+        <div class="footer-links">
+            <a href="<?= e(app_url('events.php')) ?>">Events</a>
+            <a href="<?= e(app_url('faq.php')) ?>">FAQ</a>
+            <a href="<?= e(app_url('terms.php')) ?>">Terms</a>
+            <a href="<?= e(app_url('privacy-policy.php')) ?>">Privacy</a>
+            <a href="<?= e(app_url('cookie-policy.php')) ?>">Cookies</a>
         </div>
-        <nav aria-label="Footer navigation" class="footer-nav">
-            <ul class="footer-links">
-                <?php foreach ($en_footer_links as $en_footer_link): ?>
-                    <li><a href="<?= en_e(en_url($en_footer_link['path'])) ?>"><?= en_e($en_footer_link['label']) ?></a></li>
-                <?php endforeach; ?>
-            </ul>
-        </nav>
+        <div class="footer-contact"><a href="<?= e(app_url('contact.php')) ?>">Contact us</a></div>
     </div>
 </footer>
+<script src="<?= e(app_url('scripts/main.js')) ?>" defer></script>
 </body>
 </html>

@@ -14,57 +14,6 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
     }
 }
 
-function payfast_signature(array $data, string $passphrase = ''): string
-{
-    $parts = [];
-    foreach ($data as $key => $value) {
-        if ($key === 'signature' || $value === '' || $value === null || is_array($value)) {
-            continue;
-        }
-        $parts[] = $key . '=' . urlencode(trim((string) $value));
-    }
-    $query = implode('&', $parts);
-    if ($passphrase !== '') {
-        $query .= '&passphrase=' . urlencode(trim($passphrase));
-    }
-    return md5($query);
-}
-
-function payfast_validate_with_provider(array $data): bool
-{
-    if (!function_exists('curl_init')) {
-        error_log('EventNest PayFast validation unavailable: cURL extension missing.');
-        return false;
-    }
-
-    $validation_data = $data;
-    unset($validation_data['signature']);
-    $body = http_build_query($validation_data, '', '&', PHP_QUERY_RFC3986);
-
-    $curl = curl_init('https://sandbox.payfast.co.za/eng/query/validate');
-    if ($curl === false) {
-        return false;
-    }
-
-    curl_setopt_array($curl, [
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => $body,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HEADER => false,
-        CURLOPT_TIMEOUT => 10,
-        CURLOPT_CONNECTTIMEOUT => 5,
-        CURLOPT_SSL_VERIFYPEER => true,
-        CURLOPT_SSL_VERIFYHOST => 2,
-        CURLOPT_USERAGENT => 'EventNest-PayFast-Sandbox/1.0',
-    ]);
-
-    $response = curl_exec($curl);
-    $status = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
-    curl_close($curl);
-
-    return $status === 200 && is_string($response) && trim($response) === 'VALID';
-}
-
 function payment_success_identifier(mixed $value): int
 {
     return is_string($value) && ctype_digit($value) && (int) $value > 0 ? (int) $value : 0;
@@ -106,9 +55,10 @@ function payment_success_record_itn(PDO $pdo, array $post): void
     try {
         $booking_stmt = $pdo->prepare(
             "SELECT b.BookingID, b.BookingReference, b.Status, b.Quantity, b.TotalAmount,
-                    b.EventID, b.TicketID, t.Price
+                    b.EventID, b.TicketID, t.Price, e.Status AS EventStatus
              FROM BOOKINGS b
              INNER JOIN TICKETS t ON t.TicketID = b.TicketID AND t.EventID = b.EventID
+             INNER JOIN EVENTS e ON e.EventID = b.EventID
              WHERE b.BookingReference = :reference
              LIMIT 1 FOR UPDATE"
         );
@@ -142,9 +92,16 @@ function payment_success_record_itn(PDO $pdo, array $post): void
         }
 
         if ($provider_status === 'COMPLETE') {
+            // Keep a late charge for a canceled event held for refund review, without reviving the booking.
+            $inventory_available = ($booking['EventStatus'] ?? 'published') !== 'canceled';
+            $other_success = $pdo->prepare("SELECT PaymentID FROM PAYMENTS WHERE BookingID = ? AND PaymentStatus IN ('success','refunded') AND (TransactionID IS NULL OR TransactionID <> ?) LIMIT 1 FOR UPDATE");
+            $other_success->execute([(int) $booking['BookingID'], $transaction_id]);
+            if ($other_success->fetchColumn()) {
+                throw new RuntimeException('Another verified transaction already exists for this booking; provider review is required.');
+            }
             // Verified provider success is authoritative over an earlier explicit cancel or timeout.
             // If that cancellation already restored stock, re-reserve the quantity where possible.
-            if ($booking['Status'] === 'canceled') {
+            if ($booking['Status'] === 'canceled' && $inventory_available) {
                 $ticket_stmt = $pdo->prepare('SELECT QuantityAvailable FROM TICKETS WHERE TicketID = :ticket_id LIMIT 1 FOR UPDATE');
                 $ticket_stmt->execute([':ticket_id' => (int) $booking['TicketID']]);
                 $available = (int) ($ticket_stmt->fetchColumn() ?: 0);
@@ -155,10 +112,11 @@ function payment_success_record_itn(PDO $pdo, array $post): void
                     // Provider payment truth must not be discarded. The inventory mismatch is
                     // retained for admin review instead of inventing a new booking/payment state.
                     error_log('EventNest late verified payment inventory mismatch for booking ' . (int) $booking['BookingID']);
+                    $inventory_available = false;
                 }
             }
 
-            if (!in_array($booking['Status'], ['refunded'], true)) {
+            if ($inventory_available && !in_array($booking['Status'], ['refunded'], true)) {
                 $update_booking = $pdo->prepare("UPDATE BOOKINGS SET Status = 'paid' WHERE BookingID = :booking_id AND Status IN ('pending','canceled','failed','paid')");
                 $update_booking->execute([':booking_id' => (int) $booking['BookingID']]);
             }
@@ -270,7 +228,7 @@ if (!$booking) {
     http_response_code(404);
     $page_title = 'Booking not found';
     require_once __DIR__ . '/shared-components/header.php';
-    echo '<main class="page-content"><div class="empty-state"><h1>Booking not found</h1><p>This booking is not available for your account.</p><a class="btn btn-outline" href="pages/my-bookings.php">View my bookings</a></div></main>';
+    echo '<main class="page-content"><div class="empty-state"><h1>Booking not found</h1><p>This booking is not available for your account.</p><a class="btn btn-outline" href="my-bookings.php">View my bookings</a></div></main>';
     require_once __DIR__ . '/shared-components/footer.php';
     exit;
 }
@@ -307,7 +265,7 @@ require_once __DIR__ . '/shared-components/header.php';
         </dl>
 
         <div class="button-row">
-            <a class="btn btn-secondary" href="pages/my-bookings.php">View my bookings</a>
+            <a class="btn btn-secondary" href="my-bookings.php">View my bookings</a>
             <?php if ($is_pending): ?>
                 <a class="btn btn-primary" href="payment.php?booking_id=<?= (int) $booking['BookingID'] ?>">Retry payment</a>
             <?php endif; ?>

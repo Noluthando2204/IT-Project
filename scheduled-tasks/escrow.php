@@ -3,26 +3,19 @@
 declare(strict_types=1);
 
 /*
-|--------------------------------------------------------------------------
-| EventNest - scheduled-tasks/escrow.php
-|--------------------------------------------------------------------------
-| Canonical backend escrow checker and processor.
-|
-| There is intentionally no separate check-escrow-release.php. This file owns
-| both the read-only eligibility checks and the authorised release/refund
-| processing so the same business rules are used everywhere.
-|--------------------------------------------------------------------------
+EventNest - scheduled-tasks/escrow.php
+Canonical backend escrow checker and processor.
+There is intentionally no separate check-escrow-release.php. This file owns
+both the read-only eligibility checks and the authorised release/refund
+processing so the same business rules are used everywhere.
 */
 
 $is_cli = PHP_SAPI === 'cli';
 
 /*
-|--------------------------------------------------------------------------
-| Dependency order
-|--------------------------------------------------------------------------
-| The shared functions.php owns CSRF helpers. Web mode loads auth.php
-| before accessing protected actions. CLI mode loads the connection directly.
-|--------------------------------------------------------------------------
+Dependency order
+The shared functions.php owns CSRF helpers. Web mode loads auth.php
+before accessing protected actions. CLI mode loads the connection directly.
 */
 if ($is_cli) {
     require_once dirname(__DIR__) . '/database-config/connection.php';
@@ -111,10 +104,10 @@ function escrow_completion_timestamp(array $payment): ?int
     }
 
     /*
-     * The current schema has no CompletedAt column. Use UpdatedAt when the
-     * event was marked completed, but never start the release clock before
-     * EventDate itself.
-     */
+The current schema has no CompletedAt column. Use UpdatedAt when the
+event was marked completed, but never start the release clock before
+EventDate itself.
+*/
     return max($event_date, $updated_at);
 }
 
@@ -412,15 +405,12 @@ function escrow_review_queue(PDO $pdo): array
 }
 
 /*
-|--------------------------------------------------------------------------
-| CLI / trusted scheduled context
-|--------------------------------------------------------------------------
-| php scheduled-tasks/escrow.php
-| php scheduled-tasks/escrow.php --payment-id=12
-| php scheduled-tasks/escrow.php --payment-id=12 --approve-release
-| php scheduled-tasks/escrow.php --payment-id=12 --record-verified-refund
-|     --gateway-refund-verified
-|--------------------------------------------------------------------------
+CLI / trusted scheduled context
+php scheduled-tasks/escrow.php
+php scheduled-tasks/escrow.php --payment-id=12
+php scheduled-tasks/escrow.php --payment-id=12 --approve-release
+php scheduled-tasks/escrow.php --payment-id=12 --record-verified-refund
+    --gateway-refund-verified
 */
 if ($is_cli) {
     $options = getopt('', [
@@ -455,7 +445,9 @@ if ($is_cli) {
         exit(2);
     }
 
-    /* Read-only check of one payment. */
+    /*
+ Read-only check of one payment.
+*/
     if ($payment_id > 0 && !$approve_release && !$record_refund) {
         try {
             $payment = escrow_load_payment($pdo, $payment_id);
@@ -494,7 +486,9 @@ if ($is_cli) {
         }
     }
 
-    /* Trusted targeted release/refund. */
+    /*
+ Trusted targeted release/refund.
+*/
     if ($approve_release || $record_refund) {
         try {
             $pdo->beginTransaction();
@@ -558,7 +552,9 @@ if ($is_cli) {
         }
     }
 
-    /* Scheduled read-only eligibility report. */
+    /*
+ Scheduled read-only eligibility report.
+*/
     try {
         $payments = escrow_review_queue($pdo);
         $review_count = 0;
@@ -609,12 +605,9 @@ if ($is_cli) {
 }
 
 /*
-|--------------------------------------------------------------------------
-| Web / authorised administrator action
-|--------------------------------------------------------------------------
-| admin-panel/manage-bookings.php submits payment_id, action and csrf_token.
-| escrow_status is never trusted from the browser.
-|--------------------------------------------------------------------------
+Web / authorised administrator action
+admin-panel/manage-bookings.php submits payment_id, action and csrf_token.
+escrow_status is never trusted from the browser.
 */
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -641,9 +634,9 @@ if ($payment_id <= 0 || !in_array($action, ['release', 'refund'], true)) {
 
 if ($action === 'refund') {
     /*
-     * A browser request may start refund handling, but it must not claim that
-     * the payment provider already completed the refund.
-     */
+A browser request may start refund handling, but it must not claim that
+the payment provider already completed the refund.
+*/
     escrow_log('refund', $payment_id, 'gateway_verification_required');
     auth_set_flash('Refunds require payment-provider verification before they can be recorded.', 'info');
 
@@ -670,9 +663,9 @@ try {
     }
 
     /*
-     * The targeted POST is the admin authorisation. The release function then
-     * re-checks payment, booking, event, escrow and waiting-period rules.
-     */
+The targeted POST is the admin authorisation. The release function then
+re-checks payment, booking, event, escrow and waiting-period rules.
+*/
     $result_code = escrow_record_release($pdo, $payment, false);
 
     $pdo->commit();

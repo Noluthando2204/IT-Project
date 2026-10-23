@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../shared-components/functions.php';
+require_once __DIR__ . '/shared-components/functions.php';
 
 $page_title = 'Terms and Conditions';
 
-require_once __DIR__ . '/../shared-components/header.php';
+require_once __DIR__ . '/shared-components/header.php';
 ?>
 
 <main class="page-shell legal-page">
@@ -22,7 +22,7 @@ require_once __DIR__ . '/../shared-components/header.php';
         </p>
     </header>
 
-    <section class="content-card" aria-labelledby="terms-accounts">
+    <div class="policy-layout"><nav class="policy-contents" aria-label="On this page"><h2>On this page</h2><a class="sidebar-link" href="#terms-accounts">Accounts and acceptable use</a><a class="sidebar-link" href="#terms-organisers">Organiser verification and annual coverage</a><a class="sidebar-link" href="#terms-events">Events and public content</a><a class="sidebar-link" href="#terms-bookings">Bookings and ticket availability</a><a class="sidebar-link" href="#terms-payments">Payments, pending bookings and timeout</a><a class="sidebar-link" href="#terms-cancellations">Attendee cancellations and refunds</a><a class="sidebar-link" href="#terms-escrow">Escrow and event completion</a><a class="sidebar-link" href="#terms-reviews">Reviews and reports</a><a class="sidebar-link" href="#terms-liability">Prototype availability</a><a class="sidebar-link" href="#terms-related">Related information</a></nav><div>    <section class="content-card" aria-labelledby="terms-accounts">
         <h2 id="terms-accounts">1. Accounts and acceptable use</h2>
 
         <p>
@@ -220,8 +220,8 @@ require_once __DIR__ . '/../shared-components/header.php';
             <a href="contact.php">Contact page</a>.
         </p>
     </section>
-</main>
+</div></div></main>
 
 <?php
-require_once __DIR__ . '/../shared-components/footer.php';
+require_once __DIR__ . '/shared-components/footer.php';
 ?>

@@ -1,5 +1,16 @@
 Options -Indexes
 
+# Uploaded files are static media, never executable server scripts.
+Options -ExecCGI
+RemoveHandler .php .phtml .phar .php3 .php4 .php5 .php7 .php8 .cgi .pl .py .shtml
+RemoveType .php .phtml .phar
+<FilesMatch "(?i)\.(php[0-9]*|phtml|phar|cgi|pl|py|sh|shtml|asp|aspx|jsp|htaccess)(\.|$)">
+    Require all denied
+</FilesMatch>
+<FilesMatch "(?i)^(?!.*\.(jpg|jpeg|png|webp|mp4|webm)$)">
+    Require all denied
+</FilesMatch>
+
 # Legacy identity documents are served only through the authorised admin reader.
 <FilesMatch "^verification_.*\.(pdf|jpg|jpeg|png)$">
     Require all denied

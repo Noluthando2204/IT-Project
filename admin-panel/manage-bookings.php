@@ -205,7 +205,7 @@ $page_title = 'Manage bookings';
 require_once __DIR__ . '/../shared-components/header.php';
 ?>
 
-<main class="container">
+<div class="dashboard-layout"><?php eventnest_sidebar('admin'); ?><main class="dashboard-main">
     <header class="page-header">
         <p>Administrator</p>
         <h1>Manage bookings</h1>
@@ -382,7 +382,7 @@ require_once __DIR__ . '/../shared-components/header.php';
             <?php endif; ?>
         <?php endif; ?>
     </section>
-</main>
+</main></div>
 
 <?php
 require_once __DIR__ . '/../shared-components/footer.php';

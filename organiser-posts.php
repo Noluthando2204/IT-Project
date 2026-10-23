@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/database-config/connection.php';
+require_once __DIR__ . '/shared-components/auth.php';
 require_once __DIR__ . '/shared-components/functions.php';
 
 $pdo = eventnest_db();
@@ -43,7 +43,7 @@ if ($organiser_id === false || $organiser_id === null) {
 }
 
 $post_type = isset($_GET['post_type'])
-    ? strtolower(trim((string) $_GET['post_type']))
+    ? strtolower(trim_input($_GET['post_type']))
     : 'all';
 
 $allowed_post_types = ['all', 'updates', 'images', 'videos'];

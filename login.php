@@ -30,9 +30,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($user['UserStatus'] === 'deleted' || (int) $user['Suspension_count'] >= 2) {
                 throw new DomainException('This account is no longer available.');
             }
-            if ((int) $user['Is_email_verified'] !== 1) {
-                throw new DomainException('Please verify your email address before logging in.');
-            }
             if (!in_array($user['Role'], ['attendee', 'organiser', 'admin'], true)) {
                 throw new DomainException('This account cannot log in.');
             }
@@ -66,10 +63,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'email' => $user['Email'],
                 'loggedin' => true,
             ];
-            auth_redirect($user['Role'] === 'admin' ? 'admin-panel/manage-bookings.php' : 'index.php');
+            auth_redirect($user['Role'] === 'admin' ? 'admin-panel/dashboard.php' : ($user['Role'] === 'organiser' ? 'business-dashboard.php' : 'user-dashboard.php'));
         } catch (DomainException $exception) {
             if ($pdo->inTransaction()) { $pdo->rollBack(); }
-            $message = $exception->getMessage();
+            $message = 'Unable to sign in with those details. Check your credentials or contact support.';
         } catch (Throwable $exception) {
             if ($pdo->inTransaction()) { $pdo->rollBack(); }
             error_log('EventNest login failed: ' . get_class($exception));
@@ -81,9 +78,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <?php require_once __DIR__ . '/shared-components/header.php'; ?>
 
-<div class="container">
+<main class="auth-container content-card">
 
-    <h2>User Login</h2>
+    <h1>Log in to EventNest</h1>
 
     <?php if (!empty($message)): ?>
 
@@ -96,8 +93,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <form method="POST" action="login.php">
         <input type="hidden" name="csrf_token" value="<?= escape_html(eventnest_csrf_token()) ?>">
 
-        <input
-            type="email"
+        <label for="email">Email address</label><input
+            id="email" type="email"
             name="email"
             placeholder="Email Address"
             autocomplete="email"
@@ -107,8 +104,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <br><br>
 
-        <input
-            type="password"
+        <label for="password">Password</label><input
+            id="password" type="password"
             name="password"
             placeholder="Password"
             autocomplete="current-password"
@@ -117,7 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <br><br>
 
-        <button type="submit">Login</button>
+        <button class="btn btn-orange" type="submit">Log in</button>
 
     </form>
 
@@ -126,6 +123,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <a href="register.php">Register here</a>
     </p>
 
-</div>
+</main>
 
 <?php require_once __DIR__ . '/shared-components/footer.php'; ?>

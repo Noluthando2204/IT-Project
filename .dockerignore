@@ -1,0 +1,10 @@
+.git
+.review
+.env*
+**/*.log
+**/*.backup
+database-config/connection.php
+node_modules
+vendor
+uploaded-content/*
+!uploaded-content/.htaccess

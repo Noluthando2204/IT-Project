@@ -24,9 +24,9 @@ function en_confirm_positive_id(mixed $value): int
 }
 
 /*
-EventNest email delivery through PHPMailer when environment settings are present. 
+EventNest email delivery through PHPMailer when environment settings are present.
 Email failure never rolls back a valid event completion.
- */
+*/
 function en_confirm_send_mail(string $to, string $subject, string $body): bool
 {
     if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
@@ -174,10 +174,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             /*
-             * EventNest's final stored BOOKING values do not include a separate "confirmed"
-             * value. Paid bookings and zero-value/free bookings therefore remain Status='paid'.
-             * Successful paid PAYMENTS remain Escrow_status='held' for later authorised release.
-             */
+EventNest's final stored BOOKING values do not include a separate "confirmed"
+value. Paid bookings and zero-value/free bookings therefore remain Status='paid'.
+Successful paid PAYMENTS remain Escrow_status='held' for later authorised release.
+*/
             $justCompleted = true;
             $notice = 'Event marked as completed. Eligible bookings were preserved and held payments remain held for post-event review.';
             $noticeType = 'success';
@@ -208,7 +208,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $failedEmails = 0;
         foreach ($mailQuery->fetchAll() as $recipient) {
             $baseUrl = rtrim((string) getenv('EVENTNEST_BASE_URL'), '/');
-            $reviewRoute = 'pages/leave-review.php?booking_id=' . (int)$recipient['BookingID'];
+            $reviewRoute = 'leave-review.php?booking_id=' . (int)$recipient['BookingID'];
             $reviewLink = $baseUrl !== '' ? $baseUrl . '/' . $reviewRoute : eventnest_url($reviewRoute);
             $body =
                 "Your EventNest event has been marked completed: {$event['EventName']}\n" .
@@ -238,7 +238,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $page_title = 'Confirm event';
 require_once __DIR__ . '/shared-components/header.php';
 ?>
-<main class="container page-section">
+<div class="dashboard-layout"><?php eventnest_sidebar('organiser'); ?><main class="dashboard-main page-section">
     <section class="card" aria-labelledby="confirm-event-heading">
         <h1 id="confirm-event-heading">Confirm event completion</h1>
         <h2><?= en_confirm_h($event['EventName']) ?></h2>
@@ -271,7 +271,7 @@ require_once __DIR__ . '/shared-components/header.php';
                 <input type="hidden" name="event_id" value="<?= (int)$eventId ?>">
                 <input type="hidden" name="action" value="confirm_event">
                 <input type="hidden" name="csrf_token" value="<?= en_confirm_h($_SESSION['csrf_token']) ?>">
-                <button class="btn btn-confirm" type="submit">Confirm event took place</button>
+                <button class="btn btn-green" type="submit">Confirm event took place</button>
             </form>
         <?php elseif ($event['Status'] !== 'completed'): ?>
             <p class="status-message status-info">This event is not currently eligible for completion confirmation.</p>
@@ -281,5 +281,5 @@ require_once __DIR__ . '/shared-components/header.php';
             <a class="btn btn-outline" href="event-detail.php?event_id=<?= (int) $eventId ?>">Back to event</a>
         </p>
     </section>
-</main>
+</main></div>
 <?php require_once __DIR__ . '/shared-components/footer.php'; ?>

@@ -100,10 +100,10 @@ function search_query_url(array $base_params, array $changes = []): string
     return search_url('search-results.php', $params);
 }
 
-/**
- * Resolve ordinary text such as "CloudCareers" to an existing public hashtag.
- * This is used only for full search, never for the JSON suggestion endpoint.
- */
+/*
+Resolve ordinary text such as "CloudCareers" to an existing public hashtag.
+This is used only for full search, never for the JSON suggestion endpoint.
+*/
 function search_resolve_hashtag(PDO $pdo, string $query): ?string
 {
     $candidate = ltrim(trim($query), '#');
@@ -247,10 +247,10 @@ try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     /*
-     * JSON LIVE-SUGGESTION MODE
-     * Minimum query length: 2 characters.
-     * Maximum response: 10 published/valid entries.
-     */
+JSON LIVE-SUGGESTION MODE
+Minimum query length: 2 characters.
+Maximum response: 10 published/valid entries.
+*/
     if ($is_suggest) {
         $suggestions = [];
 
@@ -304,9 +304,9 @@ try {
             }
 
             /*
-             * Hashtags are stored as strings.
-             * Search tags on published events and posts linked to published events.
-             */
+Hashtags are stored as strings.
+Search tags on published events and posts linked to published events.
+*/
             $hashtag_term = search_like(ltrim($q, '#'));
 
             $stmt = $pdo->prepare(
@@ -373,9 +373,9 @@ try {
     }
 
     /*
-     * If ordinary text exactly matches an existing public hashtag,
-     * use events-and-posts hashtag page.
-     */
+If ordinary text exactly matches an existing public hashtag,
+use events-and-posts hashtag page.
+*/
     if ($q !== '' && !str_starts_with($q, '#')) {
         $resolved_tag = search_resolve_hashtag($pdo, $q);
 
@@ -524,8 +524,8 @@ try {
     };
 
     /*
-     * Event images come from linked POSTS.Media.
-     */
+Event images come from linked POSTS.Media.
+*/
     $sql =
         'SELECT
             e.EventID,
@@ -606,9 +606,9 @@ try {
 }
 
 /*
- * Build links from validated/canonical values only.
- * This preserves the approved filters without echoing unknown raw GET keys.
- */
+Build links from validated/canonical values only.
+This preserves the approved filters without echoing unknown raw GET keys.
+*/
 $base_params = [];
 
 if ($q !== '') {
@@ -916,9 +916,9 @@ require_once __DIR__ . '/shared-components/header.php';
                             $image = (string) ($event['LatestImage'] ?? '');
 
                             /*
-                             * Database media is still treated as untrusted output.
-                             * Only a local uploaded image path is rendered.
-                             */
+Database media is still treated as untrusted output.
+Only a local uploaded image path is rendered.
+*/
                             $valid_image =
                                 preg_match(
                                     '~^uploaded-content/[a-zA-Z0-9_./-]+\.(?:jpg|jpeg|png|webp)$~iD',

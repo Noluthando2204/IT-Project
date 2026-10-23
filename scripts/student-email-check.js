@@ -1,67 +1,31 @@
-document.addEventListener("DOMContentLoaded", function () {
-
-    const ticketTiers = document.querySelectorAll('[name="ticket_id"]');
-
-    const studentEmail =
-        document.getElementById("student_email");
-
-    const studentEmailGroup =
-        document.querySelector('[data-student-email-field]');
-
-
-    if (!ticketTiers.length || !studentEmail || !studentEmailGroup) {
-        return;
+// Academic email is temporary booking input; PHP repeats this validation and never stores it.
+(function () {
+    'use strict';
+    var inputs = document.querySelectorAll('[name="ticket_id"]');
+    var wrap = document.querySelector('[data-student-email-field]');
+    var email = document.querySelector('[name="student_email"]');
+    if (!wrap || !email) return;
+    var feedback = document.createElement('p');
+    feedback.className = 'field-hint'; feedback.setAttribute('aria-live','polite');
+    wrap.appendChild(feedback);
+    function selectedStudent() {
+        var ticket = document.querySelector('[name="ticket_id"]:checked');
+        return ticket && ticket.getAttribute('data-ticket-type') === 'Student';
     }
-
-
-    function updateStudentField() {
-        const selected = document.querySelector('[name="ticket_id"]:checked');
-
-        if (selected && selected.getAttribute('data-ticket-type') === 'Student') {
-
-            studentEmailGroup.hidden = false;
-
-            studentEmail.required = true;
-
-        } else {
-
-            studentEmailGroup.hidden = true;
-
-            studentEmail.required = false;
-
-            studentEmail.setCustomValidity('');
-
-        }
-
-    }
-    ticketTiers.forEach(function (ticket) { ticket.addEventListener('change', updateStudentField); });
-    updateStudentField();
-
-
-    studentEmail.addEventListener("input", function () {
-
-        const email =
-            this.value.trim().toLowerCase();
-
-        if (!this.required || email === "") {
-            this.setCustomValidity('');
-            return;
-        }
-
-
-        const domain = email.split('@')[1] || '';
-        const validStudentEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    function check() {
+        if (!selectedStudent()) { email.setCustomValidity(''); return; }
+        var value = email.value.trim().toLowerCase();
+        var domain = value.split('@')[1] || '';
+        var valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
             && (domain.endsWith('.ac.za') || domain === 'tuks.co.za' || domain.endsWith('.tuks.co.za'));
-
-
-        if (!validStudentEmail) {
-
-            this.setCustomValidity(
-                "Student tickets require an email address ending in ac.za or tuks.co.za."
-            );
-
-        } else { this.setCustomValidity(''); }
-
-    });
-
-});
+        email.setCustomValidity(valid ? '' : 'Enter an eligible academic email ending in .ac.za or tuks.co.za.');
+        feedback.textContent = valid ? 'Academic email format accepted; the server will check it again.' : 'Student tickets require an eligible academic email.';
+    }
+    function update() {
+        var student = !!selectedStudent(); wrap.hidden = !student; email.required = student;
+        if (!student) email.value = '';
+        check();
+    }
+    inputs.forEach(function (input) { input.addEventListener('change',update); });
+    email.addEventListener('input',check); update();
+})();
