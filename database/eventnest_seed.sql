@@ -1,5 +1,10 @@
 USE eventnest;
 
+-- Fictional SIT test accounts below use the documented password: EventNest123!
+-- Priya is blocked by one organiser but can log in; Zola is deleted.
+-- Thabo is a dedicated first-suspension fixture (not a converted normal attendee).
+-- His 30-day suspension starts on initial import; INSERT IGNORE does not reset it.
+
 INSERT IGNORE INTO CATEGORIES
     (CategoryID, CategoryName, Description)
 VALUES
@@ -253,6 +258,22 @@ VALUES
     NULL,
     'unpaid',
     NULL
+);
+
+-- A first suspension consumes the current block cycle, hence Blocks_count = 0.
+-- This direct account-state fixture does not invent additional organiser history.
+INSERT IGNORE INTO USERS
+(
+    UserID, FirstName, LastName, Email, PasswordHash, Phone, CareerField,
+    UserStatus, Role, VerificationStatus, RecommendationOptIn,
+    Blocks_count, Suspension_count, Suspension_start_date, Is_email_verified
+)
+VALUES
+(
+    10, 'Thabo', 'Nkosi', 'thabo.suspended@example.com',
+    '$2y$10$wuqcBJqKM9jI8PbCp63mV.3faxL6Y0r/ID20bNO/croL/LD7JeeUe',
+    '0100000010', 'Technology', 'suspended', 'attendee', 'verified', FALSE,
+    0, 1, CURRENT_TIMESTAMP, TRUE
 );
 
 INSERT IGNORE INTO EVENTS

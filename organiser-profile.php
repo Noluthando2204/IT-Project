@@ -182,7 +182,7 @@ require_once __DIR__ . '/shared-components/header.php';
                             <p>
                                 <?= escape_html(ucfirst((string) $event['Format'])) ?>
                                 ·
-                                <?= escape_html($event['Province'] ?: ($event['Venue'] ?: 'Location to be confirmed')) ?>
+                                <?= escape_html(eventnest_event_location($event)) ?>
                             </p>
                             <p>
                                 <strong>

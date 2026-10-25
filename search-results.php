@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/shared-components/functions.php';
+
 // Never expose PHP warnings/notices or database details to users/JSON clients.
 ini_set('display_errors', '0');
 
@@ -398,16 +400,7 @@ use events-and-posts hashtag page.
         )
         ->fetchAll(PDO::FETCH_ASSOC);
 
-    $provinces = $pdo
-        ->query(
-            "SELECT DISTINCT Province
-             FROM EVENTS
-             WHERE Status = 'published'
-               AND Province IS NOT NULL
-               AND Province <> ''
-             ORDER BY Province ASC"
-        )
-        ->fetchAll(PDO::FETCH_COLUMN);
+    $provinces = eventnest_provinces();
 
     // Validate category against the approved category table.
     $valid_category_ids = array_map(
@@ -420,7 +413,7 @@ use events-and-posts hashtag page.
         $errors[] = 'Unknown career field filter was ignored.';
     }
 
-    // Validate province against public EventNest event data.
+    // Every South African province is available, including those without events.
     if ($province !== '' && !in_array($province, $provinces, true)) {
         $province = '';
         $errors[] = 'Unknown province filter was ignored.';
@@ -599,7 +592,7 @@ Event images come from linked POSTS.Media.
     $errors[] = 'Search is temporarily unavailable. Please try again later.';
     $events = [];
     $categories = [];
-    $provinces = [];
+    $provinces = eventnest_provinces();
     $total = 0;
     $pages = 1;
     $page = 1;
@@ -960,10 +953,7 @@ Only a local uploaded image path is rendered.
                                     <?= search_escape(ucfirst((string) $event['Format'])) ?>
                                     ·
                                     <?= search_escape(
-                                        (string) (
-                                            $event['Province']
-                                            ?: ($event['Venue'] ?: 'Location to be confirmed')
-                                        )
+                                        eventnest_event_location($event)
                                     ) ?>
                                 </p>
 

@@ -337,6 +337,7 @@ require_once __DIR__ . '/shared-components/header.php';
                     <h2><?= escape_html($hero_event['EventName']) ?></h2>
                     <p><?= escape_html(format_datetime($hero_event['EventDate'])) ?> · <?= escape_html(ucfirst($hero_event['Format'])) ?></p>
                     <p><?= escape_html(home_price_text($hero_event)) ?></p>
+                    <p><?= escape_html(eventnest_event_location($hero_event)) ?></p>
                     <a class="btn btn-primary" href="event-detail.php?event_id=<?= (int) $hero_event['EventID'] ?>">View details</a>
                 </div>
             </article>
@@ -374,6 +375,7 @@ require_once __DIR__ . '/shared-components/header.php';
                             <img class="event-card__image" src="<?= escape_html(eventnest_url($image)) ?>" alt="Image for <?= escape_html($event['EventName']) ?>">
                             <div class="event-card__content">
                                 <h3><?= escape_html($event['EventName']) ?></h3>
+                                <p><?= escape_html(eventnest_event_location($event)) ?></p>
                                 <p><?= escape_html(format_datetime($event['EventDate'])) ?> · <?= escape_html(ucfirst($event['Format'])) ?></p>
                                 <p><?= escape_html($event['CategoryName']) ?> · <?= escape_html(home_price_text($event)) ?></p>
                                 <p><strong>Why recommended:</strong> <?= escape_html((string) $event['WhyRecommended']) ?></p>
@@ -398,6 +400,7 @@ require_once __DIR__ . '/shared-components/header.php';
                             <img class="event-card__image" src="<?= escape_html(eventnest_url($image)) ?>" alt="Image for <?= escape_html($event['EventName']) ?>">
                             <div class="event-card__content">
                                 <h3><?= escape_html($event['EventName']) ?></h3>
+                                <p><?= escape_html(eventnest_event_location($event)) ?></p>
                                 <p><?= escape_html(format_datetime($event['EventDate'])) ?> · <?= escape_html($event['CategoryName']) ?></p>
                                 <p><?= escape_html(home_price_text($event)) ?></p>
                                 <a class="btn btn-secondary" href="event-detail.php?event_id=<?= (int) $event['EventID'] ?>">View details</a>
@@ -426,6 +429,7 @@ require_once __DIR__ . '/shared-components/header.php';
                         <img class="event-card__image" src="<?= escape_html(eventnest_url($image)) ?>" alt="Image for <?= escape_html($event['EventName']) ?>">
                         <div class="event-card__content">
                             <h3><?= escape_html($event['EventName']) ?></h3>
+                                <p><?= escape_html(eventnest_event_location($event)) ?></p>
                             <p><?= escape_html(format_datetime($event['EventDate'])) ?> · <?= escape_html(ucfirst($event['Format'])) ?></p>
                             <p><?= escape_html($event['CategoryName']) ?> · <?= escape_html(home_price_text($event)) ?></p>
                             <?php if ((int) $event['IsFeatured'] === 1): ?><span class="status status-info">Featured</span><?php endif; ?>

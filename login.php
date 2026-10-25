@@ -24,7 +24,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 FROM USERS WHERE Email = ? LIMIT 1 FOR UPDATE');
             $stmt->execute([$email]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
-            if (!$user || !is_string($user['PasswordHash']) || !password_verify($password, $user['PasswordHash'])) {
+            if (!$user) {
+                throw new DomainException('Account not found.');
+            }
+            if (!is_string($user['PasswordHash']) || $user['PasswordHash'] === '') {
+                throw new DomainException('Account password unavailable.');
+            }
+            if (!password_verify($password, $user['PasswordHash'])) {
                 throw new DomainException('Invalid email or password.');
             }
             if ($user['UserStatus'] === 'deleted' || (int) $user['Suspension_count'] >= 2) {
@@ -52,24 +58,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([(int) $user['UserID']]);
             // A second login in the same timestamp can correctly affect zero changed rows.
             $pdo->commit();
-            session_regenerate_id(true);
-            $_SESSION = [
-                'user_id' => (int) $user['UserID'],
-                'role' => $user['Role'],
-                'user_status' => $user['UserStatus'],
-                'verification_status' => $user['VerificationStatus'],
-                'first_name' => (string) $user['FirstName'],
-                'name' => trim($user['FirstName'] . ' ' . $user['LastName']),
-                'email' => $user['Email'],
-                'loggedin' => true,
-            ];
-            auth_redirect($user['Role'] === 'admin' ? 'admin-panel/dashboard.php' : ($user['Role'] === 'organiser' ? 'business-dashboard.php' : 'user-dashboard.php'));
+            auth_start_user_session($user);
+            auth_redirect(auth_dashboard_path($user['Role']));
         } catch (DomainException $exception) {
             if ($pdo->inTransaction()) { $pdo->rollBack(); }
+            // Fixed reason codes distinguish SIT data issues without logging credentials or identities.
+            $reason = match ($exception->getMessage()) {
+                'Account not found.' => 'account_not_found',
+                'Account password unavailable.' => 'password_unavailable',
+                'Invalid email or password.' => 'password_mismatch',
+                'This account is no longer available.' => 'deleted_or_permanently_suspended',
+                'Your account is suspended. Please contact support.' => 'suspended',
+                default => 'account_not_eligible',
+            };
+            error_log('EventNest login rejected: reason=' . $reason);
             $message = 'Unable to sign in with those details. Check your credentials or contact support.';
         } catch (Throwable $exception) {
             if ($pdo->inTransaction()) { $pdo->rollBack(); }
-            error_log('EventNest login failed: ' . get_class($exception));
+            $database_error = $exception instanceof PDOException
+                ? ' SQLSTATE=' . $exception->getCode() . ' driver=' . (int) ($exception->errorInfo[1] ?? 0)
+                : '';
+            error_log('EventNest login failed: ' . get_class($exception) . $database_error);
             $message = 'Login is temporarily unavailable. Please try again later.';
         }
     }

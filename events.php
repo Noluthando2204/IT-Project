@@ -86,7 +86,10 @@ $page_size = 12;
 $offset = ($page - 1) * $page_size;
 
 $categories = $pdo->query('SELECT CategoryID, CategoryName FROM CATEGORIES ORDER BY CategoryName')->fetchAll(PDO::FETCH_ASSOC);
-$provinces = $pdo->query("SELECT DISTINCT Province FROM EVENTS WHERE Status = 'published' AND Province IS NOT NULL AND Province <> '' ORDER BY Province")->fetchAll(PDO::FETCH_COLUMN);
+$provinces = eventnest_provinces();
+if ($province !== '' && !in_array($province, $provinces, true)) {
+    $province = '';
+}
 
 $where = ["e.Status = 'published'"];
 $params = [];
@@ -249,7 +252,7 @@ require_once __DIR__ . '/shared-components/header.php';
                             <div class="event-card__content">
                                 <h3><?= escape_html($event['EventName']) ?></h3>
                                 <p><?= escape_html(format_datetime($event['EventDate'])) ?></p>
-                                <p><?= escape_html(ucfirst($event['Format'])) ?> · <?= escape_html($event['Province'] ?: ($event['Venue'] ?: 'Location to be confirmed')) ?></p>
+                                <p><?= escape_html(ucfirst($event['Format'])) ?> · <?= escape_html(eventnest_event_location($event)) ?></p>
                                 <p><?= escape_html($event['CategoryName']) ?></p>
 
                                 <?php if ($event['MinPrice'] === null): ?>

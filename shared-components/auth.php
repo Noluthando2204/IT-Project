@@ -83,6 +83,31 @@ Prevent this helper from ever becoming an open redirect.
     exit;
 }
 
+// Login and registration establish the same authenticated session.
+function auth_start_user_session(array $user): void
+{
+    session_regenerate_id(true);
+    $_SESSION = [
+        'user_id' => (int) $user['UserID'],
+        'role' => $user['Role'],
+        'user_status' => $user['UserStatus'],
+        'verification_status' => $user['VerificationStatus'],
+        'first_name' => (string) $user['FirstName'],
+        'name' => trim($user['FirstName'] . ' ' . $user['LastName']),
+        'email' => $user['Email'],
+        'loggedin' => true,
+    ];
+}
+
+function auth_dashboard_path(string $role): string
+{
+    return match ($role) {
+        'admin' => 'admin-panel/dashboard.php',
+        'organiser' => 'business-dashboard.php',
+        default => 'user-dashboard.php',
+    };
+}
+
 //FLASH MESSAGE HELPERS
 function auth_set_flash(
     string $message,

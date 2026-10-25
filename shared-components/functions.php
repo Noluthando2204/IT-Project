@@ -64,6 +64,27 @@ function eventnest_password_valid(string $password): bool
     return strlen($password) >= 8 && strlen($password) <= 72;
 }
 
+function eventnest_provinces(): array
+{
+    return ['Eastern Cape', 'Free State', 'Gauteng', 'KwaZulu-Natal', 'Limpopo',
+        'Mpumalanga', 'Northern Cape', 'North West', 'Western Cape'];
+}
+
+// Public venues may include any town or suburb; never disclose legacy joining URLs.
+function eventnest_event_location(array $event): string
+{
+    $venue = trim((string) ($event['Venue'] ?? ''));
+    $province = trim((string) ($event['Province'] ?? ''));
+    if (filter_var($venue, FILTER_VALIDATE_URL)) { $venue = ''; }
+    if ($venue === '') {
+        $venue = ($event['Format'] ?? '') === 'online' ? 'Online event' : '';
+    }
+    if ($province !== '' && stripos($venue, $province) === false) {
+        $venue = $venue === '' ? $province : $venue . ', ' . $province;
+    }
+    return $venue !== '' ? $venue : 'Location to be confirmed';
+}
+
 function event_booking_eligibility(PDO $pdo, array $event, array $user): array
 {
     $stmt = $pdo->prepare('SELECT 1 FROM BLOCKS WHERE OrganiserID = ? AND BlockedEmail = ?');
