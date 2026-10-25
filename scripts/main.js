@@ -1,6 +1,33 @@
 /* EventNest shared, non-database UI behaviour. Backend validates every operation. */
 (function () {
     'use strict';
+    document.querySelectorAll('input[type="password"]').forEach(function (input, index) {
+        if (input.closest('.password-control')) return;
+        if (!input.id) input.id = 'password-field-' + index;
+        var wrapper = document.createElement('div');
+        wrapper.className = 'password-control';
+        input.parentNode.insertBefore(wrapper, input);
+        wrapper.appendChild(input);
+        var toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'password-toggle';
+        toggle.setAttribute('aria-controls', input.id);
+        toggle.setAttribute('aria-pressed', 'false');
+        toggle.setAttribute('aria-label', 'Show password');
+        toggle.innerHTML = '<svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9c4 7 14 7 18 0M5 12l-2 3m6-1-1 4m7-4 1 4m3-6 2 3"/></svg>'
+            + '<svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>';
+        toggle.addEventListener('click', function () {
+            var show = input.type === 'password';
+            input.type = show ? 'text' : 'password';
+            toggle.setAttribute('aria-pressed', String(show));
+            toggle.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+        });
+        wrapper.appendChild(toggle);
+    });
+})();
+
+(function () {
+    'use strict';
 
     function qs(selector, root) { return (root || document).querySelector(selector); }
     function qsa(selector, root) { return Array.prototype.slice.call((root || document).querySelectorAll(selector)); }

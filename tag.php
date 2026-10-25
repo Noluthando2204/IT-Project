@@ -124,14 +124,7 @@ try {
         'SELECT CategoryID, CategoryName FROM CATEGORIES ORDER BY CategoryName ASC'
     )->fetchAll(PDO::FETCH_ASSOC);
 
-    $provinces = $pdo->query(
-        "SELECT DISTINCT Province
-         FROM EVENTS
-         WHERE Status = 'published'
-           AND Province IS NOT NULL
-           AND TRIM(Province) <> ''
-         ORDER BY Province ASC"
-    )->fetchAll(PDO::FETCH_COLUMN);
+    $provinces = eventnest_provinces();
 } catch (PDOException $exception) {
     error_log('EventNest tag filter-data query failed: ' . $exception->getMessage());
     http_response_code(500);
@@ -534,11 +527,7 @@ require_once __DIR__ . '/shared-components/header.php';
                                 <p><?= escape_html(format_datetime((string) $event['EventDate'])) ?></p>
                                 <p>
                                     <?= escape_html(ucfirst((string) $event['Format'])) ?>
-                                    <?php if (trim((string) ($event['Province'] ?? '')) !== ''): ?>
-                                        · <?= escape_html((string) $event['Province']) ?>
-                                    <?php elseif (trim((string) ($event['Venue'] ?? '')) !== ''): ?>
-                                        · <?= escape_html((string) $event['Venue']) ?>
-                                    <?php endif; ?>
+                                    ? <?= escape_html(eventnest_event_location($event)) ?>
                                 </p>
                                 <p>
                                     Organised by

@@ -316,3 +316,12 @@ video { max-width:100%; height:auto; }
 .privacy-grid > h1,.privacy-grid > p { grid-column:1/-1; }
 .support-layout { display:grid; grid-template-columns:minmax(0,2fr) minmax(220px,1fr); gap:24px; align-items:start; }
 .support-layout > aside { margin-top:24px; }
+
+/* Keep password visibility controls inside the input without covering its text. */
+.password-control { position:relative; width:100%; }
+.password-control input { padding-right:54px !important; }
+.password-toggle { position:absolute; right:2px; top:2px; bottom:2px; width:44px; min-height:0; border:0; border-radius:6px; padding:10px; background:transparent; color:var(--muted); cursor:pointer; display:grid; place-items:center; }
+.password-toggle:hover { color:var(--ink); background:#EAF1FA; }
+.password-toggle svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.password-toggle .eye-open,.password-toggle[aria-pressed="true"] .eye-closed { display:none; }
+.password-toggle[aria-pressed="true"] .eye-open { display:block; }
