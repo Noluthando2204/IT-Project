@@ -14,19 +14,19 @@ $flashes = $flash ? [$flash] : [];
     <title><?= e($page_title) ?> | EventNest</title>
     <link rel="stylesheet" href="<?= e(app_url('styles/main.css')) ?>">
     <link rel="stylesheet" href="<?= e(app_url('styles/responsive.css')) ?>">
+    
+    <!-- The timer deadline script (only one copy) -->
     <?php if (isset($booking_deadline) && $booking_deadline > 0): ?>
     <script>window.eventnestBookingDeadline = <?= (int)$booking_deadline ?>;</script>
     <?php endif; ?>
 </head>
 <body>
-    <?php if (isset($_SESSION['user_id']) && basename($_SERVER['SCRIPT_NAME']) === 'payment.php'): 
-    // We will pass the deadline from payment.php via a session variable or URL parameter
-    // For now, let's assume payment.php sets a session variable: $_SESSION['booking_deadline'] = time() + 240;
-    ?>
+<?php if (isset($_SESSION['user_id']) && basename($_SERVER['SCRIPT_NAME']) === 'payment.php'): ?>
+    <!-- The floating timer -->
     <div id="reservation-timer" class="floating-timer">
         <span id="timer-text">Ticket reserved for 04:00</span>
     </div>
-    <?php endif; ?>
+<?php endif; ?>
 <a class="skip-link" href="#main-content">Skip to content</a>
 <header class="site-header">
     <div class="site-header-inner">

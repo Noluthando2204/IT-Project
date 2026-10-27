@@ -189,6 +189,47 @@ document.addEventListener('DOMContentLoaded', () => {
     const timerText = document.getElementById('timer-text');
     
     if (timerBanner && timerText) {
+        // Get the deadline from a data attribute we will set on the body or banner
+        // We will read it from a global variable set by PHP
+        if (typeof window.eventnestBookingDeadline !== 'undefined') {
+            timerBanner.style.display = 'block';
+            const deadline = window.eventnestBookingDeadline; // Unix timestamp in seconds
+
+            const updateTimer = () => {
+                const now = Math.floor(Date.now() / 1000);
+                const timeLeft = deadline - now;
+
+                if (timeLeft <= 0) {
+                    timerText.textContent = "Reservation expired";
+                    timerBanner.style.backgroundColor = "#D9363E"; // Red
+                    // Redirect to events page
+                    window.location.href = "events.php"; 
+                    return;
+                }
+
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                
+                // Format as MM:SS
+                timerText.textContent = `Ticket reserved for ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+                if (timeLeft <= 20) {
+                    timerBanner.style.backgroundColor = "#D9363E"; // Red warning at 20s
+                    timerText.textContent = `Hurry! Reservation expires in ${String(seconds).padStart(2, '0')} seconds`;
+                }
+
+                setTimeout(updateTimer, 1000);
+            };
+
+            updateTimer();
+        }
+    }
+});// Reservation Timer Logic
+document.addEventListener('DOMContentLoaded', () => {
+    const timerBanner = document.getElementById('reservation-timer');
+    const timerText = document.getElementById('timer-text');
+    
+    if (timerBanner && timerText) {
         if (typeof window.eventnestBookingDeadline !== 'undefined') {
             timerBanner.style.display = 'block';
             const deadline = window.eventnestBookingDeadline; 
