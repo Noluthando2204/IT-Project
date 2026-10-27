@@ -64,6 +64,7 @@ if ($event_id <= 0) {
 $stmt = $pdo->prepare(
     "SELECT e.*, c.CategoryName,
             u.FirstName AS OrganiserFirstName, u.LastName AS OrganiserLastName,
+            u.OrganisationName AS OrganiserOrganisationName,
             u.Role AS OrganiserRole, u.VerificationStatus AS OrganiserVerificationStatus,
             u.UserStatus AS OrganiserUserStatus,
             u.VerificationFeePaidUntil, u.VerificationFeePaymentStatus
@@ -158,7 +159,11 @@ $can_start_booking = $bookable_event
     && $fee_ok
     && count(array_filter($tickets, static fn(array $ticket): bool => (int) $ticket['QuantityAvailable'] > 0)) > 0;
 
-$organiser_name = trim((string) $event['OrganiserFirstName'] . ' ' . (string) $event['OrganiserLastName']);
+$organiser_name = eventnest_organiser_display_name([
+    'OrganisationName' => $event['OrganiserOrganisationName'] ?? null,
+    'FirstName' => $event['OrganiserFirstName'] ?? null,
+    'LastName' => $event['OrganiserLastName'] ?? null,
+]);
 $image = resolve_event_image($pdo, $event_id);
 $page_title = (string) $event['EventName'];
 require_once __DIR__ . '/shared-components/header.php';

@@ -40,17 +40,18 @@ INSERT IGNORE INTO USERS
     VerificationFeePaidAt,
     VerificationFeePaidUntil,
     VerificationFeePaymentStatus,
-    VerificationFeeGatewayReference
+    VerificationFeeGatewayReference,
+    OrganisationName
 )
 VALUES
 (
     1,
-    'Kea',
+    'Naledi',
     'Mokoena',
-    'kea.organiser01@example.com',
+    'naledi.organiser01@example.com',
     '$2y$10$wuqcBJqKM9jI8PbCp63mV.3faxL6Y0r/ID20bNO/croL/LD7JeeUe',
     '0100000001',
-    'Technology',
+    'Cloud Computing',
     'active',
     'organiser',
     'verified',
@@ -65,7 +66,8 @@ VALUES
     '2026-09-02 10:00:00',
     '2027-09-02 10:00:00',
     'paid',
-    'EN-VERIFY-KEAO01'
+    'EN-VERIFY-NAL01',
+    'CloudStep Careers'
 ),
 (
     2,
@@ -77,7 +79,7 @@ VALUES
     'Design',
     'active',
     'organiser',
-    'pending',
+    'verified',
     NULL,
     FALSE,
     0,
@@ -86,10 +88,11 @@ VALUES
     TRUE,
     '2026-09-05 09:00:00',
     '2026-10-02 14:00:00',
-    NULL,
-    NULL,
-    'pending',
-    'EN-VERIFY-MPHO02'
+    '2026-09-06 10:00:00',
+    '2027-09-06 10:00:00',
+    'paid',
+    'EN-VERIFY-MPHO02',
+    'DesignForward Collective'
 ),
 (
     3,
@@ -113,6 +116,7 @@ VALUES
     NULL,
     NULL,
     'unpaid',
+    NULL,
     NULL
 ),
 (
@@ -137,6 +141,7 @@ VALUES
     NULL,
     NULL,
     'unpaid',
+    NULL,
     NULL
 ),
 (
@@ -161,6 +166,7 @@ VALUES
     NULL,
     NULL,
     'unpaid',
+    NULL,
     NULL
 ),
 (
@@ -185,6 +191,7 @@ VALUES
     NULL,
     NULL,
     'unpaid',
+    NULL,
     NULL
 ),
 (
@@ -209,6 +216,7 @@ VALUES
     NULL,
     NULL,
     'unpaid',
+    NULL,
     NULL
 ),
 (
@@ -233,6 +241,7 @@ VALUES
     NULL,
     NULL,
     'unpaid',
+    NULL,
     NULL
 ),
 (
@@ -257,6 +266,7 @@ VALUES
     NULL,
     NULL,
     'unpaid',
+    NULL,
     NULL
 );
 
@@ -303,7 +313,7 @@ VALUES
     'Graduate Career Summit',
     'A career-development event connecting graduates with employers and professional speakers.',
     'Sandton Convention Centre',
-    '2026-10-20 10:00:00',
+    '2026-11-07 10:00:00',
     '18+',
     'published',
     'physical',
@@ -321,7 +331,7 @@ VALUES
     'Cloud Skills Workshop',
     'A practical professional-development workshop covering cloud careers and entry-level skills.',
     'Online',
-    '2026-10-18 10:00:00',
+    '2026-11-14 10:00:00',
     '18+',
     'published',
     'online',
@@ -334,14 +344,14 @@ VALUES
 ),
 (
     3,
-    1,
+    2,
     3,
     'Creative Design Lab',
     'A design-focused career workshop for attendees interested in creative and digital design.',
     'Braamfontein Creative Hub',
-    '2026-10-24 11:00:00',
+    '2026-11-21 11:00:00',
     '18+',
-    'draft',
+    'published',
     'physical',
     '#DesignCareers #CreativeDesign',
     'field',
@@ -352,7 +362,7 @@ VALUES
 ),
 (
     4,
-    1,
+    2,
     3,
     'Heritage Creative Evening',
     'A completed professional networking event focused on creative careers and portfolio development.',
@@ -485,35 +495,67 @@ INSERT IGNORE INTO POSTS
     PostDate
 )
 VALUES
+-- CloudStep Careers: three earlier posts building up to Cloud Skills Workshop.
 (
     1,
+    2,
     1,
-    1,
-    'Applications and registration information for the Graduate Career Summit are now available.',
+    'We are getting ready for Cloud Skills Workshop. The session will focus on entry-level cloud careers, practical skills and questions students can ask industry speakers.',
     NULL,
     NULL,
-    '#GraduateJobs #CareerDevelopment',
-    '2026-10-01 09:00:00'
+    '#CloudCareers #CloudSkills #Technology',
+    '2026-10-15 09:00:00'
 ),
 (
     2,
     2,
     1,
-    'Cloud Skills Workshop preview image for attendees interested in cloud careers.',
+    'Speaker spotlight for Cloud Skills Workshop: Nithen Naidoo, Snoode Founder.',
     'image',
-    'uploaded-content/eventnest-cloud-skills-workshop.jpg',
-    '#CloudCareers #CloudSkills',
-    '2026-10-02 10:00:00'
+    'uploaded-content/posts/cloud-nithen-naidoo-speaker.jpeg',
+    '#CloudCareers #CloudSkills #SpeakerSpotlight',
+    '2026-10-20 11:00:00'
 ),
 (
     3,
+    2,
     1,
-    1,
-    'Graduate Career Summit venue walkthrough video.',
-    'video',
-    'uploaded-content/eventnest-graduate-career-summit.mp4',
-    '#GraduateJobs #EventVenue',
-    '2026-10-03 11:00:00'
+    'Preparations are underway for Cloud Skills Workshop. We are looking forward to welcoming attendees to the upcoming session.',
+    'image',
+    'uploaded-content/posts/cloud-event-prep.jpg',
+    '#CloudCareers #EventPrep #Technology',
+    '2026-10-25 10:30:00'
+),
+-- DesignForward Collective: three earlier posts building up to Creative Design Lab.
+(
+    4,
+    3,
+    2,
+    'Creative Design Lab is coming up soon. The workshop will explore portfolio development, creative thinking and different pathways into the design industry.',
+    NULL,
+    NULL,
+    '#DesignCareers #CreativeDesign #Portfolio',
+    '2026-10-14 09:30:00'
+),
+(
+    5,
+    3,
+    2,
+    'Speaker spotlight for Creative Design Lab: Sean Viljoen, Graphic Designer.',
+    'image',
+    'uploaded-content/posts/design-sean-viljoen-speaker.jpg',
+    '#DesignCareers #GraphicDesign #SpeakerSpotlight',
+    '2026-10-19 12:00:00'
+),
+(
+    6,
+    3,
+    2,
+    'A look at the preparation for Creative Design Lab. The space is being prepared for practical design and portfolio activities.',
+    'image',
+    'uploaded-content/posts/creative-design-lab-prep.jpg',
+    '#CreativeDesign #DesignCareers #EventPrep',
+    '2026-10-24 15:00:00'
 );
 
 INSERT IGNORE INTO REACTIONS
@@ -525,10 +567,10 @@ INSERT IGNORE INTO REACTIONS
     ReactionDate
 )
 VALUES
-    (1, 1, 3, 'thumbs_up', '2026-10-02 09:30:00'),
-    (2, 1, 5, 'clap', '2026-10-02 09:35:00'),
-    (3, 2, 7, 'lightbulb', '2026-10-03 10:30:00'),
-    (4, 3, 8, 'clap', '2026-10-03 12:00:00');
+    (1, 1, 3, 'thumbs_up', '2026-10-15 10:00:00'),
+    (2, 1, 5, 'clap', '2026-10-15 10:10:00'),
+    (3, 2, 7, 'lightbulb', '2026-10-20 12:00:00'),
+    (4, 3, 8, 'clap', '2026-10-25 11:00:00');
 
 INSERT IGNORE INTO Post_Categories
 (
@@ -537,9 +579,12 @@ INSERT IGNORE INTO Post_Categories
     category_id
 )
 VALUES
-    (1, 1, 8),
+    (1, 1, 7),
     (2, 2, 7),
-    (3, 3, 8);
+    (3, 3, 7),
+    (4, 4, 3),
+    (5, 5, 3),
+    (6, 6, 3);
 
 INSERT IGNORE INTO REVIEWS
 (
@@ -597,4 +642,5 @@ VALUES
     'Repeatedly inappropriate event interactions in a fictional moderation test scenario.',
     '2026-10-01 14:00:00'
 );
+
 
