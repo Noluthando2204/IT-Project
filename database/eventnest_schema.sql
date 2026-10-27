@@ -76,6 +76,9 @@ CREATE TABLE USERS (
         NOT NULL DEFAULT 'unpaid',
     VerificationFeeGatewayReference VARCHAR(100) NULL,
 
+    -- Public organisation name used for organiser accounts.
+    OrganisationName VARCHAR(150) NULL,
+
     PRIMARY KEY (UserID),
     UNIQUE KEY uq_users_email (Email),
     KEY idx_users_status (UserStatus),

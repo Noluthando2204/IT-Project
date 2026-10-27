@@ -5,29 +5,34 @@ $pdo = eventnest_db();
 $organiser_intent = ($_POST['account_type'] ?? $_GET['account_type'] ?? '') === 'organiser';
 $page_title = $organiser_intent ? 'Create organiser account' : 'Create account';
 $message = '';
+$organisation_name = '';
 $categories = $pdo->query('SELECT CategoryName FROM CATEGORIES ORDER BY CategoryName')->fetchAll(PDO::FETCH_COLUMN);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     eventnest_require_post();
     $first_name = trim_input($_POST['first_name'] ?? '');
     $last_name = trim_input($_POST['last_name'] ?? '');
+    $organisation_name = $organiser_intent ? trim_input($_POST['organisation_name'] ?? '') : '';
     $email = strtolower(trim_input($_POST['email'] ?? ''));
     $phone = trim_input($_POST['phone'] ?? '');
     $career_field = trim_input($_POST['career_field'] ?? '');
     $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
     $confirmation = is_string($_POST['confirm_password'] ?? null) ? $_POST['confirm_password'] : '';
     try {
-        foreach ([[$first_name,50],[$last_name,50],[$email,100],[$phone,15]] as [$value,$limit]) {
+        foreach ([[$first_name,50],[$last_name,50],[$organisation_name,150],[$email,100],[$phone,15]] as [$value,$limit]) {
             if (mb_strlen($value) > $limit) {
                 throw new DomainException('A field exceeds its allowed length.');
             }
         }
-        if ($first_name === '' || $last_name === '' || !filter_var($email,FILTER_VALIDATE_EMAIL) || !eventnest_password_valid($password) || $password !== $confirmation || ($career_field !== '' && !in_array($career_field,$categories,true))) {
-            throw new DomainException('Enter your name, a valid email and matching passwords (8–72 bytes). Choose a listed career field or leave it blank.');
+        if ($first_name === '' || $last_name === '' || ($organiser_intent && $organisation_name === '') || !filter_var($email,FILTER_VALIDATE_EMAIL) || !eventnest_password_valid($password) || $password !== $confirmation || ($career_field !== '' && !in_array($career_field,$categories,true))) {
+            throw new DomainException($organiser_intent
+                ? 'Enter the organisation name, representative name, a valid email and matching passwords (8–72 bytes).'
+                : 'Enter your name, a valid email and matching passwords (8–72 bytes). Choose a listed career field or leave it blank.');
         }
         // Account type is only registration intent. Privileged roles and statuses are never accepted.
-        $stmt = $pdo->prepare("INSERT INTO USERS (FirstName,LastName,Email,PasswordHash,Phone,CareerField,Role,UserStatus,VerificationStatus,RecommendationOptIn,LastLoginAt)
-            VALUES (?,?,?,?,?,?,?,'active',?,?,CURRENT_TIMESTAMP)");
-        $stmt->execute([$first_name,$last_name,$email,password_hash($password,PASSWORD_DEFAULT),$phone ?: null,$career_field ?: null, $organiser_intent ? 'organiser' : 'attendee',$organiser_intent ? 'pending' : 'unverified', !$organiser_intent && ($_POST['recommendation_opt_in'] ?? '') === '1' ? 1 : 0]);
+        // OrganisationName is stored only for organiser accounts; attendee records keep it NULL.
+        $stmt = $pdo->prepare("INSERT INTO USERS (FirstName,LastName,Email,PasswordHash,Phone,CareerField,Role,UserStatus,VerificationStatus,RecommendationOptIn,LastLoginAt,OrganisationName)
+            VALUES (?,?,?,?,?,?,?,'active',?,?,CURRENT_TIMESTAMP,?)");
+        $stmt->execute([$first_name,$last_name,$email,password_hash($password,PASSWORD_DEFAULT),$phone ?: null,$career_field ?: null, $organiser_intent ? 'organiser' : 'attendee',$organiser_intent ? 'pending' : 'unverified', !$organiser_intent && ($_POST['recommendation_opt_in'] ?? '') === '1' ? 1 : 0, $organiser_intent ? $organisation_name : null]);
         $role = $organiser_intent ? 'organiser' : 'attendee';
         auth_start_user_session([
             'UserID' => (int) $pdo->lastInsertId(),
@@ -58,6 +63,9 @@ require __DIR__ . '/shared-components/header.php';
 <form method="post" action="<?= escape_html(eventnest_url('register.php')) ?>" data-validate="true">
 <?php eventnest_csrf_field(); ?><input type="hidden" name="account_type" value="<?= $organiser_intent ? 'organiser' : 'attendee' ?>">
 <div class="form-grid">
+<?php if ($organiser_intent): ?>
+<div class="field full"><label for="organisation_name">Business / organisation name</label><input id="organisation_name" name="organisation_name" type="text" maxlength="150" value="<?= escape_html($organisation_name) ?>" required></div>
+<?php endif; ?>
 <?php foreach (['first_name'=>'First name','last_name'=>'Last name','email'=>'Email address','phone'=>'Phone'] as $field=>$label): ?>
 <div class="field"><label for="<?= $field ?>"><?= $label ?></label><input id="<?= $field ?>" name="<?= $field ?>" type="<?= $field==='email' ? 'email':'text' ?>" maxlength="<?= $field==='email'?100:($field==='phone'?15:50) ?>" value="<?= escape_html(trim_input($_POST[$field] ?? '')) ?>" <?= $field!=='phone'?'required':'' ?>></div>
 <?php endforeach; ?>

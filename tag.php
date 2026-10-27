@@ -268,6 +268,7 @@ try {
                 c.CategoryName,
                 u.FirstName,
                 u.LastName,
+                u.OrganisationName,
                 (SELECT MIN(t.Price)
                  FROM TICKETS t
                  WHERE t.EventID = e.EventID
@@ -305,6 +306,7 @@ try {
                 e.EventName,
                 u.FirstName,
                 u.LastName,
+                u.OrganisationName,
                 (SELECT COUNT(*)
                  FROM REACTIONS r1
                  WHERE r1.PostID = p.PostID
@@ -507,9 +509,7 @@ require_once __DIR__ . '/shared-components/header.php';
                     <?php foreach ($events as $event): ?>
                         <?php
                         $event_image = resolve_event_image($pdo, (int) $event['EventID']);
-                        $organiser_name = trim(
-                            (string) $event['FirstName'] . ' ' . (string) $event['LastName']
-                        );
+                        $organiser_name = eventnest_organiser_display_name($event);
                         $event_tags = eventnest_extract_hashtags(
                             $event['Hashtags'] !== null ? (string) $event['Hashtags'] : null
                         );
@@ -611,9 +611,7 @@ require_once __DIR__ . '/shared-components/header.php';
                         $post_tags = eventnest_extract_hashtags(
                             $post['Hashtags'] !== null ? (string) $post['Hashtags'] : null
                         );
-                        $organiser_name = trim(
-                            (string) $post['FirstName'] . ' ' . (string) $post['LastName']
-                        );
+                        $organiser_name = eventnest_organiser_display_name($post);
                         ?>
                         <article class="post-card">
                             <?php if ($media_type === 'image' && $safe_media !== null): ?>

@@ -55,7 +55,8 @@ try {
         if($file['size']<1 || $file['size']>$max || filesize($file['tmp_name'])>$max || ($type==='image' && @getimagesize($file['tmp_name'])===false)) {
             throw new DomainException('Media is empty, invalid or exceeds its size limit.');
         }
-        $target=eventnest_build_upload_path('',eventnest_generate_upload_filename('post',$mime));
+        // Keep organiser post media separate from event banners and profile pictures.
+        $target=eventnest_build_upload_path('posts',eventnest_generate_upload_filename('post',$mime));
         if(!is_writable(dirname($target['absolute'])) || !move_uploaded_file($file['tmp_name'],$target['absolute'])) {
             throw new DomainException('Media storage is unavailable.');
         }

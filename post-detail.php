@@ -43,7 +43,8 @@ try {
             e.EventName,
             e.Status AS EventStatus,
             u.FirstName,
-            u.LastName
+            u.LastName,
+            u.OrganisationName
          FROM POSTS p
          INNER JOIN EVENTS e
             ON e.EventID = p.EventID
@@ -207,13 +208,8 @@ $safe_media = eventnest_safe_media_path(
 $hashtags = eventnest_extract_hashtags(
     $post['Hashtags'] !== null ? (string) $post['Hashtags'] : null
 );
-$organiser_name = trim(
-    (string) $post['FirstName'] . ' ' . (string) $post['LastName']
-);
-
-if ($organiser_name === '') {
-    $organiser_name = 'EventNest organiser';
-}
+// Posts show the organisation publicly, not the representative's personal name.
+$organiser_name = eventnest_organiser_display_name($post);
 
 $reaction_options = [
     'thumbs_up' => ['icon' => '👍', 'label' => 'Thumbs up'],
