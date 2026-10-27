@@ -19,9 +19,10 @@ $nav_first_name = $_SESSION['first_name'] ?? 'User';
                 <a <?= basename($_SERVER['SCRIPT_NAME'] ?? '')==='events.php'?'aria-current="page"':'' ?> href="<?= e(app_url('events.php')) ?>">Events</a>
                 <a href="<?= e(app_url('career-fields.php')) ?>">Career Fields</a>
             <?php endif; ?>
-            <a href="<?= e(app_url('logout.php')) ?>">Log out</a><span class="nav-spacer"></span>
-            <span class="nav-muted">Notifications</span>
+                        <a href="<?= e(app_url('logout.php')) ?>">Log out</a>
+            <span class="nav-spacer"></span>
             <a class="account-link" href="<?= e($nav_role === 'admin' ? app_url('admin-panel/dashboard.php') : ($nav_role === 'organiser' ? app_url('organiser-account.php') : app_url('profile.php'))) ?>">Hi, <?= e($nav_first_name) ?></a>
+            <span class="nav-muted" style="margin-left: 10px; pointer-events: none; cursor: default;">Notifications</span>
         <?php endif; ?>
     </div>
 </nav>

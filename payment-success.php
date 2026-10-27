@@ -247,9 +247,10 @@ require_once __DIR__ . '/shared-components/header.php';
             <h1>Booking confirmed</h1>
             <p><?= $is_free ? 'Your free booking is confirmed.' : 'EventNest has verified the PayFast payment for this booking.' ?></p>
         <?php elseif ($is_pending): ?>
+            <meta http-equiv="refresh" content="3">
             <div class="status status-warning">Payment pending</div>
-            <h1>Payment is still being verified</h1>
-            <p>Returning to this page does not prove payment. EventNest will only confirm the booking after a valid provider notification is verified.</p>
+            <h1>Verifying your payment...</h1>
+            <p>We are waiting for PayFast to confirm your payment. This page will refresh automatically. Do not close this window.</p>
         <?php else: ?>
             <div class="status status-warning"><?= escape_html(ucfirst((string) $booking['Status'])) ?></div>
             <h1>Booking status updated</h1>

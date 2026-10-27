@@ -45,6 +45,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $driver_code = (int) ($exception->errorInfo[1] ?? 0);
         $message = $exception->getCode() === '23000' && $driver_code === 1062 ? 'An account with that email already exists.' : 'Registration is temporarily unavailable.';
         error_log('EventNest registration failed: SQLSTATE=' . $exception->getCode() . ' driver=' . $driver_code);
+        
+        // Force a fresh CSRF token so the user isn't stuck if they try to log in immediately
+        eventnest_csrf_token(); 
     }
 }
 require __DIR__ . '/shared-components/header.php';
