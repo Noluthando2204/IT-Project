@@ -6,7 +6,7 @@ declare(strict_types=1);
 date_default_timezone_set('Africa/Johannesburg');
 
 // Keep shared layout names connected to the existing project helpers.
-function e($value): string { return escape_html($value); }
+function e(mixed $value): string { return escape_html($value); }
 function app_url(string $path = ''): string { return eventnest_url($path); }
 
 function eventnest_id(mixed $value): int
@@ -62,6 +62,21 @@ function eventnest_sidebar(string $role): void
 function eventnest_password_valid(string $password): bool
 {
     return strlen($password) >= 8 && strlen($password) <= 72;
+}
+
+function eventnest_organiser_display_name(array $organiser): string
+{
+    // Public pages show the organisation name while the personal name remains the representative.
+    $organisation_name = trim((string) ($organiser['OrganisationName'] ?? ''));
+    if ($organisation_name !== '') {
+        return $organisation_name;
+    }
+
+    $representative_name = trim(
+        (string) ($organiser['FirstName'] ?? '') . ' ' . (string) ($organiser['LastName'] ?? '')
+    );
+
+    return $representative_name !== '' ? $representative_name : 'EventNest organiser';
 }
 
 function eventnest_provinces(): array
@@ -178,14 +193,14 @@ if (!function_exists('eventnest_db')) {
 }
 
 if (!function_exists('trim_input')) {
-    function trim_input($value): string
+    function trim_input(mixed $value): string
     {
         return is_string($value) || is_numeric($value) ? trim((string) $value) : '';
     }
 }
 
 if (!function_exists('escape_html')) {
-    function escape_html($value): string
+    function escape_html(mixed $value): string
     {
         return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
@@ -196,7 +211,7 @@ Legacy-compatible display helper. Prepared statements must still be used
 for database values; this helper is not SQL sanitisation.
 */
 if (!function_exists('sanitizeInput')) {
-    function sanitizeInput($value): string
+    function sanitizeInput(mixed $value): string
     {
         return escape_html(trim_input($value));
     }
@@ -216,7 +231,7 @@ if (!function_exists('format_date')) {
 }
 
 if (!function_exists('formatDate')) {
-    function formatDate($value): string
+    function formatDate(mixed $value): string
     {
         return format_date($value === null ? null : (string) $value);
     }
@@ -236,7 +251,7 @@ if (!function_exists('format_datetime')) {
 }
 
 if (!function_exists('format_money')) {
-    function format_money($amount): string
+    function format_money(mixed $amount): string
     {
         if (!is_numeric($amount)) {
             return 'R0.00';
@@ -955,3 +970,4 @@ function eventnest_record_verification_fee(PDO $pdo, array $post): void
         throw $exception;
     }
 }
+
