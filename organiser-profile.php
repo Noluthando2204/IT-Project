@@ -70,7 +70,7 @@ if ($organiser_id <= 0) {
 }
 
 $organiser_stmt = $pdo->prepare(
-    "SELECT UserID, FirstName, LastName
+    "SELECT UserID, FirstName, LastName, OrganisationName
        FROM USERS
       WHERE UserID = :organiser_id
         AND Role = 'organiser'
@@ -141,12 +141,8 @@ $post_stmt = $pdo->prepare(
 $post_stmt->execute([':organiser_id' => $organiser_id]);
 $recent_posts = $post_stmt->fetchAll();
 
-$organiser_name = trim(
-    (string) $organiser['FirstName'] . ' ' . (string) $organiser['LastName']
-);
-if ($organiser_name === '') {
-    $organiser_name = 'Verified organiser';
-}
+// Public organiser pages use the organisation name added to USERS.
+$organiser_name = eventnest_organiser_display_name($organiser);
 
 $page_title = 'Events by ' . $organiser_name;
 require_once __DIR__ . '/shared-components/header.php';

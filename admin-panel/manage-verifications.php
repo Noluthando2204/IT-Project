@@ -27,6 +27,7 @@ function admin_verification_load_organiser(PDO $pdo, int $user_id): ?array
             UserID,
             FirstName,
             LastName,
+            OrganisationName,
             Email,
             Role,
             VerificationStatus,
@@ -322,6 +323,7 @@ try {
             UserID,
             FirstName,
             LastName,
+            OrganisationName,
             Email,
             VerificationStatus,
             Verification_docs_path,
@@ -411,7 +413,9 @@ require_once __DIR__ . '/../shared-components/header.php';
                             && $paid_until_timestamp !== false
                             && $paid_until_timestamp > time();
 
-                        $organiser_name = trim(
+                        // Admin sees the business name first and the representative underneath.
+                        $organiser_name = eventnest_organiser_display_name($organiser);
+                        $representative_name = trim(
                             (string) ($organiser['FirstName'] ?? '') . ' ' .
                             (string) ($organiser['LastName'] ?? '')
                         );
@@ -419,7 +423,10 @@ require_once __DIR__ . '/../shared-components/header.php';
                         ?>
                         <tr <?= $is_selected ? 'aria-current="true"' : '' ?>>
                             <td>
-                                <strong><?= escape_html($organiser_name !== '' ? $organiser_name : 'Unnamed organiser') ?></strong><br>
+                                <strong><?= escape_html($organiser_name) ?></strong><br>
+                                <?php if ($representative_name !== '' && $representative_name !== $organiser_name): ?>
+                                    <small>Representative: <?= escape_html($representative_name) ?></small><br>
+                                <?php endif; ?>
                                 <small>User #<?= $user_id ?></small>
                             </td>
                             <td><?= escape_html((string) $organiser['Email']) ?></td>

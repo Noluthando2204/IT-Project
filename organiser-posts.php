@@ -62,7 +62,7 @@ if ($page === false || $page === null) {
 
 try {
     $organiser_statement = $pdo->prepare(
-        "SELECT UserID, FirstName, LastName
+        "SELECT UserID, FirstName, LastName, OrganisationName
          FROM USERS
          WHERE UserID = :organiser_id
            AND Role = 'organiser'
@@ -172,13 +172,8 @@ try {
     exit('EventNest is temporarily unavailable.');
 }
 
-$organiser_name = trim(
-    (string) ($organiser['FirstName'] ?? '') . ' ' . (string) ($organiser['LastName'] ?? '')
-);
-
-if ($organiser_name === '') {
-    $organiser_name = 'EventNest organiser';
-}
+// Keep public post pages consistent with the organiser profile name.
+$organiser_name = eventnest_organiser_display_name($organiser);
 
 $tabs = [
     'all' => 'All posts',
