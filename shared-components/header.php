@@ -23,8 +23,8 @@ $flashes = $flash ? [$flash] : [];
     // We will pass the deadline from payment.php via a session variable or URL parameter
     // For now, let's assume payment.php sets a session variable: $_SESSION['booking_deadline'] = time() + 240;
     ?>
-    <div id="reservation-timer" style="position: fixed; top: 0; left: 0; width: 100%; background: #1E3A8A; color: white; text-align: center; padding: 10px; font-weight: bold; z-index: 9999; display: none;">
-       <span id="timer-text">Ticket reserved for 04:00</span>
+    <div id="reservation-timer" class="floating-timer">
+        <span id="timer-text">Ticket reserved for 04:00</span>
     </div>
     <?php endif; ?>
 <a class="skip-link" href="#main-content">Skip to content</a>
