@@ -128,7 +128,10 @@ $post_stmt = $pdo->prepare(
         p.Hashtags,
         p.PostDate,
         e.EventID,
-        e.EventName
+        e.EventName,
+        (SELECT COUNT(*) FROM REACTIONS r1 WHERE r1.PostID = p.PostID AND r1.ReactionType = 'thumbs_up') AS ThumbsUpTotal,
+        (SELECT COUNT(*) FROM REACTIONS r2 WHERE r2.PostID = p.PostID AND r2.ReactionType = 'clap') AS ClapTotal,
+        (SELECT COUNT(*) FROM REACTIONS r3 WHERE r3.PostID = p.PostID AND r3.ReactionType = 'lightbulb') AS LightbulbTotal
      FROM POSTS p
      INNER JOIN EVENTS e
         ON e.EventID = p.EventID
@@ -148,10 +151,14 @@ $page_title = 'Events by ' . $organiser_name;
 require_once __DIR__ . '/shared-components/header.php';
 ?>
 <main class="page-content organiser-profile-page">
-    <section class="page-heading">
-        <h1>Events by <?= escape_html($organiser_name) ?></h1>
-        <p><span class="status status-success">Verified organiser</span></p>
-        <p>Published events, completed event history, and public event-linked posts.</p>
+    <section class="page-heading organiser-brand">
+        <div class="organisation-avatar" aria-hidden="true"><?= escape_html(eventnest_organisation_initials($organiser_name)) ?></div>
+        <div>
+            <p class="eyebrow">Verified organiser</p>
+            <h1>Events by <?= escape_html($organiser_name) ?></h1>
+            <p><span class="status status-success">Verified organiser</span></p>
+            <p>Published events, completed event history, and public event-linked posts.</p>
+        </div>
     </section>
 
     <section aria-labelledby="upcoming-events-heading">
@@ -229,7 +236,7 @@ require_once __DIR__ . '/shared-components/header.php';
             <div class="post-grid">
                 <?php foreach ($recent_posts as $post): ?>
                     <?php
-                    $safe_media = eventnest_safe_media_path($post['Media']);
+                    $safe_media = eventnest_safe_media_path($post['Media'], $post['Media_type'] !== null ? (string) $post['Media_type'] : null);
                     $post_excerpt = organiser_profile_excerpt($post['Content']);
                     ?>
                     <article class="post-card">
@@ -278,6 +285,12 @@ require_once __DIR__ . '/shared-components/header.php';
                                 <?php endforeach; ?>
                             </p>
                         <?php endif; ?>
+
+                        <div class="reaction-summary" aria-label="Reaction totals">
+                            <span>👍 <?= (int) $post['ThumbsUpTotal'] ?></span>
+                            <span>👏 <?= (int) $post['ClapTotal'] ?></span>
+                            <span>💡 <?= (int) $post['LightbulbTotal'] ?></span>
+                        </div>
 
                         <a class="btn btn-secondary" href="post-detail.php?post_id=<?= (int) $post['PostID'] ?>">
                             View post

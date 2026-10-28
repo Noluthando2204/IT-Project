@@ -326,6 +326,22 @@ video { max-width:100%; height:auto; }
 .password-toggle .eye-open,.password-toggle[aria-pressed="true"] .eye-closed { display:none; }
 .password-toggle[aria-pressed="true"] .eye-open { display:block; }
 
+/* EventNest fixes added during SIT review. */
+.event-card__content { gap: 10px; }
+.event-card__content > .status { margin: 4px 0 8px; align-self: flex-start; }
+.event-card__content > .btn:last-child { margin-top: auto; align-self: flex-start; }
+.recommendation-reason { padding: 8px 10px; border-left: 3px solid var(--teal); background: #F2FBFB; border-radius: 6px; }
+.organiser-brand { display: flex; align-items: center; gap: 18px; }
+.organisation-avatar { width: 76px; height: 76px; flex: 0 0 76px; border-radius: 20px; display: grid; place-items: center; background: linear-gradient(135deg, var(--navy), var(--teal)); color: white; font-size: 1.45rem; font-weight: 800; letter-spacing: .04em; box-shadow: var(--shadow); }
+.organisation-avatar--small { width: 54px; height: 54px; flex-basis: 54px; border-radius: 14px; font-size: 1rem; }
+.post-author { display: flex; align-items: center; gap: 14px; }
+.reaction-controls--compact { margin: 12px 0; }
+.reaction-controls--compact .reaction-button { min-height: 38px; padding: 6px 10px; }
+.notification-list { display: grid; gap: 12px; margin-top: 20px; }
+.notification-card { background: white; border: 1px solid var(--line); border-left: 4px solid var(--teal); border-radius: var(--radius); padding: 16px; }
+.notification-card h2, .notification-card h3 { margin-top: 0; }
+.auth-help { margin: 12px 0; }
+
 /* 1. Floating Reservation Timer */
 .floating-timer {
     position: fixed;

@@ -156,7 +156,7 @@ if (isset($_SESSION['user_id']) && filter_var($_SESSION['user_id'], FILTER_VALID
                     "SELECT 1
                      FROM BLOCKS
                      WHERE OrganiserID = :organiser_id
-                       AND BlockedEmail = :blocked_email
+                       AND LOWER(BlockedEmail) = LOWER(:blocked_email)
                      LIMIT 1"
                 );
                 $block_statement->execute([
@@ -224,15 +224,18 @@ require_once __DIR__ . '/shared-components/header.php';
 <main class="page-shell post-detail-page">
     <article class="post-detail" aria-labelledby="post-detail-heading">
         <header class="page-header">
-            <p class="eyebrow"><?= escape_html(eventnest_post_type_label($media_type)) ?></p>
-            <h1 id="post-detail-heading"><?= escape_html((string) $post['EventName']) ?></h1>
-            <p>
-                Posted by
-                <a href="organiser-profile.php?organiser_id=<?= (int) $post['OrganiserID'] ?>">
-                    <?= escape_html($organiser_name) ?>
-                </a>
-                · <?= escape_html(format_datetime((string) $post['PostDate'])) ?>
-            </p>
+            <div class="post-author">
+                <div class="organisation-avatar organisation-avatar--small" aria-hidden="true"><?= escape_html(eventnest_organisation_initials($organiser_name)) ?></div>
+                <div>
+                    <p class="eyebrow"><?= escape_html(eventnest_post_type_label($media_type)) ?></p>
+                    <h1 id="post-detail-heading"><?= escape_html((string) $post['EventName']) ?></h1>
+                    <p>
+                        Posted by
+                        <a href="organiser-profile.php?organiser_id=<?= (int) $post['OrganiserID'] ?>"><?= escape_html($organiser_name) ?></a>
+                        · <?= escape_html(format_datetime((string) $post['PostDate'])) ?>
+                    </p>
+                </div>
+            </div>
             <div class="button-row">
                 <a class="btn btn-outline" href="event-detail.php?event_id=<?= (int) $post['EventID'] ?>">
                     View related event

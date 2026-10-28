@@ -336,8 +336,8 @@ VALUES
     'published',
     'online',
     '#CloudCareers #CloudSkills #Technology',
-    'field',
-    7,
+    'none',
+    NULL,
     NULL,
     FALSE,
     'Gauteng'
@@ -354,8 +354,8 @@ VALUES
     'published',
     'physical',
     '#DesignCareers #CreativeDesign',
-    'field',
-    3,
+    'none',
+    NULL,
     NULL,
     FALSE,
     'Gauteng'
@@ -372,8 +372,8 @@ VALUES
     'completed',
     'physical',
     '#CreativeCareers #Networking #Design',
-    'field',
-    3,
+    'none',
+    NULL,
     NULL,
     FALSE,
     'Western Cape'
@@ -642,5 +642,6 @@ VALUES
     'Repeatedly inappropriate event interactions in a fictional moderation test scenario.',
     '2026-10-01 14:00:00'
 );
+
 
 

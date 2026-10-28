@@ -7,6 +7,9 @@ require_once __DIR__ . '/shared-components/functions.php';
 // Never expose PHP warnings/notices or database details to users/JSON clients.
 ini_set('display_errors', '0');
 
+// The public search page opens its database connection later inside the protected try block.
+$pdo = null;
+
 function search_escape(string $value): string
 {
     return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -242,10 +245,8 @@ try {
     // Use the PDO connection provided by the project connection file.
     require_once __DIR__ . '/database-config/connection.php';
 
-    if (!isset($pdo) || !($pdo instanceof PDO)) {
-        throw new RuntimeException('Database connection is unavailable.');
-    }
-
+    // Use the shared connection helper so this variable is clearly a PDO instance for the rest of the page.
+    $pdo = eventnest_db();
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     /*
@@ -681,6 +682,7 @@ require_once __DIR__ . '/shared-components/header.php';
                     type="button"
                     class="btn btn-outline"
                     id="toggle-search-filters"
+                    data-filter-toggle
                     aria-controls="search-filters"
                     aria-expanded="true"
                 >
@@ -702,6 +704,7 @@ require_once __DIR__ . '/shared-components/header.php';
         <aside
             class="filter-panel"
             id="search-filters"
+            data-filter-panel
             aria-labelledby="filter-heading"
         >
             <h2 id="filter-heading">Filter results</h2>
@@ -906,31 +909,19 @@ require_once __DIR__ . '/shared-components/header.php';
                     <?php foreach ($events as $event): ?>
                         <article class="event-card">
                             <?php
-                            $image = (string) ($event['LatestImage'] ?? '');
-
                             /*
-Database media is still treated as untrusted output.
-Only a local uploaded image path is rendered.
-*/
-                            $valid_image =
-                                preg_match(
-                                    '~^uploaded-content/[a-zA-Z0-9_./-]+\.(?:jpg|jpeg|png|webp)$~iD',
-                                    $image
-                                ) === 1
-                                && !str_contains($image, '..');
+                            Use the same event-image resolver everywhere so event banners do not behave differently between pages.
 
-                            $image_src = $valid_image
-                                ? $image
+                            */
+                            $image_src = $pdo instanceof PDO
+                                ? resolve_event_image($pdo, (int) $event['EventID'])
                                 : 'images/eventnest-logo.png';
-
-                            $image_alt = $valid_image
-                                ? 'Image for ' . (string) $event['EventName']
-                                : 'EventNest event image';
+                            $image_alt = 'Image for ' . (string) $event['EventName'];
                             ?>
 
                             <img
                                 class="event-card__image"
-                                src="<?= search_escape($image_src) ?>"
+                                src="<?= search_escape(eventnest_url($image_src)) ?>"
                                 alt="<?= search_escape($image_alt) ?>"
                                 loading="lazy"
                             >
