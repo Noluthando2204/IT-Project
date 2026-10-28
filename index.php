@@ -146,12 +146,21 @@ function home_sql_fallback(PDO $pdo, array $attendee, int $limit = 5): array
     ]);
 
     $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    foreach ($events as &$event) {
+    foreach ($events as $index => &$event) {
         $same_field = trim((string) $attendee['CareerField']) !== ''
             && mb_strtolower(trim((string) $event['CategoryName']), 'UTF-8') === mb_strtolower(trim((string) $attendee['CareerField']), 'UTF-8');
-        $event['WhyRecommended'] = $same_field
-            ? 'Matches your ' . (string) $event['CategoryName'] . ' career field.'
-            : 'An upcoming published career event you can explore.';
+
+        if ($same_field) {
+            $event['WhyRecommended'] = 'Matches your selected ' . (string) $event['CategoryName'] . ' career field and is coming up soon.';
+        } elseif (($event['Format'] ?? '') === 'online') {
+            $event['WhyRecommended'] = 'An online ' . (string) $event['CategoryName'] . ' event you can explore outside your main field.';
+        } elseif (($event['Format'] ?? '') === 'hybrid') {
+            $event['WhyRecommended'] = 'A hybrid ' . (string) $event['CategoryName'] . ' event that adds variety to your career exploration.';
+        } else {
+            $event['WhyRecommended'] = $index % 2 === 0
+                ? 'An upcoming ' . (string) $event['CategoryName'] . ' event that can broaden your career options.'
+                : 'A different career area you may want to explore alongside your saved field.';
+        }
     }
     unset($event);
 
@@ -378,7 +387,7 @@ require_once __DIR__ . '/shared-components/header.php';
                                 <p><?= escape_html(eventnest_event_location($event)) ?></p>
                                 <p><?= escape_html(format_datetime($event['EventDate'])) ?> · <?= escape_html(ucfirst($event['Format'])) ?></p>
                                 <p><?= escape_html($event['CategoryName']) ?> · <?= escape_html(home_price_text($event)) ?></p>
-                                <p><strong>Why recommended:</strong> <?= escape_html((string) $event['WhyRecommended']) ?></p>
+                                <p class="recommendation-reason"><strong>Why recommended:</strong> <?= escape_html((string) $event['WhyRecommended']) ?></p>
                                 <a class="btn btn-secondary" href="event-detail.php?event_id=<?= (int) $event['EventID'] ?>">View details</a>
                             </div>
                         </article>

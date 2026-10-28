@@ -1,4 +1,4 @@
-// The server returns the current selection and all three totals after each change.
+// One reaction can be active per attendee and post. The server sends all three updated totals back after each click.
 (function () {
     'use strict';
     document.addEventListener('click', async function (event) {

@@ -95,3 +95,10 @@
 }
 
 @media(max-width:767px) { .support-layout { grid-template-columns:1fr; } }
+
+
+@media(max-width:767px) {
+    .organiser-brand, .post-author { align-items:flex-start; }
+    .organisation-avatar { width:60px; height:60px; flex-basis:60px; border-radius:16px; }
+    .reaction-controls--compact { gap:8px; }
+}
