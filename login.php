@@ -16,6 +16,8 @@ if (($_GET['reset'] ?? '') === 'success') {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Ensure we have a valid session and a fresh token if the registration form broke it
+    eventnest_ensure_session(); 
     if (!eventnest_verify_csrf_token($_POST['csrf_token'] ?? null)) {
         $message = 'Your session expired. Please refresh and try again.';
     } elseif ($email === '' || $password === '') {

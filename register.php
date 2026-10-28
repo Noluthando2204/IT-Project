@@ -107,6 +107,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = 'Registration is temporarily unavailable.';
         }
         error_log('EventNest registration failed: SQLSTATE=' . $exception->getCode() . ' driver=' . $driver_code);
+        
+        // Force a fresh CSRF token so the user isn't stuck if they try to log in immediately
+        eventnest_csrf_token(); 
     }
 }
 
