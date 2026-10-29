@@ -21,25 +21,35 @@ function organiser_posts_url(int $organiser_id, string $post_type, int $page = 1
     return 'organiser-posts.php?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986);
 }
 
+/*
+This small helper is used for the early organiser error pages.
+Keeping the response in one PHP block also makes the file easier for editors and PHP analysers to parse.
+
+*/
+function organiser_posts_stop_page(int $status, string $heading, string $message): void
+{
+    http_response_code($status);
+    $page_title = 'Organiser posts';
+    require_once __DIR__ . '/shared-components/header.php';
+
+    echo '<main class="page-shell organiser-posts-page">';
+    echo '<section class="empty-state">';
+    echo '<h1>' . escape_html($heading) . '</h1>';
+    echo '<p>' . escape_html($message) . '</p>';
+    echo '<a class="btn btn-outline" href="events.php">Browse events</a>';
+    echo '</section>';
+    echo '</main>';
+
+    require_once __DIR__ . '/shared-components/footer.php';
+    exit;
+}
+
 $organiser_id = filter_input(INPUT_GET, 'organiser_id', FILTER_VALIDATE_INT, [
     'options' => ['min_range' => 1],
 ]);
 
 if ($organiser_id === false || $organiser_id === null) {
-    http_response_code(400);
-    $page_title = 'Organiser posts';
-    require_once __DIR__ . '/shared-components/header.php';
-    ?>
-    <main class="page-shell organiser-posts-page">
-        <section class="empty-state" aria-labelledby="invalid-organiser-heading">
-            <h1 id="invalid-organiser-heading">Invalid organiser</h1>
-            <p>The organiser link is not valid.</p>
-            <a class="btn btn-outline" href="events.php">Browse events</a>
-        </section>
-    </main>
-    <?php
-    require_once __DIR__ . '/shared-components/footer.php';
-    exit;
+    organiser_posts_stop_page(400, 'Invalid organiser', 'The organiser link is not valid.');
 }
 
 $post_type = isset($_GET['post_type'])
@@ -81,20 +91,11 @@ try {
 }
 
 if (!$organiser) {
-    http_response_code(404);
-    $page_title = 'Organiser posts';
-    require_once __DIR__ . '/shared-components/header.php';
-    ?>
-    <main class="page-shell organiser-posts-page">
-        <section class="empty-state" aria-labelledby="organiser-not-found-heading">
-            <h1 id="organiser-not-found-heading">Organiser posts unavailable</h1>
-            <p>This organiser is not available for public viewing.</p>
-            <a class="btn btn-outline" href="events.php">Browse events</a>
-        </section>
-    </main>
-    <?php
-    require_once __DIR__ . '/shared-components/footer.php';
-    exit;
+    organiser_posts_stop_page(
+        404,
+        'Organiser posts unavailable',
+        'This organiser is not available for public viewing.'
+    );
 }
 
 $where = [
@@ -175,6 +176,60 @@ try {
 // Keep public post pages consistent with the organiser profile name.
 $organiser_name = eventnest_organiser_display_name($organiser);
 
+
+/*
+The public gallery always shows reaction totals.
+A signed-in active attendee who is not blocked by this organiser also gets the three reaction buttons directly on each post card.
+
+*/
+$current_user_id = isset($_SESSION['user_id']) && is_numeric($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : 0;
+$current_role = (string) ($_SESSION['role'] ?? '');
+$can_react = false;
+$current_reactions = [];
+
+if ($current_user_id > 0 && $current_role === 'attendee') {
+    $attendee_stmt = $pdo->prepare(
+        "SELECT UserID, Email, UserStatus, Suspension_count, Suspension_start_date
+         FROM USERS
+         WHERE UserID = :user_id AND Role = 'attendee'
+         LIMIT 1"
+    );
+    $attendee_stmt->execute([':user_id' => $current_user_id]);
+    $attendee = $attendee_stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($attendee && $attendee['UserStatus'] === 'active' && (int) $attendee['Suspension_count'] < 2) {
+        $suspension_active = false;
+        if (!empty($attendee['Suspension_start_date'])) {
+            $started = strtotime((string) $attendee['Suspension_start_date']);
+            $suspension_active = $started !== false && strtotime('+30 days', $started) > time();
+        }
+
+        if (!$suspension_active) {
+            $block_stmt = $pdo->prepare(
+                'SELECT 1 FROM BLOCKS WHERE OrganiserID = :organiser_id AND LOWER(BlockedEmail) = LOWER(:email) LIMIT 1'
+            );
+            $block_stmt->execute([
+                ':organiser_id' => $organiser_id,
+                ':email' => (string) $attendee['Email'],
+            ]);
+            $can_react = !$block_stmt->fetchColumn();
+        }
+    }
+}
+
+if ($can_react && $posts) {
+    $post_ids = array_map(static fn(array $post): int => (int) $post['PostID'], $posts);
+    $placeholders = implode(',', array_fill(0, count($post_ids), '?'));
+    $reaction_stmt = $pdo->prepare(
+        "SELECT PostID, ReactionType FROM REACTIONS WHERE UserID = ? AND PostID IN ($placeholders)"
+    );
+    $reaction_stmt->execute(array_merge([$current_user_id], $post_ids));
+
+    foreach ($reaction_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $current_reactions[(int) $row['PostID']] = (string) $row['ReactionType'];
+    }
+}
+
 $tabs = [
     'all' => 'All posts',
     'updates' => 'Event updates',
@@ -187,13 +242,14 @@ require_once __DIR__ . '/shared-components/header.php';
 ?>
 
 <main class="page-shell organiser-posts-page">
-    <header class="page-header">
-        <p class="eyebrow">Verified organiser</p>
-        <h1>Posts and media by <?= escape_html($organiser_name) ?></h1>
-        <p>Public event updates, images and videos linked to this organiser's published or completed events.</p>
-        <a class="btn btn-outline" href="organiser-profile.php?organiser_id=<?= (int) $organiser_id ?>">
-            Back to organiser profile
-        </a>
+    <header class="page-header organiser-brand">
+        <div class="organisation-avatar" aria-hidden="true"><?= escape_html(eventnest_organisation_initials($organiser_name)) ?></div>
+        <div>
+            <p class="eyebrow">Verified organiser</p>
+            <h1>Posts and media by <?= escape_html($organiser_name) ?></h1>
+            <p>Public event updates, images and videos linked to this organiser's published or completed events.</p>
+            <a class="btn btn-outline" href="organiser-profile.php?organiser_id=<?= (int) $organiser_id ?>">Back to organiser profile</a>
+        </div>
     </header>
 
     <nav class="tabs" aria-label="Post type filters">
@@ -287,15 +343,49 @@ require_once __DIR__ . '/shared-components/header.php';
                                 </div>
                             <?php endif; ?>
 
-                            <p class="reaction-summary" aria-label="Reaction totals">
-                                <span>Thumbs up <?= (int) $post['ThumbsUpTotal'] ?></span>
-                                <span>Applause <?= (int) $post['ClapTotal'] ?></span>
-                                <span>Lightbulb <?= (int) $post['LightbulbTotal'] ?></span>
-                            </p>
+                            <?php
+                            $post_id = (int) $post['PostID'];
+                            $selected_reaction = $current_reactions[$post_id] ?? null;
+                            $reaction_options = [
+                                'thumbs_up' => ['icon' => '👍', 'label' => 'Thumbs up', 'count' => (int) $post['ThumbsUpTotal']],
+                                'clap' => ['icon' => '👏', 'label' => 'Applause', 'count' => (int) $post['ClapTotal']],
+                                'lightbulb' => ['icon' => '💡', 'label' => 'Lightbulb', 'count' => (int) $post['LightbulbTotal']],
+                            ];
+                            ?>
 
-                            <a class="btn btn-secondary" href="post-detail.php?post_id=<?= (int) $post['PostID'] ?>">
-                                View post
-                            </a>
+                            <?php if ($can_react): ?>
+                                <div
+                                    class="reaction-controls reaction-controls--compact"
+                                    data-reaction-widget
+                                    data-post-id="<?= $post_id ?>"
+                                    data-current-reaction="<?= escape_html((string) ($selected_reaction ?? '')) ?>"
+                                    data-csrf-token="<?= escape_html(eventnest_csrf_token()) ?>"
+                                    data-endpoint="<?= escape_html(eventnest_url('reaction.php')) ?>"
+                                >
+                                    <?php foreach ($reaction_options as $reaction_type => $details): ?>
+                                        <button
+                                            class="reaction-button <?= $selected_reaction === $reaction_type ? 'is-selected is-active' : '' ?>"
+                                            type="button"
+                                            data-reaction-button
+                                            data-reaction-type="<?= escape_html($reaction_type) ?>"
+                                            aria-pressed="<?= $selected_reaction === $reaction_type ? 'true' : 'false' ?>"
+                                            aria-label="<?= escape_html($details['label']) ?>"
+                                        >
+                                            <span aria-hidden="true"><?= $details['icon'] ?></span>
+                                            <span data-reaction-count><?= $details['count'] ?></span>
+                                        </button>
+                                    <?php endforeach; ?>
+                                    <span class="sr-only" aria-live="polite" data-reaction-message></span>
+                                </div>
+                            <?php else: ?>
+                                <div class="reaction-summary" aria-label="Reaction totals">
+                                    <span>👍 <?= (int) $post['ThumbsUpTotal'] ?></span>
+                                    <span>👏 <?= (int) $post['ClapTotal'] ?></span>
+                                    <span>💡 <?= (int) $post['LightbulbTotal'] ?></span>
+                                </div>
+                            <?php endif; ?>
+
+                            <a class="btn btn-secondary" href="post-detail.php?post_id=<?= $post_id ?>">View post</a>
                         </div>
                     </article>
                 <?php endforeach; ?>
@@ -328,4 +418,7 @@ require_once __DIR__ . '/shared-components/header.php';
     <?php endif; ?>
 </main>
 
+<?php if ($can_react): ?>
+<script src="<?= escape_html(eventnest_url('scripts/reactions.js')) ?>" defer></script>
+<?php endif; ?>
 <?php require_once __DIR__ . '/shared-components/footer.php'; ?>

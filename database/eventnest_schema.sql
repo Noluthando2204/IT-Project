@@ -1,3 +1,4 @@
+
 CREATE DATABASE IF NOT EXISTS eventnest
     CHARACTER SET utf8mb4
     COLLATE utf8mb4_unicode_ci;

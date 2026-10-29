@@ -1,4 +1,4 @@
-<?php
+?php
 
 declare(strict_types=1);
 
@@ -79,6 +79,28 @@ function eventnest_organiser_display_name(array $organiser): string
     return $representative_name !== '' ? $representative_name : 'EventNest organiser';
 }
 
+function eventnest_organisation_initials(string $name): string
+{
+    $words = preg_split('/\s+/u', trim($name)) ?: [];
+    $initials = '';
+
+    foreach ($words as $word) {
+        if ($word === '') {
+            continue;
+        }
+
+        $initials .= function_exists('mb_substr')
+            ? mb_strtoupper(mb_substr($word, 0, 1, 'UTF-8'), 'UTF-8')
+            : strtoupper(substr($word, 0, 1));
+
+        if (mb_strlen($initials, 'UTF-8') >= 2) {
+            break;
+        }
+    }
+
+    return $initials !== '' ? $initials : 'EN';
+}
+
 function eventnest_provinces(): array
 {
     return ['Eastern Cape', 'Free State', 'Gauteng', 'KwaZulu-Natal', 'Limpopo',
@@ -102,19 +124,31 @@ function eventnest_event_location(array $event): string
 
 function event_booking_eligibility(PDO $pdo, array $event, array $user): array
 {
-    $stmt = $pdo->prepare('SELECT 1 FROM BLOCKS WHERE OrganiserID = ? AND BlockedEmail = ?');
+    $stmt = $pdo->prepare('SELECT 1 FROM BLOCKS WHERE OrganiserID = ? AND LOWER(BlockedEmail) = LOWER(?)');
     $stmt->execute([$event['OrganiserID'], $user['Email']]);
-    if ($stmt->fetchColumn()) { return [false, 'Organiser block']; }
-    if ($event['CareerGoalType'] === 'field') {
+    if ($stmt->fetchColumn()) {
+        return [false, 'Organiser block'];
+    }
+
+    if (($event['CareerGoalType'] ?? '') === 'field') {
         $stmt = $pdo->prepare('SELECT CategoryName FROM CATEGORIES WHERE CategoryID = ?');
         $stmt->execute([$event['AllowedCareerField']]);
-        if (strcasecmp((string) $stmt->fetchColumn(), trim((string) $user['CareerField'])) !== 0) { return [false, 'Career field restriction']; }
+        $allowed = trim((string) $stmt->fetchColumn());
+
+        if ($allowed === '' || strcasecmp($allowed, trim((string) ($user['CareerField'] ?? ''))) !== 0) {
+            return [false, 'Career field restriction'];
+        }
     }
-    if ($event['CareerGoalType'] === 'email_domain') {
-        $domain = strtolower(substr(strrchr($user['Email'], '@') ?: '', 1));
-        $allowed = strtolower(ltrim((string) $event['AllowedEmailDomain'], '@'));
-        if (empty($user['Is_email_verified']) || $allowed === '' || !($domain === $allowed || str_ends_with($domain, '.' . $allowed))) { return [false, 'Email restriction']; }
+
+    if (($event['CareerGoalType'] ?? '') === 'email_domain') {
+        $domain = strtolower(substr(strrchr((string) $user['Email'], '@') ?: '', 1));
+        $allowed = strtolower(ltrim((string) ($event['AllowedEmailDomain'] ?? ''), '@'));
+
+        if (empty($user['Is_email_verified']) || $allowed === '' || !($domain === $allowed || str_ends_with($domain, '.' . $allowed))) {
+            return [false, 'Email restriction'];
+        }
     }
+
     return [true, ''];
 }
 
@@ -617,59 +651,57 @@ if (!function_exists('eventnest_safe_media_path')) {
             return null;
         }
 
-        $path = trim(str_replace('\\', '/', $database_path));
-        $path = ltrim($path, '/');
+        $path = ltrim(trim(str_replace('\\', '/', $database_path)), '/');
 
         if (
             $path === '' ||
             strpos($path, "\0") !== false ||
             strpos($path, 'uploaded-content/') !== 0 ||
-            preg_match('#(^|/)\.\.(/|$)#', $path) === 1
+            preg_match('#(^|/)\.\.(/|$)#', $path) === 1 ||
+            preg_match('#^[A-Za-z0-9_./-]+$#D', $path) !== 1
         ) {
             return null;
         }
 
-        $uploads_root = realpath(eventnest_project_root() . '/uploaded-content');
-        $full_path = realpath(eventnest_project_root() . '/' . $path);
+        $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $image_extensions = ['jpg', 'jpeg', 'png', 'webp'];
+        $video_extensions = ['mp4', 'webm'];
 
-        if ($uploads_root === false || $full_path === false || !is_file($full_path)) {
+        if ($expected_type === 'image' && !in_array($extension, $image_extensions, true)) {
             return null;
         }
 
-        $uploads_normalised = rtrim(str_replace('\\', '/', $uploads_root), '/') . '/';
-        $full_normalised = str_replace('\\', '/', $full_path);
-
-        if (strpos($full_normalised, $uploads_normalised) !== 0) {
+        if ($expected_type === 'video' && !in_array($extension, $video_extensions, true)) {
             return null;
         }
 
-        if (!class_exists('finfo')) {
+        if ($expected_type === null && !in_array($extension, array_merge($image_extensions, $video_extensions), true)) {
             return null;
         }
 
-        $finfo = new finfo(FILEINFO_MIME_TYPE);
-        $mime_type = $finfo->file($full_path);
+        /*
+        The database stores a web-relative media path.
+        Render and local XAMPP can resolve the physical file differently, so the safe path is still returned when the path format is valid.
 
-        if (!is_string($mime_type)) {
-            return null;
-        }
+        */
+        $full_path = eventnest_project_root() . '/' . $path;
+        if (is_file($full_path) && class_exists('finfo')) {
+            $finfo = new finfo(FILEINFO_MIME_TYPE);
+            $mime_type = $finfo->file($full_path);
+            $image_types = ['image/jpeg', 'image/png', 'image/webp'];
+            $video_types = ['video/mp4', 'video/webm'];
 
-        $image_types = ['image/jpeg', 'image/png', 'image/webp'];
-        $video_types = ['video/mp4', 'video/webm'];
+            if ($expected_type === 'image' && !in_array($mime_type, $image_types, true)) {
+                return null;
+            }
 
-        if ($expected_type === 'image' && !in_array($mime_type, $image_types, true)) {
-            return null;
-        }
+            if ($expected_type === 'video' && !in_array($mime_type, $video_types, true)) {
+                return null;
+            }
 
-        if ($expected_type === 'video' && !in_array($mime_type, $video_types, true)) {
-            return null;
-        }
-
-        if (
-            $expected_type === null &&
-            !in_array($mime_type, array_merge($image_types, $video_types), true)
-        ) {
-            return null;
+            if ($expected_type === null && !in_array($mime_type, array_merge($image_types, $video_types), true)) {
+                return null;
+            }
         }
 
         return $path;
@@ -886,6 +918,120 @@ function eventnest_absolute_url(string $path): string
         throw new DomainException('Configure EVENTNEST_BASE_URL with the trusted HTTPS site URL.');
     }
     return $base . '/' . ltrim($path, '/');
+}
+
+function eventnest_base64url_encode(string $value): string
+{
+    return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
+}
+
+function eventnest_base64url_decode(string $value): ?string
+{
+    if ($value === '' || preg_match('/^[A-Za-z0-9_-]+$/D', $value) !== 1) {
+        return null;
+    }
+
+    $padding = (4 - strlen($value) % 4) % 4;
+    $decoded = base64_decode(strtr($value . str_repeat('=', $padding), '-_', '+/'), true);
+
+    return is_string($decoded) ? $decoded : null;
+}
+
+function eventnest_password_reset_secret(): string
+{
+    $configured = trim((string) getenv('EVENTNEST_PASSWORD_RESET_SECRET'));
+    if ($configured !== '') {
+        return $configured;
+    }
+
+    $app_key = trim((string) getenv('APP_KEY'));
+    if ($app_key !== '') {
+        return $app_key;
+    }
+
+    /*
+    SIT already needs SMTP to send the reset email.
+    If a separate reset secret was not added yet, derive a server-only signing key from existing private environment values.
+
+    */
+    $smtp_password = trim((string) getenv('EVENTNEST_SMTP_PASS'));
+    $site_url = trim((string) getenv('EVENTNEST_BASE_URL'));
+
+    return $smtp_password !== '' && $site_url !== ''
+        ? hash('sha256', 'EventNest password reset|' . $smtp_password . '|' . $site_url)
+        : '';
+}
+
+function eventnest_create_password_reset_token(array $user, int $minutes = 30): ?string
+{
+    $secret = eventnest_password_reset_secret();
+    $user_id = (int) ($user['UserID'] ?? 0);
+    $email = strtolower(trim((string) ($user['Email'] ?? '')));
+    $password_hash = (string) ($user['PasswordHash'] ?? '');
+
+    if ($secret === '' || $user_id <= 0 || !filter_var($email, FILTER_VALIDATE_EMAIL) || $password_hash === '') {
+        return null;
+    }
+
+    $payload = [
+        'v' => 1,
+        'uid' => $user_id,
+        'email' => $email,
+        'exp' => time() + max(5, min(60, $minutes)) * 60,
+        'pwd' => hash('sha256', $password_hash),
+    ];
+
+    $json = json_encode($payload, JSON_UNESCAPED_SLASHES);
+    if (!is_string($json)) {
+        return null;
+    }
+
+    $encoded = eventnest_base64url_encode($json);
+    $signature = hash_hmac('sha256', $encoded, $secret, true);
+
+    return $encoded . '.' . eventnest_base64url_encode($signature);
+}
+
+function eventnest_read_password_reset_token(string $token): ?array
+{
+    $secret = eventnest_password_reset_secret();
+    if ($secret === '' || substr_count($token, '.') !== 1) {
+        return null;
+    }
+
+    [$encoded, $signature_text] = explode('.', $token, 2);
+    $signature = eventnest_base64url_decode($signature_text);
+    $json = eventnest_base64url_decode($encoded);
+
+    if ($signature === null || $json === null) {
+        return null;
+    }
+
+    $expected = hash_hmac('sha256', $encoded, $secret, true);
+    if (!hash_equals($expected, $signature)) {
+        return null;
+    }
+
+    $payload = json_decode($json, true);
+    if (!is_array($payload)) {
+        return null;
+    }
+
+    $user_id = (int) ($payload['uid'] ?? 0);
+    $email = strtolower(trim((string) ($payload['email'] ?? '')));
+    $expires = (int) ($payload['exp'] ?? 0);
+    $password_marker = (string) ($payload['pwd'] ?? '');
+
+    if ($user_id <= 0 || !filter_var($email, FILTER_VALIDATE_EMAIL) || $expires < time() || strlen($password_marker) !== 64) {
+        return null;
+    }
+
+    return [
+        'user_id' => $user_id,
+        'email' => $email,
+        'expires' => $expires,
+        'password_marker' => $password_marker,
+    ];
 }
 
 function eventnest_verify_payfast_notification(array $post): void

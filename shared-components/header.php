@@ -14,19 +14,32 @@ $flashes = $flash ? [$flash] : [];
     <title><?= e($page_title) ?> | EventNest</title>
     <link rel="stylesheet" href="<?= e(app_url('styles/main.css')) ?>">
     <link rel="stylesheet" href="<?= e(app_url('styles/responsive.css')) ?>">
+<<<<<<< HEAD
     
     <!-- The timer deadline script (only one copy) -->
+=======
+
+    <!-- Reservation timer deadline passed in by payment.php when a ticket is being held. -->
+>>>>>>> origin/main
     <?php if (isset($booking_deadline) && $booking_deadline > 0): ?>
     <script>window.eventnestBookingDeadline = <?= (int)$booking_deadline ?>;</script>
     <?php endif; ?>
 </head>
 <body>
 <?php if (isset($_SESSION['user_id']) && basename($_SERVER['SCRIPT_NAME']) === 'payment.php'): ?>
+<<<<<<< HEAD
     <!-- The floating timer -->
+=======
+    <!-- Floating reservation timer shown while the attendee completes payment. -->
+>>>>>>> origin/main
     <div id="reservation-timer" class="floating-timer">
         <span id="timer-text">Ticket reserved for 04:00</span>
     </div>
 <?php endif; ?>
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/main
 <a class="skip-link" href="#main-content">Skip to content</a>
 <header class="site-header">
     <div class="site-header-inner">
@@ -36,6 +49,7 @@ $flashes = $flash ? [$flash] : [];
         <?php require __DIR__ . '/navbar.php'; ?>
     </div>
 </header>
+
 <?php if ($flashes): ?>
 <div class="flash-stack" aria-live="polite">
     <?php foreach ($flashes as $flash): ?>
@@ -43,4 +57,9 @@ $flashes = $flash ? [$flash] : [];
     <?php endforeach; ?>
 </div>
 <?php endif; ?>
+<<<<<<< HEAD
 <div id="main-content" class="page-shell">
+=======
+
+<div id="main-content" class="page-shell">
+>>>>>>> origin/main

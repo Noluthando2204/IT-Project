@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/shared-components/auth.php';
+require_once __DIR__ . '/shared-components/functions.php';
 header('Content-Type: application/json; charset=UTF-8');
 function reaction_response(int $status, array $body): never
 {
@@ -34,7 +35,7 @@ try {
         INNER JOIN USERS u ON u.UserID = p.OrganiserID
         WHERE p.PostID = ? AND e.Status IN ('published', 'completed')
         AND u.Role = 'organiser' AND u.UserStatus = 'active' AND u.VerificationStatus = 'verified'
-        AND NOT EXISTS (SELECT 1 FROM BLOCKS b WHERE b.OrganiserID = p.OrganiserID AND b.BlockedEmail = ?)
+        AND NOT EXISTS (SELECT 1 FROM BLOCKS b WHERE b.OrganiserID = p.OrganiserID AND LOWER(b.BlockedEmail) = LOWER(?))
         FOR UPDATE");
     $stmt->execute([$post_id, $user['Email']]);
     if (!$stmt->fetch()) {
