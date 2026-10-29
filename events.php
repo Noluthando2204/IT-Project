@@ -229,8 +229,10 @@ require_once __DIR__ . '/shared-components/header.php';
                     <option value="event_date_desc" <?= $sort === 'event_date_desc' ? 'selected' : '' ?>>Event date: latest</option>
                 </select>
 
-                <button type="submit" class="btn btn-primary">Apply filters</button>
-                <a class="btn btn-outline" href="events.php">Clear filters</a>
+                <div class="filter-actions">
+                    <button type="submit" class="btn btn-primary">Apply filters</button>
+                    <a class="btn btn-outline" href="events.php">Clear filters</a>
+                </div>
             </form>
         </aside>
 

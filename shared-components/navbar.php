@@ -1,7 +1,11 @@
 <?php
+require_once __DIR__ . '/notifications.php';
 $nav_role = $_SESSION['role'] ?? null;
 $nav_first_name = $_SESSION['first_name'] ?? 'User';
 $current_page = basename($_SERVER['SCRIPT_NAME'] ?? '');
+$nav_unread = ($nav_role && isset($_SESSION['user_id']) && $current_page !== 'notifications.php')
+    ? eventnest_unread_notice_count((int) $_SESSION['user_id'])
+    : 0;
 ?>
 <nav class="site-nav" aria-label="Primary navigation">
     <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="main-nav-links">Menu</button>
@@ -29,7 +33,7 @@ $current_page = basename($_SERVER['SCRIPT_NAME'] ?? '');
                 <a href="<?= e(app_url('career-fields.php')) ?>">Career Fields</a>
             <?php endif; ?>
 
-            <a <?= $current_page === 'notifications.php' ? 'aria-current="page"' : '' ?> href="<?= e(app_url('notifications.php')) ?>">Notifications</a>
+            <a <?= $current_page === 'notifications.php' ? 'aria-current="page"' : '' ?> href="<?= e(app_url('notifications.php')) ?>">Notifications<?php if ($nav_unread > 0): ?><span class="nav-badge" aria-label="<?= (int) $nav_unread ?> unread"><?= $nav_unread > 9 ? '9+' : (int) $nav_unread ?></span><?php endif; ?></a>
             <a href="<?= e(app_url('logout.php')) ?>">Log out</a>
 
             <span class="nav-spacer"></span>
