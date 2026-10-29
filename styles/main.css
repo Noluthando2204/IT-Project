@@ -205,7 +205,7 @@ tr:last-child td { border-bottom: 0; }
 
 /* Existing page markup uses these same shared component styles. */
 body { min-height:100vh; display:flex; flex-direction:column; }
-.page-shell { width:100%; flex:1; }
+.page-shell { width:100%; flex:1 0 auto; } /* never shrink below content, otherwise the footer overlaps the page */
 .page-shell > .page-shell { padding:0; min-height:0; }
 h1,h2,h3 { color:var(--navy); line-height:1.25; }
 h1 { font-size:clamp(1.8rem,3vw,2.6rem); }
@@ -326,8 +326,6 @@ video { max-width:100%; height:auto; }
 .password-toggle .eye-open,.password-toggle[aria-pressed="true"] .eye-closed { display:none; }
 .password-toggle[aria-pressed="true"] .eye-open { display:block; }
 
-<<<<<<< HEAD
-=======
 /* EventNest fixes added during SIT review. */
 .event-card__content { gap: 10px; }
 .event-card__content > .status { margin: 4px 0 8px; align-self: flex-start; }
@@ -342,29 +340,33 @@ video { max-width:100%; height:auto; }
 .notification-list { display: grid; gap: 12px; margin-top: 20px; }
 .notification-card { background: white; border: 1px solid var(--line); border-left: 4px solid var(--teal); border-radius: var(--radius); padding: 16px; }
 .notification-card h2, .notification-card h3 { margin-top: 0; }
+.notification-card.is-new { background: #F3FBFA; border-left-color: var(--navy); }
+.notification-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; font-size: .8rem; }
+.notification-type { color: var(--teal); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.notification-new { background: var(--navy); color: #fff; border-radius: 999px; padding: 2px 9px; font-weight: 700; }
+.notification-time { color: var(--muted); margin-left: auto; }
+.nav-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; margin-left: 6px; padding: 0 5px; border-radius: 999px; background: #C62828; color: #fff; font-size: .7rem; font-weight: 700; line-height: 1; vertical-align: middle; }
 .auth-help { margin: 12px 0; }
 
->>>>>>> origin/main
-/* 1. Floating Reservation Timer */
+/* Floating reservation timer (shown on every page while an attendee has a pending booking) */
 .floating-timer {
     position: fixed;
-    top: 80px; /* Sits just below the navbar */
+    top: 84px; /* just below the sticky navbar */
     right: 20px;
     background-color: #1E3A8A;
-    color: white;
+    color: #fff;
     padding: 12px 24px;
-    border-radius: 30px; /* Pill shape */
-    font-weight: bold;
+    border-radius: 30px;
+    font-weight: 700;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     z-index: 9999;
     display: none;
-    transition: background-color 0.3s ease;
+    text-decoration: none;
+    transition: background-color .3s ease;
 }
-
-.floating-timer.is-warning {
-    background-color: #D9363E;
-    animation: pulse 1s infinite;
-}
+a.floating-timer:hover, a.floating-timer:focus { color: #fff; text-decoration: underline; }
+.floating-timer.is-warning { background-color: #D9363E; animation: pulse 1s infinite; }
+.floating-timer.is-expired { background-color: #6B7280; animation: none; }
 
 @keyframes pulse {
     0% { transform: scale(1); }
@@ -372,14 +374,10 @@ video { max-width:100%; height:auto; }
     100% { transform: scale(1); }
 }
 
-/* 2. Fix for B05: Filter button spacing */
-form button.btn-orange + a.btn-outline,
-form .btn-orange + .btn-outline {
-    margin-top: 12px;
-    display: block; 
-    width: max-content;
-<<<<<<< HEAD
+/* Spacing between the Apply filters and Clear filters buttons */
+.filter-actions { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
+.filter-actions .btn { width: 100%; }
+
+@media (max-width: 720px) {
+    .floating-timer { top: auto; bottom: 16px; right: 16px; left: 16px; text-align: center; }
 }
-=======
-}
->>>>>>> origin/main

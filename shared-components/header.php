@@ -4,6 +4,31 @@ eventnest_ensure_session();
 $page_title = isset($page_title) ? $page_title : 'EventNest';
 $flash = function_exists('auth_get_flash') ? auth_get_flash() : null;
 $flashes = $flash ? [$flash] : [];
+
+// Reservation timer: seconds left on the attendee's newest pending booking (4-minute hold).
+// Calculated by the database so server/browser clocks and timezones cannot disagree.
+$timer_remaining = 0;
+$timer_booking_id = 0;
+if (($_SESSION['role'] ?? null) === 'attendee' && !empty($_SESSION['user_id'])) {
+    try {
+        $timer_stmt = eventnest_db()->prepare(
+            "SELECT BookingID, TIMESTAMPDIFF(SECOND, NOW(), DATE_ADD(BookingDate, INTERVAL 4 MINUTE)) AS SecondsLeft
+             FROM BOOKINGS
+             WHERE UserID = :user_id AND Status = 'pending'
+             ORDER BY BookingDate DESC
+             LIMIT 1"
+        );
+        $timer_stmt->execute([':user_id' => (int) $_SESSION['user_id']]);
+        $timer_row = $timer_stmt->fetch(PDO::FETCH_ASSOC);
+        if ($timer_row && (int) $timer_row['SecondsLeft'] > 0) {
+            $timer_remaining = min(240, (int) $timer_row['SecondsLeft']);
+            $timer_booking_id = (int) $timer_row['BookingID'];
+        }
+    } catch (Throwable $exception) {
+        $timer_remaining = 0;
+    }
+}
+$timer_on_payment = basename($_SERVER['SCRIPT_NAME'] ?? '') === 'payment.php';
 ?>
 <!doctype html>
 <html lang="en">
@@ -14,32 +39,20 @@ $flashes = $flash ? [$flash] : [];
     <title><?= e($page_title) ?> | EventNest</title>
     <link rel="stylesheet" href="<?= e(app_url('styles/main.css')) ?>">
     <link rel="stylesheet" href="<?= e(app_url('styles/responsive.css')) ?>">
-<<<<<<< HEAD
-    
-    <!-- The timer deadline script (only one copy) -->
-=======
 
-    <!-- Reservation timer deadline passed in by payment.php when a ticket is being held. -->
->>>>>>> origin/main
-    <?php if (isset($booking_deadline) && $booking_deadline > 0): ?>
-    <script>window.eventnestBookingDeadline = <?= (int)$booking_deadline ?>;</script>
-    <?php endif; ?>
 </head>
 <body>
-<?php if (isset($_SESSION['user_id']) && basename($_SERVER['SCRIPT_NAME']) === 'payment.php'): ?>
-<<<<<<< HEAD
-    <!-- The floating timer -->
-=======
-    <!-- Floating reservation timer shown while the attendee completes payment. -->
->>>>>>> origin/main
-    <div id="reservation-timer" class="floating-timer">
-        <span id="timer-text">Ticket reserved for 04:00</span>
-    </div>
+<?php if ($timer_remaining > 0): ?>
+    <!-- Floating reservation timer, visible on every page while a booking is held. -->
+    <a id="reservation-timer" class="floating-timer"
+       href="<?= e(app_url('payment.php?booking_id=' . $timer_booking_id)) ?>"
+       data-remaining="<?= (int) $timer_remaining ?>"
+       data-on-payment="<?= $timer_on_payment ? '1' : '0' ?>"
+       data-expired-url="<?= e(app_url('events.php')) ?>">
+        <span id="timer-text">Ticket reserved for <?= sprintf('%02d:%02d', intdiv($timer_remaining, 60), $timer_remaining % 60) ?></span>
+    </a>
 <?php endif; ?>
-<<<<<<< HEAD
-=======
 
->>>>>>> origin/main
 <a class="skip-link" href="#main-content">Skip to content</a>
 <header class="site-header">
     <div class="site-header-inner">
@@ -57,9 +70,5 @@ $flashes = $flash ? [$flash] : [];
     <?php endforeach; ?>
 </div>
 <?php endif; ?>
-<<<<<<< HEAD
-<div id="main-content" class="page-shell">
-=======
 
 <div id="main-content" class="page-shell">
->>>>>>> origin/main

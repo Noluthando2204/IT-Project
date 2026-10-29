@@ -56,13 +56,6 @@ function payment_load_booking(PDO $pdo, int $booking_id, int $user_id): ?array
 $booking_id = payment_positive_id($_POST['booking_id'] ?? $_GET['booking_id'] ?? '');
 $booking = $booking_id > 0 ? payment_load_booking($pdo, $booking_id, $user_id) : null;
 
-// Set the 4-minute timer deadline based on when the booking was made
-if ($booking && $booking['Status'] === 'pending') {
-    $booking_time = strtotime($booking['BookingDate']);
-    $deadline = $booking_time + (4 * 60); // 4 minutes
-    echo '<script>window.eventnestBookingDeadline = ' . $deadline . ';</script>';
-}
-
 if (!$booking) {
     http_response_code(404);
     $page_title = 'Payment unavailable';
@@ -139,11 +132,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errors) {
 }
 
 $page_title = 'Secure sandbox payment';
-
-$booking_deadline = 0;
-if ($booking && $booking['Status'] === 'pending') {
-    $booking_deadline = strtotime($booking['BookingDate']) + (4 * 60);
-}
 
 require_once __DIR__ . '/shared-components/header.php';
 ?>

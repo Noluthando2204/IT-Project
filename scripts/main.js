@@ -183,88 +183,47 @@
     }
     form.addEventListener('input',update); form.addEventListener('change',update); update();
 })();
-// Reservation Timer Logic
-document.addEventListener('DOMContentLoaded', () => {
-    const timerBanner = document.getElementById('reservation-timer');
-    const timerText = document.getElementById('timer-text');
-    
-    if (timerBanner && timerText) {
-        // Get the deadline from a data attribute we will set on the body or banner
-        // We will read it from a global variable set by PHP
-        if (typeof window.eventnestBookingDeadline !== 'undefined') {
-            timerBanner.style.display = 'block';
-            const deadline = window.eventnestBookingDeadline; // Unix timestamp in seconds
+// Reservation timer: the server sends the seconds left (data-remaining), so the countdown
+// does not depend on the visitor's clock or timezone. Shown on every page while a booking is pending.
+document.addEventListener('DOMContentLoaded', function () {
+    var banner = document.getElementById('reservation-timer');
+    var text = document.getElementById('timer-text');
+    if (!banner || !text) return;
 
-            const updateTimer = () => {
-                const now = Math.floor(Date.now() / 1000);
-                const timeLeft = deadline - now;
+    var remaining = parseInt(banner.getAttribute('data-remaining'), 10);
+    if (!isFinite(remaining) || remaining <= 0) return;
 
-                if (timeLeft <= 0) {
-                    timerText.textContent = "Reservation expired";
-                    timerBanner.style.backgroundColor = "#D9363E"; // Red
-                    // Redirect to events page
-                    window.location.href = "events.php"; 
-                    return;
-                }
+    var endsAt = Date.now() + remaining * 1000;
+    var redirectUrl = banner.getAttribute('data-expired-url');
+    var onPaymentPage = banner.getAttribute('data-on-payment') === '1';
+    banner.style.display = 'block';
 
-                const minutes = Math.floor(timeLeft / 60);
-                const seconds = timeLeft % 60;
-                
-                // Format as MM:SS
-                timerText.textContent = `Ticket reserved for ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    function pad(n) { return String(n).padStart(2, '0'); }
 
-                if (timeLeft <= 20) {
-                    timerBanner.style.backgroundColor = "#D9363E"; // Red warning at 20s
-                    timerText.textContent = `Hurry! Reservation expires in ${String(seconds).padStart(2, '0')} seconds`;
-                }
+    function tick() {
+        var left = Math.max(0, Math.round((endsAt - Date.now()) / 1000));
 
-                setTimeout(updateTimer, 1000);
-            };
-
-            updateTimer();
+        if (left <= 0) {
+            text.textContent = 'Reservation expired';
+            banner.classList.remove('is-warning');
+            banner.classList.add('is-expired');
+            if (onPaymentPage && redirectUrl) {
+                setTimeout(function () { window.location.href = redirectUrl; }, 1500);
+            } else {
+                setTimeout(function () { banner.style.display = 'none'; }, 5000);
+            }
+            return;
         }
-    }
-});// Reservation Timer Logic
-document.addEventListener('DOMContentLoaded', () => {
-    const timerBanner = document.getElementById('reservation-timer');
-    const timerText = document.getElementById('timer-text');
-    
-    if (timerBanner && timerText) {
-        if (typeof window.eventnestBookingDeadline !== 'undefined') {
-            timerBanner.style.display = 'block';
-            const deadline = window.eventnestBookingDeadline; 
 
-            const updateTimer = () => {
-                const now = Math.floor(Date.now() / 1000);
-                let timeLeft = deadline - now;
-
-                // Fix: Snap to 4:00 if it loads at 3:55 due to network delay
-                if (timeLeft > 230 && timeLeft < 240) {
-                    timeLeft = 240; 
-                }
-
-                if (timeLeft <= 0) {
-                    timerText.textContent = "Reservation expired";
-                    window.location.href = "events.php"; 
-                    return;
-                }
-
-                const minutes = Math.floor(timeLeft / 60);
-                const seconds = timeLeft % 60;
-                
-                timerText.textContent = `Ticket reserved for ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-
-                if (timeLeft <= 20) {
-                    timerBanner.classList.add('is-warning');
-                    timerText.textContent = `Hurry! Expires in ${String(seconds).padStart(2, '0')}s`;
-                } else {
-                    timerBanner.classList.remove('is-warning');
-                }
-
-                setTimeout(updateTimer, 1000);
-            };
-
-            updateTimer();
+        if (left <= 20) {
+            banner.classList.add('is-warning');
+            text.textContent = 'Hurry! Expires in ' + pad(left) + 's';
+        } else {
+            banner.classList.remove('is-warning');
+            text.textContent = 'Ticket reserved for ' + pad(Math.floor(left / 60)) + ':' + pad(left % 60);
         }
+        setTimeout(tick, 250);
     }
+
+    tick();
 });
