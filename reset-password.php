@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $token_data !== null && $user !== n
     if (!eventnest_verify_csrf_token($_POST['csrf_token'] ?? null)) {
         $message = 'Your session expired. Please refresh and try again.';
     } elseif (!eventnest_password_valid($password)) {
-        $message = 'Use a password that is at least 8 characters long.';
+        $message = 'Use a password between 8 and 72 bytes long.';
     } elseif ($password !== $confirm) {
         $message = 'The two passwords do not match.';
     } else {

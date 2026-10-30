@@ -180,16 +180,31 @@ function openai_embeddings_request(array $inputs): ?array
     }
 
     $decoded = json_decode($raw, true);
-    if (!is_array($decoded) || empty($decoded['data']) || !is_array($decoded['data'])) {
+    if (!is_array($decoded) || empty($decoded['data']) || !is_array($decoded['data'])
+        || count($decoded['data']) !== count($inputs)) {
         return null;
     }
 
     $vectors = [];
+    $dimensions = null;
     foreach ($decoded['data'] as $item) {
-        if (!isset($item['index'], $item['embedding']) || !is_array($item['embedding'])) {
+        if (!is_array($item) || !isset($item['index'], $item['embedding'])
+            || !is_int($item['index']) || $item['index'] < 0 || $item['index'] >= count($inputs)
+            || isset($vectors[$item['index']]) || !is_array($item['embedding'])
+            || !array_is_list($item['embedding']) || !$item['embedding']) {
             return null;
         }
-        $vectors[(int) $item['index']] = $item['embedding'];
+        $vector = $item['embedding'];
+        $dimensions ??= count($vector);
+        if (count($vector) !== $dimensions || cosine_similarity($vector, $vector) === null) {
+            return null;
+        }
+        foreach ($vector as $value) {
+            if ((!is_int($value) && !is_float($value)) || !is_finite((float) $value)) {
+                return null;
+            }
+        }
+        $vectors[$item['index']] = $vector;
     }
 
     ksort($vectors);
@@ -203,6 +218,8 @@ function getPersonalisedRecommendations(PDO $pdo, int $user_id, int $limit = 5):
         "SELECT UserID, Email, CareerField, UserStatus, Is_email_verified, RecommendationOptIn
          FROM USERS
          WHERE UserID = :user_id AND Role = 'attendee' AND UserStatus = 'active'
+           AND Suspension_count < 2
+           AND (Suspension_start_date IS NULL OR Suspension_start_date <= DATE_SUB(NOW(), INTERVAL 30 DAY))
          LIMIT 1"
     );
     $stmt->execute(['user_id' => $user_id]);

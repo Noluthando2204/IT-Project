@@ -368,6 +368,7 @@ require_once __DIR__ . '/shared-components/header.php';
                                             type="button"
                                             data-reaction-button
                                             data-reaction-type="<?= escape_html($reaction_type) ?>"
+                                            data-reaction-action="<?= $selected_reaction === $reaction_type ? 'remove' : ($selected_reaction === null ? 'add' : 'change') ?>"
                                             aria-pressed="<?= $selected_reaction === $reaction_type ? 'true' : 'false' ?>"
                                             aria-label="<?= escape_html($details['label']) ?>"
                                         >
