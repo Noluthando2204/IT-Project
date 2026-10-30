@@ -418,3 +418,35 @@ a.floating-timer:hover, a.floating-timer:focus { color: #fff; text-decoration: u
     object-fit: contain;
     background: #F6F8FB;
 }
+
+/* A single reading order for public organiser posts on every public listing. */
+.social-post { padding:0; overflow:hidden; min-width:0; align-self:start; }
+.social-post--detail { max-width:860px; margin-inline:auto; }
+.social-post__header { padding:18px; display:flex; flex-direction:column; gap:4px; }
+.social-post__author { font-weight:700; color:var(--navy); }
+.social-post__header time,.social-post__event { color:var(--muted); font-size:.9rem; }
+.social-post__media { background:var(--off-white); }
+.social-post .social-post__media img,.social-post .social-post__media video { display:block; width:100%; height:auto; max-height:560px; object-fit:contain; }
+.social-post--detail .social-post__media img,.social-post--detail .social-post__media video { max-height:720px; }
+.social-post__content { padding:18px; overflow-wrap:anywhere; }
+.social-post__caption { margin:0 0 12px; line-height:1.65; }
+.social-post__tags { display:flex; flex-wrap:wrap; gap:6px 12px; }
+.social-post__tags a { color:var(--blue); overflow-wrap:anywhere; min-width:0; }
+.social-post__event { margin:14px 0 0; }
+.social-post__actions { padding:14px 18px; border-top:1px solid var(--line); display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; }
+.social-post__actions .reaction-controls,.social-post__share { display:flex; flex-wrap:wrap; gap:8px; align-items:center; min-width:0; }
+.social-post .reaction-button { min-height:44px; display:inline-flex; align-items:center; justify-content:center; gap:6px; color:var(--navy); font:inherit; text-decoration:none; }
+.social-post .reaction-button[aria-pressed="true"] { box-shadow:inset 0 -3px 0 var(--navy); font-weight:700; }
+.social-post a:focus-visible,.social-post button:focus-visible,.social-post input:focus-visible { outline:3px solid var(--blue); outline-offset:3px; }
+.social-post__status { flex-basis:100%; font-size:.85rem; overflow-wrap:anywhere; }
+.social-post__status:empty { display:none; }
+.social-post__share input { width:100%; min-width:0; }
+.social-post__footer { padding:0 18px 14px; }
+.social-post__footer a { display:inline-flex; align-items:center; min-height:44px; font-size:.9rem; }
+.social-post__fallback,.social-post__notice { padding:12px 18px; margin:0; background:var(--off-white); }
+.social-post__total { display:inline-block; padding:8px 0; }
+@media (max-width:480px) {
+    .social-post__header,.social-post__content { padding:14px; }
+    .social-post__actions { padding:12px 14px; }
+    .social-post .reaction-label { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%); }
+}

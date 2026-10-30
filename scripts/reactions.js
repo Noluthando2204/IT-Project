@@ -58,8 +58,9 @@
                 return;
             }
 
-            widget.dataset.busy = 'true';
-            const buttons = Array.from(widget.querySelectorAll('[data-reaction-button]'));
+            const related = Array.from(widgets).filter((item) => item.dataset.postId === postId);
+            related.forEach((item) => { item.dataset.busy = 'true'; });
+            const buttons = related.flatMap((item) => Array.from(item.querySelectorAll('[data-reaction-button]')));
             buttons.forEach((item) => { item.disabled = true; });
             setMessage(widget, 'Saving reaction…');
 
@@ -70,9 +71,12 @@
                 reaction_action: reactionAction
             });
 
+            const controller = new AbortController();
+            const timeout = window.setTimeout(() => controller.abort(), 15000);
             try {
                 const response = await fetch(endpoint, {
                     method: 'POST',
+                    signal: controller.signal,
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
                         'Accept': 'application/json'
@@ -98,15 +102,11 @@
                     throw new Error(
                         result && result.message
                             ? result.message
-                            : 'Unable to save your reaction.'
+                            : 'Unable to confirm your reaction. Refresh to check its saved state.'
                     );
                 }
 
-                updateWidget(
-                    widget,
-                    result.totals || {},
-                    result.current_reaction || ''
-                );
+                related.forEach((item) => updateWidget(item, result.totals || {}, result.current_reaction || ''));
 
                 setMessage(
                     widget,
@@ -117,12 +117,11 @@
             } catch (error) {
                 setMessage(
                     widget,
-                    error instanceof Error
-                        ? error.message
-                        : 'Unable to save your reaction.'
+                    'Unable to confirm your reaction. Refresh to check its saved state.'
                 );
             } finally {
-                widget.dataset.busy = 'false';
+                window.clearTimeout(timeout);
+                related.forEach((item) => { item.dataset.busy = 'false'; });
                 buttons.forEach((item) => {
                     item.disabled = false;
                 });

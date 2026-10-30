@@ -687,7 +687,18 @@ if (!function_exists('eventnest_safe_media_path')) {
         $full_path = eventnest_project_root() . DIRECTORY_SEPARATOR
             . str_replace('/', DIRECTORY_SEPARATOR, $path);
 
-        if (!is_file($full_path) || !is_readable($full_path)) {
+        $resolved = realpath($full_path);
+        $upload_root = realpath(eventnest_project_root() . '/uploaded-content');
+        $resolved_normalised = str_replace('\\', '/', (string) $resolved);
+        $upload_prefix = rtrim(str_replace('\\', '/', (string) $upload_root), '/') . '/';
+        if (PHP_OS_FAMILY === 'Windows') {
+            $resolved_normalised = strtolower($resolved_normalised);
+            $upload_prefix = strtolower($upload_prefix);
+        }
+        // Resolve links as well as lexical paths: media must stay inside upload storage.
+        if ($resolved === false || $upload_root === false
+            || !str_starts_with($resolved_normalised, $upload_prefix)
+            || !is_file($resolved) || !is_readable($resolved)) {
             return null;
         }
 
