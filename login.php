@@ -106,7 +106,7 @@ require_once __DIR__ . '/shared-components/header.php';
 ?>
 <main class="auth-container content-card">
     <h1>Log in to EventNest</h1>
-    <p>Use the email address you registered with. EventNest does not use separate usernames.</p>
+    <p>Use the email address you registered with.</p>
 
     <?php if ($message !== ''): ?>
         <div class="alert alert-<?= $message_type === 'success' ? 'success' : 'danger' ?>" role="status">

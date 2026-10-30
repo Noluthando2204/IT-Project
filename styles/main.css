@@ -381,3 +381,40 @@ a.floating-timer:hover, a.floating-timer:focus { color: #fff; text-decoration: u
 @media (max-width: 720px) {
     .floating-timer { top: auto; bottom: 16px; right: 16px; left: 16px; text-align: center; }
 }
+
+
+/* SIT media and reaction usability fixes. */
+.reaction-button:hover:not(:disabled) {
+    border-color: var(--teal);
+    background: #F2FBFB;
+}
+.reaction-button:disabled {
+    opacity: .65;
+    cursor: wait;
+}
+.reaction-button.is-selected,
+.reaction-button.is-active,
+.reaction-button[aria-pressed="true"] {
+    border-color: var(--yellow);
+    background: #FFF6D7;
+}
+.post-card__media {
+    width: 100%;
+    max-height: 360px;
+    object-fit: contain;
+    background: #F6F8FB;
+    border-radius: 8px;
+}
+.post-detail__media {
+    margin: 20px 0 24px;
+    background: #F6F8FB;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+.post-detail__media .post-media-full {
+    width: 100%;
+    max-height: 680px;
+    object-fit: contain;
+    background: #F6F8FB;
+}

@@ -37,8 +37,7 @@ function home_price_text(array $event): string
 function home_fetch_event(PDO $pdo, int $event_id): ?array
 {
     $stmt = $pdo->prepare(
-        "SELECT e.EventID, e.EventName, e.EventDate, e.Format, e.Venue, e.Province,
-                e.Hashtags, e.OrganiserID, e.CategoryID, c.CategoryName,
+        "SELECT e.*, c.CategoryName,
                 u.FirstName, u.LastName,
                 (SELECT MIN(t.Price) FROM TICKETS t WHERE t.EventID = e.EventID AND t.QuantityAvailable > 0) AS MinimumPrice
          FROM EVENTS e
@@ -50,6 +49,8 @@ function home_fetch_event(PDO $pdo, int $event_id): ?array
            AND u.Role = 'organiser'
            AND u.VerificationStatus = 'verified'
            AND u.UserStatus = 'active'
+           AND u.VerificationFeePaymentStatus = 'paid'
+           AND u.VerificationFeePaidUntil > NOW()
          LIMIT 1"
     );
     $stmt->execute([':event_id' => $event_id]);
@@ -117,9 +118,9 @@ function home_service_recommendations(PDO $pdo, int $user_id): array
 
 function home_sql_fallback(PDO $pdo, array $attendee, int $limit = 5): array
 {
+    $career_field = !empty($attendee['RecommendationOptIn']) ? trim((string) $attendee['CareerField']) : '';
     $sql =
-        "SELECT e.EventID, e.EventName, e.EventDate, e.Format, e.Venue, e.Province,
-                e.Hashtags, e.OrganiserID, e.CategoryID, c.CategoryName,
+        "SELECT e.*, c.CategoryName,
                 u.FirstName, u.LastName,
                 (SELECT MIN(t.Price) FROM TICKETS t WHERE t.EventID = e.EventID AND t.QuantityAvailable > 0) AS MinimumPrice
          FROM EVENTS e
@@ -130,6 +131,8 @@ function home_sql_fallback(PDO $pdo, array $attendee, int $limit = 5): array
            AND u.Role = 'organiser'
            AND u.VerificationStatus = 'verified'
            AND u.UserStatus = 'active'
+           AND u.VerificationFeePaymentStatus = 'paid'
+           AND u.VerificationFeePaidUntil > NOW()
            AND NOT EXISTS (
                SELECT 1 FROM BLOCKS b
                WHERE b.OrganiserID = e.OrganiserID
@@ -137,18 +140,20 @@ function home_sql_fallback(PDO $pdo, array $attendee, int $limit = 5): array
            )
          ORDER BY (LOWER(c.CategoryName) = LOWER(:career_field)) DESC,
                   e.EventDate ASC, e.EventID ASC
-         LIMIT " . (int) $limit;
+         LIMIT 30";
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute([
         ':attendee_email' => (string) $attendee['Email'],
-        ':career_field' => (string) $attendee['CareerField'],
+        ':career_field' => $career_field,
     ]);
 
-    $events = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $events = array_values(array_filter($stmt->fetchAll(PDO::FETCH_ASSOC),
+        static fn(array $event): bool => event_booking_eligibility($pdo, $event, $attendee)[0]));
+    $events = array_slice($events, 0, $limit);
     foreach ($events as $index => &$event) {
-        $same_field = trim((string) $attendee['CareerField']) !== ''
-            && mb_strtolower(trim((string) $event['CategoryName']), 'UTF-8') === mb_strtolower(trim((string) $attendee['CareerField']), 'UTF-8');
+        $same_field = $career_field !== ''
+            && mb_strtolower(trim((string) $event['CategoryName']), 'UTF-8') === mb_strtolower($career_field, 'UTF-8');
 
         if ($same_field) {
             $event['WhyRecommended'] = 'Matches your selected ' . (string) $event['CategoryName'] . ' career field and is coming up soon.';
@@ -173,9 +178,11 @@ $attendee = null;
 
 if ($current_user_id > 0 && $current_role === 'attendee') {
     $user_stmt = $pdo->prepare(
-        "SELECT UserID, FirstName, LastName, Email, CareerField, UserStatus, RecommendationOptIn
+        "SELECT UserID, FirstName, LastName, Email, CareerField, UserStatus, Is_email_verified, RecommendationOptIn
          FROM USERS
          WHERE UserID = :user_id AND Role = 'attendee' AND UserStatus = 'active'
+           AND Suspension_count < 2
+           AND (Suspension_start_date IS NULL OR Suspension_start_date <= DATE_SUB(NOW(), INTERVAL 30 DAY))
          LIMIT 1"
     );
     $user_stmt->execute([':user_id' => $current_user_id]);
@@ -256,7 +263,8 @@ if ($attendee) {
         $seen = [];
         foreach ($service_result['events'] as $recommendation) {
             $event = home_fetch_event($pdo, (int) $recommendation['event_id']);
-            if (!$event || isset($seen[$event['EventID']])) {
+            if (!$event || isset($seen[$event['EventID']])
+                || !event_booking_eligibility($pdo, $event, $attendee)[0]) {
                 continue;
             }
 
@@ -284,7 +292,7 @@ if ($attendee) {
             $recommendation_message = $service_result['message'] ?: 'Showing standard EventNest recommendations while personalised ranking is unavailable.';
         }
     } else {
-        $recommendation_events = home_sql_fallback($pdo, array_replace($attendee, ['CareerField' => '']), 5);
+        $recommendation_events = home_sql_fallback($pdo, $attendee, 5);
         $recommendation_mode = 'fallback';
         $recommendation_message = 'Personalised recommendations are off. These are standard EventNest suggestions.';
     }

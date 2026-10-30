@@ -44,8 +44,9 @@
 
         var password = form.querySelector('[name="password"], [name="new_password"]');
         var confirm = form.querySelector('[name="confirm_password"]');
-        if (password && password.value && password.value.length < 8) {
-            errorFor(password, 'Use at least 8 characters.');
+        var passwordBytes = password ? new TextEncoder().encode(password.value).length : 0;
+        if (password && password.value && (passwordBytes < 8 || passwordBytes > 72)) {
+            errorFor(password, 'Use a password between 8 and 72 bytes long.');
             valid = false; firstInvalid = firstInvalid || password;
         }
         if (password && confirm && confirm.value !== password.value) {
