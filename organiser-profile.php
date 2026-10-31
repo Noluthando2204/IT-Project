@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/database-config/connection.php';
 require_once __DIR__ . '/shared-components/auth.php';
 require_once __DIR__ . '/shared-components/functions.php';
+require_once __DIR__ . '/shared-components/post-card.php';
 
 if (!isset($pdo) || !($pdo instanceof PDO)) {
     if (isset($conn) && $conn instanceof PDO) {
@@ -122,6 +123,7 @@ $past_events = $past_stmt->fetchAll();
 $post_stmt = $pdo->prepare(
     "SELECT
         p.PostID,
+            p.OrganiserID,
         p.Content,
         p.Media,
         p.Media_type,
@@ -143,6 +145,7 @@ $post_stmt = $pdo->prepare(
 );
 $post_stmt->execute([':organiser_id' => $organiser_id]);
 $recent_posts = $post_stmt->fetchAll();
+$post_viewer = eventnest_post_viewer($pdo, $recent_posts);
 
 // Public organiser pages use the organisation name added to USERS.
 $organiser_name = eventnest_organiser_display_name($organiser);
@@ -235,67 +238,7 @@ require_once __DIR__ . '/shared-components/header.php';
         <?php else: ?>
             <div class="post-grid">
                 <?php foreach ($recent_posts as $post): ?>
-                    <?php
-                    $safe_media = eventnest_safe_media_path($post['Media'], $post['Media_type'] !== null ? (string) $post['Media_type'] : null);
-                    $post_excerpt = organiser_profile_excerpt($post['Content']);
-                    ?>
-                    <article class="post-card">
-                        <?php if ($post['Media_type'] === 'image' && $safe_media): ?>
-                            <a href="post-detail.php?post_id=<?= (int) $post['PostID'] ?>">
-                                <img
-                                    src="<?= escape_html(eventnest_url($safe_media)) ?>"
-                                    alt="Image post linked to <?= escape_html($post['EventName']) ?>"
-                                    loading="lazy"
-                                >
-                            </a>
-                        <?php elseif ($post['Media_type'] === 'video' && $safe_media): ?>
-                            <video controls preload="metadata" aria-label="Video post linked to <?= escape_html($post['EventName']) ?>">
-                                <source src="<?= escape_html(eventnest_url($safe_media)) ?>">
-                                Your browser cannot play this video.
-                            </video>
-                        <?php elseif ($post['Media_type'] !== null): ?>
-                            <div class="media-placeholder">Media unavailable</div>
-                        <?php endif; ?>
-
-                        <h3>
-                            <?= $post['Media_type']
-                                ? escape_html(ucfirst((string) $post['Media_type']) . ' post')
-                                : 'Event update' ?>
-                        </h3>
-
-                        <?php if ($post_excerpt !== ''): ?>
-                            <p><?= escape_html($post_excerpt) ?></p>
-                        <?php endif; ?>
-
-                        <p>
-                            Linked to
-                            <a href="event-detail.php?event_id=<?= (int) $post['EventID'] ?>">
-                                <?= escape_html($post['EventName']) ?>
-                            </a>
-                            · <?= escape_html(format_datetime($post['PostDate'])) ?>
-                        </p>
-
-                        <?php $post_tags = organiser_profile_tags($post['Hashtags']); ?>
-                        <?php if ($post_tags): ?>
-                            <p class="post-tags">
-                                <?php foreach ($post_tags as $tag): ?>
-                                    <a href="tag.php?<?= http_build_query(['tag' => ltrim($tag, '#')], '', '&', PHP_QUERY_RFC3986) ?>">
-                                        <?= escape_html($tag) ?>
-                                    </a>
-                                <?php endforeach; ?>
-                            </p>
-                        <?php endif; ?>
-
-                        <div class="reaction-summary" aria-label="Reaction totals">
-                            <span>👍 <?= (int) $post['ThumbsUpTotal'] ?></span>
-                            <span>👏 <?= (int) $post['ClapTotal'] ?></span>
-                            <span>💡 <?= (int) $post['LightbulbTotal'] ?></span>
-                        </div>
-
-                        <a class="btn btn-secondary" href="post-detail.php?post_id=<?= (int) $post['PostID'] ?>">
-                            View post
-                        </a>
-                    </article>
+                    <?php eventnest_render_post(array_merge($organiser, $post), $post_viewer); ?>
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
@@ -336,4 +279,4 @@ require_once __DIR__ . '/shared-components/header.php';
         <?php endif; ?>
     </section>
 </main>
-<?php require_once __DIR__ . '/shared-components/footer.php'; ?>
+<?php eventnest_post_scripts(); require_once __DIR__ . '/shared-components/footer.php'; ?>

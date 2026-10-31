@@ -1,39 +1,131 @@
-// One reaction can be active per attendee and post. The server sends all three updated totals back after each click.
-(function () {
-    'use strict';
-    document.addEventListener('click', async function (event) {
-        var button = event.target.closest('[data-reaction-button]');
-        if (!button) return;
-        var widget = button.closest('[data-reaction-widget]');
-        if (!widget || widget.dataset.busy === 'true') return;
-        var type = button.getAttribute('data-reaction-type');
-        var current = widget.getAttribute('data-current-reaction');
-        var controls = widget.querySelectorAll('[data-reaction-button]');
-        var message = widget.querySelector('[data-reaction-message]');
-        widget.dataset.busy = 'true';
-        controls.forEach(function (item) { item.disabled = true; });
-        try {
-            var response = await fetch(widget.getAttribute('data-endpoint'), {
-                method: 'POST', credentials: 'same-origin',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json'},
-                body: new URLSearchParams({post_id: widget.dataset.postId, reaction_type: type,
-                    reaction_action: current === type ? 'remove' : (current ? 'change' : 'add'),
-                    csrf_token: widget.getAttribute('data-csrf-token')})
+'use strict';
+
+(() => {
+    const widgets = document.querySelectorAll('[data-reaction-widget]');
+
+    if (!widgets.length) {
+        return;
+    }
+
+    const setMessage = (widget, message) => {
+        const target = widget.querySelector('[data-reaction-message]');
+        if (target) {
+            target.textContent = message || '';
+        }
+    };
+
+    const updateWidget = (widget, totals, currentReaction) => {
+        widget.dataset.currentReaction = currentReaction || '';
+
+        widget.querySelectorAll('[data-reaction-button]').forEach((button) => {
+            const type = button.dataset.reactionType || '';
+            const selected = currentReaction === type;
+            const count = button.querySelector('[data-reaction-count]');
+
+            button.classList.toggle('is-selected', selected);
+            button.classList.toggle('is-active', selected);
+            button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+            button.dataset.active = selected ? 'true' : 'false';
+            button.dataset.reactionAction = selected
+                ? 'remove'
+                : (currentReaction ? 'change' : 'add');
+
+            if (count && Object.prototype.hasOwnProperty.call(totals, type)) {
+                count.textContent = String(totals[type]);
+            }
+        });
+    };
+
+    widgets.forEach((widget) => {
+        widget.addEventListener('click', async (event) => {
+            const button = event.target.closest('[data-reaction-button]');
+            if (!button || !widget.contains(button) || widget.dataset.busy === 'true') {
+                return;
+            }
+
+            const postId = button.dataset.postId || widget.dataset.postId || '';
+            const reactionType = button.dataset.reactionType || '';
+            const currentReaction = widget.dataset.currentReaction || '';
+            const reactionAction = currentReaction === reactionType
+                ? 'remove'
+                : (currentReaction === '' ? 'add' : 'change');
+            const endpoint = widget.dataset.endpoint || 'reaction.php';
+            const csrfInput = widget.querySelector('[data-csrf-token]');
+            const csrfToken = widget.dataset.csrfToken || (csrfInput ? csrfInput.value : '');
+
+            if (!postId || !reactionType || !csrfToken) {
+                setMessage(widget, 'Unable to prepare this reaction. Refresh the page and try again.');
+                return;
+            }
+
+            const related = Array.from(widgets).filter((item) => item.dataset.postId === postId);
+            related.forEach((item) => { item.dataset.busy = 'true'; });
+            const buttons = related.flatMap((item) => Array.from(item.querySelectorAll('[data-reaction-button]')));
+            buttons.forEach((item) => { item.disabled = true; });
+            setMessage(widget, 'Saving reaction…');
+
+            const body = new URLSearchParams({
+                csrf_token: csrfToken,
+                post_id: postId,
+                reaction_type: reactionType,
+                reaction_action: reactionAction
             });
-            var data = await response.json();
-            if (!response.ok || !data.success) throw new Error(data.message || 'Unable to save reaction.');
-            widget.setAttribute('data-current-reaction', data.current_reaction || '');
-            controls.forEach(function (item) {
-                var value = item.getAttribute('data-reaction-type');
-                var selected = data.current_reaction === value;
-                item.classList.toggle('is-selected', selected);
-                item.setAttribute('aria-pressed', String(selected));
-                item.setAttribute('data-active', String(selected));
-                var count = item.querySelector('[data-reaction-count]');
-                if (count) count.textContent = data.totals[value] || 0;
-            });
-            if (message) message.textContent = 'Reaction updated.';
-        } catch (error) { if (message) message.textContent = 'The reaction could not be saved. Please try again.'; }
-        finally { widget.dataset.busy = 'false'; controls.forEach(function (item) { item.disabled = false; }); }
+
+            const controller = new AbortController();
+            const timeout = window.setTimeout(() => controller.abort(), 15000);
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    signal: controller.signal,
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'same-origin',
+                    body: body.toString()
+                });
+
+                let result = null;
+                try {
+                    result = await response.json();
+                } catch (error) {
+                    result = null;
+                }
+
+                if (response.status === 401 || (result && result.login_required)) {
+                    const loginUrl = widget.dataset.loginUrl || 'login.php';
+                    window.location.assign(loginUrl);
+                    return;
+                }
+
+                if (!response.ok || !result || result.success !== true) {
+                    throw new Error(
+                        result && result.message
+                            ? result.message
+                            : 'Unable to confirm your reaction. Refresh to check its saved state.'
+                    );
+                }
+
+                related.forEach((item) => updateWidget(item, result.totals || {}, result.current_reaction || ''));
+
+                setMessage(
+                    widget,
+                    result.current_reaction
+                        ? 'Reaction saved.'
+                        : 'Reaction removed.'
+                );
+            } catch (error) {
+                setMessage(
+                    widget,
+                    'Unable to confirm your reaction. Refresh to check its saved state.'
+                );
+            } finally {
+                window.clearTimeout(timeout);
+                related.forEach((item) => { item.dataset.busy = 'false'; });
+                buttons.forEach((item) => {
+                    item.disabled = false;
+                });
+            }
+        });
     });
 })();

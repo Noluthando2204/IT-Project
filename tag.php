@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/database-config/connection.php';
 require_once __DIR__ . '/shared-components/functions.php';
+require_once __DIR__ . '/shared-components/post-card.php';
 
 $pdo = eventnest_db();
 
@@ -356,6 +357,7 @@ $base = [
 ];
 
 $page_title = '#' . $tag;
+$post_viewer = eventnest_post_viewer($pdo, $posts ?? []);
 require_once __DIR__ . '/shared-components/header.php';
 ?>
 
@@ -602,83 +604,7 @@ require_once __DIR__ . '/shared-components/header.php';
             <?php else: ?>
                 <div class="post-grid">
                     <?php foreach ($posts as $post): ?>
-                        <?php
-                        $media_type = $post['Media_type'] !== null ? (string) $post['Media_type'] : null;
-                        $safe_media = eventnest_safe_media_path(
-                            $post['Media'] !== null ? (string) $post['Media'] : null,
-                            $media_type
-                        );
-                        $post_tags = eventnest_extract_hashtags(
-                            $post['Hashtags'] !== null ? (string) $post['Hashtags'] : null
-                        );
-                        $organiser_name = eventnest_organiser_display_name($post);
-                        ?>
-                        <article class="post-card">
-                            <?php if ($media_type === 'image' && $safe_media !== null): ?>
-                                <a href="post-detail.php?post_id=<?= (int) $post['PostID'] ?>">
-                                    <img
-                                        class="post-card__media"
-                                        src="<?= escape_html(eventnest_url($safe_media)) ?>"
-                                        alt="Image for <?= escape_html((string) $post['EventName']) ?>"
-                                        loading="lazy"
-                                    >
-                                </a>
-                            <?php elseif ($media_type === 'video' && $safe_media !== null): ?>
-                                <video
-                                    class="post-card__media"
-                                    controls
-                                    preload="metadata"
-                                    poster="<?= escape_html(eventnest_url('images/eventnest-logo.png')) ?>"
-                                >
-                                    <source src="<?= escape_html(eventnest_url($safe_media)) ?>">
-                                    Your browser does not support this video.
-                                </video>
-                            <?php elseif ($media_type !== null): ?>
-                                <div class="media-fallback" role="status">Media unavailable</div>
-                            <?php endif; ?>
-
-                            <div class="post-card__body">
-                                <p class="eyebrow"><?= escape_html(eventnest_post_type_label($media_type)) ?></p>
-                                <h3>
-                                    <a href="post-detail.php?post_id=<?= (int) $post['PostID'] ?>">
-                                        <?= escape_html((string) $post['EventName']) ?>
-                                    </a>
-                                </h3>
-
-                                <?php if (trim((string) ($post['Content'] ?? '')) !== ''): ?>
-                                    <p><?= escape_html(eventnest_excerpt((string) $post['Content'], 220)) ?></p>
-                                <?php endif; ?>
-
-                                <p class="meta-text">
-                                    <?= escape_html(format_datetime((string) $post['PostDate'])) ?> ·
-                                    <a href="organiser-profile.php?organiser_id=<?= (int) $post['OrganiserID'] ?>">
-                                        <?= escape_html($organiser_name !== '' ? $organiser_name : 'EventNest organiser') ?>
-                                    </a>
-                                    ·
-                                    <a href="event-detail.php?event_id=<?= (int) $post['EventID'] ?>">View event</a>
-                                </p>
-
-                                <?php if (!empty($post_tags)): ?>
-                                    <div class="tag-list" aria-label="Post hashtags">
-                                        <?php foreach ($post_tags as $post_tag): ?>
-                                            <a class="tag" href="tag.php?tag=<?= rawurlencode($post_tag) ?>&amp;view=posts">
-                                                #<?= escape_html($post_tag) ?>
-                                            </a>
-                                        <?php endforeach; ?>
-                                    </div>
-                                <?php endif; ?>
-
-                                <p class="reaction-summary" aria-label="Reaction totals">
-                                    <span>Thumbs up <?= (int) $post['ThumbsUpTotal'] ?></span>
-                                    <span>Applause <?= (int) $post['ClapTotal'] ?></span>
-                                    <span>Lightbulb <?= (int) $post['LightbulbTotal'] ?></span>
-                                </p>
-
-                                <a class="btn btn-secondary" href="post-detail.php?post_id=<?= (int) $post['PostID'] ?>">
-                                    View post
-                                </a>
-                            </div>
-                        </article>
+                        <?php eventnest_render_post($post, $post_viewer); ?>
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
@@ -704,4 +630,4 @@ require_once __DIR__ . '/shared-components/header.php';
     <?php endif; ?>
 </main>
 
-<?php require_once __DIR__ . '/shared-components/footer.php'; ?>
+<?php eventnest_post_scripts(); require_once __DIR__ . '/shared-components/footer.php'; ?>

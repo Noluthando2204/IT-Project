@@ -680,12 +680,29 @@ if (!function_exists('eventnest_safe_media_path')) {
         }
 
         /*
-        The database stores a web-relative media path.
-        Render and local XAMPP can resolve the physical file differently, so the safe path is still returned when the path format is valid.
-
+        POSTS.Media stores a web-relative path such as uploaded-content/posts/example.jpg.
+        Never return that path unless the file actually exists inside this EventNest project.
+        Otherwise the browser receives a broken <img> URL and displays the alternative text.
         */
-        $full_path = eventnest_project_root() . '/' . $path;
-        if (is_file($full_path) && class_exists('finfo')) {
+        $full_path = eventnest_project_root() . DIRECTORY_SEPARATOR
+            . str_replace('/', DIRECTORY_SEPARATOR, $path);
+
+        $resolved = realpath($full_path);
+        $upload_root = realpath(eventnest_project_root() . '/uploaded-content');
+        $resolved_normalised = str_replace('\\', '/', (string) $resolved);
+        $upload_prefix = rtrim(str_replace('\\', '/', (string) $upload_root), '/') . '/';
+        if (PHP_OS_FAMILY === 'Windows') {
+            $resolved_normalised = strtolower($resolved_normalised);
+            $upload_prefix = strtolower($upload_prefix);
+        }
+        // Resolve links as well as lexical paths: media must stay inside upload storage.
+        if ($resolved === false || $upload_root === false
+            || !str_starts_with($resolved_normalised, $upload_prefix)
+            || !is_file($resolved) || !is_readable($resolved)) {
+            return null;
+        }
+
+        if (class_exists('finfo')) {
             $finfo = new finfo(FILEINFO_MIME_TYPE);
             $mime_type = $finfo->file($full_path);
             $image_types = ['image/jpeg', 'image/png', 'image/webp'];
@@ -913,9 +930,13 @@ function payfast_validate_with_provider(array $data): bool
 function eventnest_absolute_url(string $path): string
 {
     $base = rtrim((string) getenv('EVENTNEST_BASE_URL'), '/');
-    if (!filter_var($base, FILTER_VALIDATE_URL) || parse_url($base, PHP_URL_SCHEME) !== 'https'
-        || parse_url($base, PHP_URL_USER) !== null || parse_url($base, PHP_URL_QUERY) !== null) {
-        throw new DomainException('Configure EVENTNEST_BASE_URL with the trusted HTTPS site URL.');
+    $scheme = parse_url($base, PHP_URL_SCHEME);
+    $local_http = $scheme === 'http'
+        && in_array(strtolower((string) parse_url($base, PHP_URL_HOST)), ['localhost', '127.0.0.1', '[::1]'], true);
+    if (!filter_var($base, FILTER_VALIDATE_URL) || ($scheme !== 'https' && !$local_http)
+        || parse_url($base, PHP_URL_USER) !== null || parse_url($base, PHP_URL_PASS) !== null
+        || parse_url($base, PHP_URL_QUERY) !== null || parse_url($base, PHP_URL_FRAGMENT) !== null) {
+        throw new DomainException('Configure EVENTNEST_BASE_URL with the trusted HTTPS site URL (HTTP is allowed only on loopback).');
     }
     return $base . '/' . ltrim($path, '/');
 }
@@ -975,6 +996,7 @@ function eventnest_create_password_reset_token(array $user, int $minutes = 30): 
 
     $payload = [
         'v' => 1,
+        'nonce' => bin2hex(random_bytes(16)),
         'uid' => $user_id,
         'email' => $email,
         'exp' => time() + max(5, min(60, $minutes)) * 60,
@@ -1022,7 +1044,7 @@ function eventnest_read_password_reset_token(string $token): ?array
     $expires = (int) ($payload['exp'] ?? 0);
     $password_marker = (string) ($payload['pwd'] ?? '');
 
-    if ($user_id <= 0 || !filter_var($email, FILTER_VALIDATE_EMAIL) || $expires < time() || strlen($password_marker) !== 64) {
+    if ($user_id <= 0 || !filter_var($email, FILTER_VALIDATE_EMAIL) || $expires <= time() || strlen($password_marker) !== 64) {
         return null;
     }
 
