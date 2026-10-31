@@ -106,6 +106,31 @@ if (!function_exists('eventnest_collect_notices')) {
         $notices = [];
 
         if ($role === 'attendee') {
+            /* Waitlist: tickets freed after another attendee's payment hold lapsed or was canceled */
+            try {
+                $wait = $pdo->prepare(
+                    "SELECT w.TicketID, w.NotifiedAt, e.EventID, e.EventName, t.TicketType
+                     FROM TICKET_WAITLIST w
+                     INNER JOIN TICKETS t ON t.TicketID = w.TicketID
+                     INNER JOIN EVENTS e ON e.EventID = t.EventID
+                     WHERE w.UserID = :user_id AND w.NotifiedAt IS NOT NULL
+                       AND t.QuantityAvailable >= w.Quantity AND e.Status = 'published' AND e.EventDate > NOW()
+                     ORDER BY w.NotifiedAt DESC LIMIT 10"
+                );
+                $wait->execute([':user_id' => $user_id]);
+                foreach ($wait->fetchAll(PDO::FETCH_ASSOC) as $w) {
+                    $notices[] = [
+                        'type' => 'Booking',
+                        'title' => 'Ticket now available',
+                        'message' => $w['TicketType'] . ' tickets for ' . $w['EventName'] . ' are available again. Book before they are taken.',
+                        'url' => 'booking.php?event_id=' . (int) $w['EventID'] . '&ticket_id=' . (int) $w['TicketID'],
+                        'time' => eventnest_notice_time($w['NotifiedAt']),
+                    ];
+                }
+            } catch (Throwable $exception) {
+                // Waitlist table not installed yet; other notices still work.
+            }
+
             /* Booking activity */
             $stmt = $pdo->prepare(
                 "SELECT b.BookingID, b.Status, b.BookingDate, e.EventID, e.EventName, e.EventDate,

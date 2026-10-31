@@ -16,7 +16,13 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
 
 $auth_user = auth_require_attendee();
 $user_id = (int) $auth_user['UserID'];
-eventnest_expire_pending($pdo, $user_id);
+eventnest_expire_pending($pdo); // Free every expired hold, not just this user's, so stock is accurate.
+
+/** Thrown when the last tickets are held by someone who is still paying. */
+class BookingHoldException extends DomainException
+{
+    public int $secondsLeft = 0;
+}
 
 function booking_positive_int(mixed $value): int
 {
@@ -141,6 +147,7 @@ if (!$event) {
 }
 
 $errors = [];
+$hold_notice = null;
 $blocking_error = '';
 
 if ($event['Status'] !== 'published' || strtotime((string) $event['EventDate']) <= time()) {
@@ -169,6 +176,23 @@ $ticket_stmt->execute([':event_id' => $event_id]);
 $tickets = $ticket_stmt->fetchAll(PDO::FETCH_ASSOC);
 if (!$tickets && $blocking_error === '') {
     $blocking_error = 'No ticket tiers are available for this event.';
+}
+
+$tier_holds = [];
+$waitlisted = [];
+foreach ($tickets as $tier) {
+    if ((int) $tier['QuantityAvailable'] <= 0) {
+        $tier_holds[(int) $tier['TicketID']] = eventnest_ticket_hold($pdo, (int) $tier['TicketID'], $user_id)['held'] > 0;
+    }
+}
+try {
+    $wait_stmt = $pdo->prepare('SELECT TicketID, NotifiedAt FROM TICKET_WAITLIST WHERE UserID = ?');
+    $wait_stmt->execute([$user_id]);
+    foreach ($wait_stmt->fetchAll(PDO::FETCH_ASSOC) as $wait_row) {
+        $waitlisted[(int) $wait_row['TicketID']] = $wait_row['NotifiedAt'];
+    }
+} catch (Throwable $exception) {
+    $waitlisted = [];
 }
 
 $selected_ticket_id = booking_positive_int($_POST['ticket_id'] ?? $_GET['ticket_id'] ?? '');
@@ -234,6 +258,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $blocking_error === '') {
                 throw new DomainException('The selected ticket tier is invalid for this event.');
             }
             if ($quantity > (int) $ticket['QuantityAvailable']) {
+                $hold = eventnest_ticket_hold($pdo, $selected_ticket_id, $user_id);
+                if ($hold['held'] > 0) {
+                    $hold_exception = new BookingHoldException('Payment pending');
+                    $hold_exception->secondsLeft = $hold['seconds_left'];
+                    throw $hold_exception;
+                }
                 throw new DomainException('There are not enough tickets remaining for that quantity.');
             }
             if ($ticket['TicketType'] === 'Student' && !booking_valid_student_email($student_email)) {
@@ -274,6 +304,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $blocking_error === '') {
                 ':booking_reference' => $booking_reference,
             ]);
             $booking_id = (int) $pdo->lastInsertId();
+            eventnest_waitlist_leave($pdo, $user_id, $selected_ticket_id);
 
             $pdo->commit();
 
@@ -285,6 +316,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $blocking_error === '') {
                 header('Location: ' . eventnest_url('payment.php?booking_id=' . $booking_id));
             }
             exit;
+        } catch (BookingHoldException $exception) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            // Joined after the rollback so the waitlist row is kept.
+            eventnest_waitlist_join($pdo, $user_id, $selected_ticket_id, $quantity);
+            $hold_notice = [
+                'seconds' => $exception->secondsLeft,
+            ];
         } catch (DomainException $exception) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
@@ -314,6 +354,19 @@ require_once __DIR__ . '/shared-components/header.php';
             <a class="btn btn-outline" href="event-detail.php?event_id=<?= $event_id ?>">View event</a>
         </div>
     <?php else: ?>
+        <?php if ($hold_notice !== null): ?>
+            <div class="alert alert-warning payment-pending-notice" role="status" aria-live="polite">
+                <h2>Payment pending</h2>
+                <p>
+                    Another attendee has just booked the last of these tickets and is completing payment.
+                    <?php if ($hold_notice['seconds'] > 0): ?>
+                        Their hold expires in <strong data-countdown="<?= (int) $hold_notice['seconds'] ?>"><?= (int) $hold_notice['seconds'] ?> seconds</strong>.
+                    <?php endif; ?>
+                </p>
+                <p>You have been added to the waitlist. If they do not pay in time, we will notify you straight away so you can book.</p>
+            </div>
+        <?php endif; ?>
+
         <?php if ($errors): ?>
             <div class="alert alert-error" role="alert">
                 <p>Please correct the following:</p>
@@ -330,7 +383,12 @@ require_once __DIR__ . '/shared-components/header.php';
                 <legend>Ticket tier</legend>
                 <div class="ticket-tier-list">
                     <?php foreach ($tickets as $ticket): ?>
-                        <?php $sold_out = (int) $ticket['QuantityAvailable'] <= 0; ?>
+                        <?php
+                            $tid = (int) $ticket['TicketID'];
+                            $out_of_stock = (int) $ticket['QuantityAvailable'] <= 0;
+                            $payment_pending = $out_of_stock && !empty($tier_holds[$tid]);
+                            $sold_out = $out_of_stock && !$payment_pending;
+                        ?>
                         <label class="ticket-tier<?= $sold_out ? ' is-disabled' : '' ?>">
                             <input
                                 type="radio"
@@ -345,7 +403,17 @@ require_once __DIR__ . '/shared-components/header.php';
                             <span><strong><?= escape_html($ticket['TicketType']) ?></strong></span>
                             <?php if ($ticket['Description']): ?><span><?= escape_html($ticket['Description']) ?></span><?php endif; ?>
                             <span><?= (float) $ticket['Price'] <= 0 ? 'Free' : escape_html(format_money($ticket['Price'])) ?></span>
-                            <span><?= $sold_out ? 'Sold out' : (int) $ticket['QuantityAvailable'] . ' remaining' ?></span>
+                            <span>
+                                <?php if ($payment_pending): ?>
+                                    <span class="status status-warning">Payment pending</span>
+                                    <?= array_key_exists($tid, $waitlisted) ? 'You are on the waitlist' : 'Another attendee is paying. Select to join the waitlist.' ?>
+                                <?php elseif ($sold_out): ?>
+                                    Sold out
+                                <?php else: ?>
+                                    <?= (int) $ticket['QuantityAvailable'] ?> remaining
+                                    <?php if (!empty($waitlisted[$tid])): ?><span class="status status-success">Available now</span><?php endif; ?>
+                                <?php endif; ?>
+                            </span>
                         </label>
                     <?php endforeach; ?>
                 </div>

@@ -227,3 +227,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
     tick();
 });
+
+/* Live countdown for the "Payment pending" hold notice; updates when the hold ends. */
+(function () {
+    'use strict';
+    document.querySelectorAll('[data-countdown]').forEach(function (el) {
+        var left = parseInt(el.getAttribute('data-countdown'), 10) || 0;
+        var timer = setInterval(function () {
+            left -= 1;
+            if (left <= 0) {
+                clearInterval(timer);
+                el.textContent = 'now. Refresh to check availability';
+                return;
+            }
+            var m = Math.floor(left / 60), sec = left % 60;
+            el.textContent = m + ':' + (sec < 10 ? '0' : '') + sec;
+        }, 1000);
+    });
+})();
