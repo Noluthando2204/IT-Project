@@ -98,6 +98,7 @@ try {
                 ':quantity' => (int) $booking['Quantity'],
                 ':ticket_id' => (int) $booking['TicketID'],
             ]);
+            eventnest_waitlist_release($pdo, (int) $booking['TicketID']);
             $booking['Status'] = 'canceled';
             $result_state = 'canceled';
             $result_message = 'Payment was not completed. The pending booking was canceled and the reserved ticket quantity was restored.';

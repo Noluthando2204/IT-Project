@@ -11,7 +11,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
         if(!$booking || !in_array($booking['Status'],['pending','paid'],true) || $booking['EventStatus']!=='published' || strtotime($booking['EventDate'])-time()<=86400){throw new DomainException('Cancellation requires an active booking more than 24 hours before the event.');}
         $stmt=$pdo->prepare("SELECT PaymentID FROM PAYMENTS WHERE BookingID=? AND PaymentStatus='success' FOR UPDATE");$stmt->execute([$booking_id]);$paid=(bool)$stmt->fetchColumn();
         $stmt=$pdo->prepare("UPDATE BOOKINGS SET Status='canceled' WHERE BookingID=? AND Status IN ('pending','paid')");$stmt->execute([$booking_id]);
-        if($stmt->rowCount()===1){$stmt=$pdo->prepare('UPDATE TICKETS SET QuantityAvailable=LEAST(Capacity,QuantityAvailable+?) WHERE TicketID=?');$stmt->execute([$booking['Quantity'],$booking['TicketID']]);}
+        if($stmt->rowCount()===1){$stmt=$pdo->prepare('UPDATE TICKETS SET QuantityAvailable=LEAST(Capacity,QuantityAvailable+?) WHERE TicketID=?');$stmt->execute([$booking['Quantity'],$booking['TicketID']]);eventnest_waitlist_release($pdo,(int)$booking['TicketID']);}
         // A local cancellation cannot prove a provider refund. Retain payment/escrow history.
         $pdo->commit();auth_set_flash($paid?'Booking canceled. Your payment remains recorded; contact support for verified refund processing.':'Booking canceled and tickets restored.','success');
     }catch(Throwable $exception){if($pdo->inTransaction()){$pdo->rollBack();}auth_set_flash($exception instanceof DomainException?$exception->getMessage():'The booking could not be canceled safely.');}

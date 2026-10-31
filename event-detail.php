@@ -103,6 +103,7 @@ if (!$public_status && !($event['Status'] === 'draft' && ($is_owner_preview || $
     exit;
 }
 
+eventnest_expire_pending($pdo);
 $ticket_stmt = $pdo->prepare('SELECT TicketID, TicketType, Price, QuantityAvailable, Capacity, Description FROM TICKETS WHERE EventID = :event_id ORDER BY Price ASC, TicketID ASC');
 $ticket_stmt->execute([':event_id' => $event_id]);
 $tickets = $ticket_stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -157,7 +158,7 @@ $can_start_booking = $bookable_event
     && !$is_blocked
     && $gate_ok
     && $fee_ok
-    && count(array_filter($tickets, static fn(array $ticket): bool => (int) $ticket['QuantityAvailable'] > 0)) > 0;
+    && count(array_filter($tickets, static fn(array $ticket): bool => (int) $ticket['QuantityAvailable'] > 0 || eventnest_ticket_hold($pdo, (int) $ticket['TicketID'])['held'] > 0)) > 0;
 
 $organiser_name = eventnest_organiser_display_name([
     'OrganisationName' => $event['OrganiserOrganisationName'] ?? null,
@@ -217,7 +218,14 @@ require_once __DIR__ . '/shared-components/header.php';
                         <?php if ($ticket['Description']): ?><p><?= escape_html($ticket['Description']) ?></p><?php endif; ?>
                         <p><strong><?= (float) $ticket['Price'] <= 0 ? 'Free' : escape_html(format_money($ticket['Price'])) ?></strong></p>
                         <p><?= (int) $ticket['QuantityAvailable'] ?> remaining</p>
-                        <?php if ((int) $ticket['QuantityAvailable'] <= 0): ?><span class="status status-danger">Sold out</span><?php endif; ?>
+                        <?php if ((int) $ticket['QuantityAvailable'] <= 0): ?>
+                            <?php if (eventnest_ticket_hold($pdo, (int) $ticket['TicketID'])['held'] > 0): ?>
+                                <span class="status status-warning">Payment pending</span>
+                                <p><small>Someone is paying for the last tickets. Try booking to join the waitlist.</small></p>
+                            <?php else: ?>
+                                <span class="status status-danger">Sold out</span>
+                            <?php endif; ?>
+                        <?php endif; ?>
                     </article>
                 <?php endforeach; ?>
             </div>

@@ -380,8 +380,6 @@ a.floating-timer:hover, a.floating-timer:focus { color: #fff; text-decoration: u
 
 @media (max-width: 720px) {
     .floating-timer { top: auto; bottom: 16px; right: 16px; left: 16px; text-align: center; }
-<<<<<<< HEAD
-=======
 }
 
 
@@ -451,5 +449,29 @@ a.floating-timer:hover, a.floating-timer:focus { color: #fff; text-decoration: u
     .social-post__header,.social-post__content { padding:14px; }
     .social-post__actions { padding:12px 14px; }
     .social-post .reaction-label { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%); }
->>>>>>> origin/main
 }
+
+/* Search page: spacing between the search bar and its Search / Hide filters buttons. */
+.search-form label { display: block; margin-bottom: 10px; }
+.search-form__controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.search-form__controls input { flex: 1 1 260px; min-width: 0; }
+.search-form__controls .btn { margin-top: 0; }
+@media (max-width: 600px) {
+    .search-form__controls { flex-direction: column; align-items: stretch; }
+    .search-form__controls input { flex-basis: auto; width: 100%; }
+}
+
+/* Search page: breathing room between result cards (and between the filters and results). */
+.search-layout { gap: 32px; }
+.search-layout .event-grid { gap: 28px; }
+.search-results .selected-filters { margin: 12px 0 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.search-results > h2 { margin-bottom: 16px; }
+
+/* Settings: keep the Delete account button clear of the password input. */
+.danger-zone form .field { margin-bottom: 20px; }
+.danger-zone form .btn { margin-top: 8px; }
+
+/* Booking: "Payment pending" notice for the attendee who was not first to the last tickets. */
+.payment-pending-notice { margin-bottom: 20px; }
+.payment-pending-notice h2 { margin: 0 0 8px; font-size: 1.15rem; }
+.ticket-tier .status { margin-right: 6px; }
