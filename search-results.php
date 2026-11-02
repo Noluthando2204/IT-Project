@@ -166,12 +166,14 @@ $raw_q = search_raw_input('q');
 $q_too_long = mb_strlen($raw_q, 'UTF-8') > 100;
 $q = mb_substr($raw_q, 0, 100, 'UTF-8');
 
+$raw_mode = $_GET['mode'] ?? 'full';
+$invalid_mode = !is_string($raw_mode) || !in_array($raw_mode, ['suggest', 'suggestions', 'full'], true);
 $mode = search_enum(
     search_input('mode', 24),
     ['suggest', 'suggestions', 'full'],
     'full'
 );
-$is_suggest = in_array($mode, ['suggest', 'suggestions'], true);
+$is_suggest = $invalid_mode || in_array($mode, ['suggest', 'suggestions'], true);
 
 $raw_category_id = search_input('category_id', 16);
 $raw_province = search_input('province', 100);
@@ -239,139 +241,47 @@ if (
 if ($is_suggest) {
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store');
+    if ($invalid_mode || $q_too_long || !mb_check_encoding($raw_q, 'UTF-8') || mb_strlen($q, 'UTF-8') < 3) {
+        echo json_encode(['suggestions' => []]);
+        exit;
+    }
 }
 
 try {
     // Use the PDO connection provided by the project connection file.
+    $eventnest_connection_throw = $is_suggest;
     require_once __DIR__ . '/database-config/connection.php';
 
     // Use the shared connection helper so this variable is clearly a PDO instance for the rest of the page.
     $pdo = eventnest_db();
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    /*
-JSON LIVE-SUGGESTION MODE
-Minimum query length: 2 characters.
-Maximum response: 10 published/valid entries.
-*/
+    // Text-only upcoming events; the full search page remains separate.
     if ($is_suggest) {
-        $suggestions = [];
-
-        if (!$q_too_long && mb_strlen($q, 'UTF-8') >= 2) {
-            $pattern = search_like($q);
-
-            // Published event names only.
-            $stmt = $pdo->prepare(
-                "SELECT EventID, EventName
-                 FROM EVENTS
-                 WHERE Status = 'published'
-                   AND EventName LIKE :term ESCAPE '\\\\'
-                 ORDER BY EventDate ASC, EventID ASC
-                 LIMIT 5"
-            );
-            $stmt->execute(['term' => $pattern]);
-
-            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $event) {
-                $suggestions[] = [
-                    'type' => 'event',
-                    'label' => (string) $event['EventName'],
-                    'url' => search_url(
-                        'event-detail.php',
-                        ['event_id' => (int) $event['EventID']]
-                    ),
-                ];
-            }
-
-            // Only categories that currently have a published event.
-            $stmt = $pdo->prepare(
-                "SELECT DISTINCT c.CategoryID, c.CategoryName
-                 FROM CATEGORIES c
-                 INNER JOIN EVENTS e
-                    ON e.CategoryID = c.CategoryID
-                   AND e.Status = 'published'
-                 WHERE c.CategoryName LIKE :term ESCAPE '\\\\'
-                 ORDER BY c.CategoryName ASC
-                 LIMIT 3"
-            );
-            $stmt->execute(['term' => $pattern]);
-
-            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $category) {
-                $suggestions[] = [
-                    'type' => 'category',
-                    'label' => (string) $category['CategoryName'],
-                    'url' => search_url(
-                        'events.php',
-                        ['category_id' => (int) $category['CategoryID']]
-                    ),
-                ];
-            }
-
-            /*
-Hashtags are stored as strings.
-Search tags on published events and posts linked to published events.
-*/
-            $hashtag_term = search_like(ltrim($q, '#'));
-
-            $stmt = $pdo->prepare(
-                "SELECT e.Hashtags AS Tags
-                 FROM EVENTS e
-                 WHERE e.Status = 'published'
-                   AND e.Hashtags LIKE :event_term ESCAPE '\\\\'
-
-                 UNION ALL
-
-                 SELECT p.Hashtags AS Tags
-                 FROM POSTS p
-                 INNER JOIN EVENTS e ON e.EventID = p.EventID
-                 WHERE e.Status = 'published'
-                   AND p.Hashtags LIKE :post_term ESCAPE '\\\\'
-
-                 LIMIT 40"
-            );
-            $stmt->execute([
-                'event_term' => $hashtag_term,
-                'post_term' => $hashtag_term,
-            ]);
-
-            $seen_tags = [];
-
-            foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $tag_string) {
-                foreach (search_hashtags((string) $tag_string) as $tag) {
-                    $name = mb_substr($tag, 1, null, 'UTF-8');
-                    $needle = ltrim($q, '#');
-
-                    if (
-                        $needle !== ''
-                        && mb_stripos($name, $needle, 0, 'UTF-8') === false
-                    ) {
-                        continue;
-                    }
-
-                    $key = mb_strtolower($name, 'UTF-8');
-
-                    if (isset($seen_tags[$key])) {
-                        continue;
-                    }
-
-                    $seen_tags[$key] = true;
-
-                    $suggestions[] = [
-                        'type' => 'hashtag',
-                        'label' => '#' . $name,
-                        'url' => search_url('tag.php', ['tag' => $name]),
-                    ];
-
-                    if (count($seen_tags) >= 3) {
-                        break 2;
-                    }
-                }
-            }
-        }
-
-        echo json_encode(
-            ['suggestions' => array_slice($suggestions, 0, 10)],
-            JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
+        $pattern = search_like($q);
+        $stmt = $pdo->prepare(
+            "SELECT EventID, EventName, EventDate, Format, Province
+             FROM EVENTS
+             WHERE Status = 'published'
+               AND EventDate >= NOW()
+               AND EventName LIKE :term ESCAPE '\\\\'
+             ORDER BY CASE WHEN EventName LIKE :prefix ESCAPE '\\\\' THEN 0 ELSE 1 END,
+                      EventDate ASC, EventID ASC
+             LIMIT 8"
         );
+        $stmt->execute(['term' => $pattern, 'prefix' => substr($pattern, 1)]);
+        $suggestions = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $event) {
+            $suggestions[] = [
+                'type' => 'event',
+                'event_id' => (int) $event['EventID'],
+                'label' => (string) $event['EventName'],
+                'date' => date('d M Y', strtotime((string) $event['EventDate'])),
+                'format' => ucfirst((string) $event['Format']),
+                'location' => $event['Format'] === 'online' ? 'Online' : (string) ($event['Province'] ?? ''),
+            ];
+        }
+        echo json_encode(['suggestions' => $suggestions], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         exit;
     }
 
@@ -517,9 +427,6 @@ use events-and-posts hashtag page.
         default => 'e.Created_at DESC, e.EventID DESC',
     };
 
-    /*
-Event images come from linked POSTS.Media.
-*/
     $sql =
         'SELECT
             e.EventID,
@@ -542,16 +449,7 @@ Event images come from linked POSTS.Media.
                 SELECT MAX(t.Price)
                 FROM TICKETS t
                 WHERE t.EventID = e.EventID
-            ) AS MaxPrice,
-            (
-                SELECT p.Media
-                FROM POSTS p
-                WHERE p.EventID = e.EventID
-                  AND p.Media_type = \'image\'
-                  AND p.Media IS NOT NULL
-                ORDER BY p.PostDate DESC, p.PostID DESC
-                LIMIT 1
-            ) AS LatestImage'
+            ) AS MaxPrice'
         . $from_sql
         . ' WHERE ' . $where_sql
         . ' ORDER BY ' . $order_sql
@@ -658,12 +556,14 @@ require_once __DIR__ . '/shared-components/header.php';
             method="get"
             role="search"
             class="search-form"
+            data-live-search
         >
             <label for="search-q">
                 Search career events, career fields or hashtags
             </label>
 
             <div class="search-form__controls">
+                <div class="search-input-wrap">
                 <input
                     id="search-q"
                     name="q"
@@ -672,7 +572,10 @@ require_once __DIR__ . '/shared-components/header.php';
                     value="<?= search_escape($q) ?>"
                     placeholder="Search events, categories or #hashtags"
                     autocomplete="off"
+                    data-search-input
                 >
+                <div class="search-suggestions" data-search-suggestions hidden></div>
+                </div>
 
                 <button type="submit" class="btn btn-primary">
                     Search
@@ -908,24 +811,7 @@ require_once __DIR__ . '/shared-components/header.php';
                 <div class="event-grid">
                     <?php foreach ($events as $event): ?>
                         <article class="event-card">
-                            <?php
-                            /*
-                            Use the same event-image resolver everywhere so event banners do not behave differently between pages.
-
-                            */
-                            $image_src = $pdo instanceof PDO
-                                ? resolve_event_image($pdo, (int) $event['EventID'])
-                                : 'images/eventnest-logo.png';
-                            $image_alt = 'Image for ' . (string) $event['EventName'];
-                            ?>
-
-                            <img
-                                class="event-card__image"
-                                src="<?= search_escape(eventnest_url($image_src)) ?>"
-                                alt="<?= search_escape($image_alt) ?>"
-                                loading="lazy"
-                            >
-
+                            <img class="event-card__image" src="<?= escape_html(eventnest_url('images/eventnest-logo.png')) ?>" alt="EventNest" width="1600" height="900" loading="lazy">
                             <div class="event-card__content">
                                 <h3>
                                     <?= search_escape((string) $event['EventName']) ?>

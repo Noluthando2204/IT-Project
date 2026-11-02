@@ -106,58 +106,91 @@
         updateContactField();
     }
 
-    qsa('form[data-live-search]').forEach(function (form) {
+    qsa('form[data-live-search]').forEach(function (form, index) {
         var input = qs('input[name="q"]', form);
         var box = qs('[data-search-suggestions]', form);
-        if (!input || !box) return;
+        if (!input || !box || form.dataset.autocompleteReady) return;
+        form.dataset.autocompleteReady = 'true';
         var timer, controller, serial = 0, focused = -1;
+        box.id = (input.id || 'event-search-' + index) + '-suggestions';
+        box.setAttribute('role', 'listbox');
+        box.setAttribute('aria-label', 'Upcoming events');
+        input.setAttribute('role', 'combobox');
         input.setAttribute('aria-autocomplete', 'list');
+        input.setAttribute('aria-haspopup', 'listbox');
         input.setAttribute('aria-expanded', 'false');
-        box.id = input.id + '-suggestions';
         input.setAttribute('aria-controls', box.id);
-        function close() { box.hidden = true; box.classList.remove('open'); input.setAttribute('aria-expanded','false'); focused = -1; }
-        input.addEventListener('input', function () {
-            clearTimeout(timer); if (controller) controller.abort();
-            var request = ++serial, query = input.value.trim();
-            if (query.length < 2) { close(); return; }
+        function close() {
+            clearTimeout(timer);
+            if (controller) controller.abort();
+            serial++;
+            box.hidden = true;
+            box.classList.remove('open');
+            box.replaceChildren();
+            input.setAttribute('aria-expanded', 'false');
+            input.removeAttribute('aria-activedescendant');
+            focused = -1;
+        }
+        input.addEventListener('input', function (event) {
+            close();
+            var query = input.value.trim(), request = serial;
+            if (event.isComposing || Array.from(query).length < 3 || Array.from(query).length > 100) return;
             timer = setTimeout(async function () {
                 controller = new AbortController();
                 try {
-                    var endpoint = form.getAttribute('action') || 'search-results.php';
-                    var response = await fetch(endpoint + '?mode=suggest&q=' + encodeURIComponent(query), {signal: controller.signal, headers:{Accept:'application/json'}});
+                    var endpoint = new URL(form.getAttribute('action') || 'search-results.php', location.href);
+                    endpoint.search = new URLSearchParams({mode: 'suggest', q: query}).toString();
+                    var response = await fetch(endpoint.href, {signal: controller.signal, headers: {Accept: 'application/json'}});
                     if (!response.ok) throw new Error('Search unavailable');
-                    var data = await response.json(); if (request !== serial) return;
-                    box.replaceChildren();
-                    (data.suggestions || []).forEach(function (item) {
-                        var url = new URL(item.url, location.href);
-                        if (url.origin !== location.origin) return;
-                        var link = document.createElement('a'); link.className = 'suggestion-item'; link.href = url.href;
-                        link.textContent = item.label; box.appendChild(link);
+                    var data = await response.json();
+                    if (request !== serial || input.value.trim() !== query) return;
+                    (Array.isArray(data.suggestions) ? data.suggestions : []).slice(0, 8).forEach(function (item) {
+                        if (item.type !== 'event' || !Number.isSafeInteger(item.event_id) || item.event_id < 1 || typeof item.label !== 'string') return;
+                        var link = document.createElement('a');
+                        link.className = 'suggestion-item';
+                        link.id = box.id + '-' + box.children.length;
+                        link.setAttribute('role', 'option');
+                        link.setAttribute('aria-selected', 'false');
+                        link.tabIndex = -1;
+                        link.href = new URL('event-detail.php?event_id=' + item.event_id, endpoint).href;
+                        var label = document.createElement('span');
+                        label.className = 'suggestion-label';
+                        label.textContent = item.label;
+                        var meta = document.createElement('span');
+                        meta.className = 'suggestion-meta';
+                        meta.textContent = [item.date, item.location || item.format].filter(function (value) { return typeof value === 'string' && value; }).join(' \u00b7 ');
+                        link.append(label, meta);
+                        box.appendChild(link);
                     });
-                    box.hidden = box.children.length === 0; box.classList.toggle('open', !box.hidden);
-                    input.setAttribute('aria-expanded', String(!box.hidden)); focused = -1;
+                    box.hidden = box.children.length === 0;
+                    box.classList.toggle('open', !box.hidden);
+                    input.setAttribute('aria-expanded', String(!box.hidden));
                 } catch (error) { if (request === serial) close(); }
-            },260);
+            }, 250);
         });
-        form.addEventListener('keydown', function (event) {
+        input.addEventListener('compositionend', function () { input.dispatchEvent(new Event('input')); });
+        input.addEventListener('keydown', function (event) {
+            if (event.isComposing) return;
+            if (event.key === 'Escape') { event.preventDefault(); close(); return; }
             var links = Array.from(box.querySelectorAll('a'));
-            if (event.key === 'Escape') { close(); input.focus(); }
-            if (!links.length || box.hidden) return;
-            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            if (box.hidden || !links.length) return;
+            if (event.key === 'Enter' && focused >= 0) {
+                event.preventDefault();
+                links[focused].click();
+            } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                 event.preventDefault();
                 focused = focused < 0 ? (event.key === 'ArrowDown' ? 0 : links.length - 1)
                     : (focused + (event.key === 'ArrowDown' ? 1 : -1) + links.length) % links.length;
-                links[focused].focus();
+                links.forEach(function (link, i) { link.setAttribute('aria-selected', String(i === focused)); });
+                input.setAttribute('aria-activedescendant', links[focused].id);
+                links[focused].scrollIntoView({block: 'nearest'});
             }
         });
-        document.addEventListener('click', function(event) { if (!form.contains(event.target)) close(); });
+        form.addEventListener('submit', close);
+        form.addEventListener('focusout', function (event) { if (!form.contains(event.relatedTarget)) close(); });
+        document.addEventListener('click', function (event) { if (!input.contains(event.target) && !box.contains(event.target)) close(); });
     });
 
-    document.addEventListener('click', function (event) {
-        qsa('[data-suggestions].open').forEach(function (box) {
-            if (!box.parentNode.contains(event.target)) box.classList.remove('open');
-        });
-    });
 })();
 
 (function () {
@@ -183,51 +216,6 @@
     }
     form.addEventListener('input',update); form.addEventListener('change',update); update();
 })();
-// Reservation timer: the server sends the seconds left (data-remaining), so the countdown
-// does not depend on the visitor's clock or timezone. Shown on every page while a booking is pending.
-document.addEventListener('DOMContentLoaded', function () {
-    var banner = document.getElementById('reservation-timer');
-    var text = document.getElementById('timer-text');
-    if (!banner || !text) return;
-
-    var remaining = parseInt(banner.getAttribute('data-remaining'), 10);
-    if (!isFinite(remaining) || remaining <= 0) return;
-
-    var endsAt = Date.now() + remaining * 1000;
-    var redirectUrl = banner.getAttribute('data-expired-url');
-    var onPaymentPage = banner.getAttribute('data-on-payment') === '1';
-    banner.style.display = 'block';
-
-    function pad(n) { return String(n).padStart(2, '0'); }
-
-    function tick() {
-        var left = Math.max(0, Math.round((endsAt - Date.now()) / 1000));
-
-        if (left <= 0) {
-            text.textContent = 'Reservation expired';
-            banner.classList.remove('is-warning');
-            banner.classList.add('is-expired');
-            if (onPaymentPage && redirectUrl) {
-                setTimeout(function () { window.location.href = redirectUrl; }, 1500);
-            } else {
-                setTimeout(function () { banner.style.display = 'none'; }, 5000);
-            }
-            return;
-        }
-
-        if (left <= 20) {
-            banner.classList.add('is-warning');
-            text.textContent = 'Hurry! Expires in ' + pad(left) + 's';
-        } else {
-            banner.classList.remove('is-warning');
-            text.textContent = 'Ticket reserved for ' + pad(Math.floor(left / 60)) + ':' + pad(left % 60);
-        }
-        setTimeout(tick, 250);
-    }
-
-    tick();
-});
-
 /* Live countdown for the "Payment pending" hold notice; updates when the hold ends. */
 (function () {
     'use strict';

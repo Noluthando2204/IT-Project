@@ -29,55 +29,7 @@ Email failure never rolls back a valid event completion.
 */
 function en_confirm_send_mail(string $to, string $subject, string $body): bool
 {
-    if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
-        return false;
-    }
-
-    $autoload = __DIR__ . '/vendor/autoload.php';
-    if (!is_file($autoload)) {
-        error_log('EventNest mail: Composer autoload not found; completion email was not sent.');
-        return false;
-    }
-
-    require_once $autoload;
-
-    if (!class_exists(\PHPMailer\PHPMailer\PHPMailer::class)) {
-        error_log('EventNest mail: PHPMailer is not installed.');
-        return false;
-    }
-
-    $host = getenv('EVENTNEST_SMTP_HOST') ?: 'smtp.gmail.com';
-    $username = getenv('EVENTNEST_SMTP_USER') ?: '';
-    $password = getenv('EVENTNEST_SMTP_PASS') ?: '';
-    $from = getenv('EVENTNEST_FROM_EMAIL') ?: $username;
-    $fromName = getenv('EVENTNEST_FROM_NAME') ?: 'EventNest';
-    $port = (int)(getenv('EVENTNEST_SMTP_PORT') ?: 587);
-
-    if ($username === '' || $password === '' || !filter_var($from, FILTER_VALIDATE_EMAIL)) {
-        error_log('EventNest mail: protected SMTP environment settings are incomplete.');
-        return false;
-    }
-
-    try {
-        $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
-        $mail->isSMTP();
-        $mail->Host = $host;
-        $mail->SMTPAuth = true;
-        $mail->Username = $username;
-        $mail->Password = $password;
-        $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->Port = $port;
-        $mail->CharSet = 'UTF-8';
-        $mail->setFrom($from, $fromName);
-        $mail->addAddress($to);
-        $mail->Subject = $subject;
-        $mail->Body = $body;
-        $mail->isHTML(false);
-        return $mail->send();
-    } catch (Throwable $e) {
-        error_log('EventNest completion email error: ' . $e->getMessage());
-        return false;
-    }
+    return eventnest_send_mail($to, $subject, $body);
 }
 
 if (empty($_SESSION['user_id'])) {

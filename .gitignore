@@ -27,3 +27,5 @@ node_modules/
 .env.*
 vendor/
 *.backup
+database-config/runtime/
+database-config/local.php
