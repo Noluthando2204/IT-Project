@@ -165,7 +165,6 @@ $organiser_name = eventnest_organiser_display_name([
     'FirstName' => $event['OrganiserFirstName'] ?? null,
     'LastName' => $event['OrganiserLastName'] ?? null,
 ]);
-$image = resolve_event_image($pdo, $event_id);
 $page_title = (string) $event['EventName'];
 require_once __DIR__ . '/shared-components/header.php';
 ?>
@@ -180,7 +179,7 @@ require_once __DIR__ . '/shared-components/header.php';
 
     <div class="event-detail-layout">
     <article class="event-detail-card">
-        <img class="event-detail__image" src="<?= escape_html(eventnest_url($image)) ?>" alt="Image for <?= escape_html($event['EventName']) ?>">
+        <img class="event-detail__cover" src="<?= escape_html(eventnest_url('images/eventnest-logo.png')) ?>" alt="EventNest" width="1600" height="900">
         <div class="event-detail__content">
             <h1><?= escape_html($event['EventName']) ?></h1>
             <p><strong><?= escape_html(format_datetime($event['EventDate'])) ?></strong></p>

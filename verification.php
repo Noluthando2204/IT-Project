@@ -56,11 +56,11 @@ if (trim_input($_POST['action'] ?? '') === 'pay_fee') {
         require __DIR__ . '/shared-components/header.php';
         ?>
         <main class="result-card"><h1>Annual organiser verification</h1>
-        <p>R99.00 for 12 months from successfully verified payment. This checkout uses PayFast sandbox.</p>
+        <p>R99.00 for 12 months from successfully verified payment. PayFast <?= escape_html(getenv('PAYFAST_MODE') ?: 'sandbox') ?> checkout.</p>
         <p>Returning to EventNest does not confirm payment. Document approval remains a separate administrator decision.</p>
-        <form method="post" action="https://sandbox.payfast.co.za/eng/process">
+        <form method="post" action="<?= escape_html(eventnest_payfast_origin() . '/eng/process') ?>">
         <?php foreach ($form as $name => $value): ?><input type="hidden" name="<?= escape_html($name) ?>" value="<?= escape_html($value) ?>"><?php endforeach; ?>
-        <button class="btn btn-orange">Continue to secure sandbox payment</button>
+        <button class="btn btn-orange">Continue to secure payment</button>
         </form><p><a href="organiser-verification.php">Back to verification</a></p></main>
         <?php require __DIR__ . '/shared-components/footer.php';
         exit;

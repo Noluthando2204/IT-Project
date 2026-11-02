@@ -248,9 +248,8 @@ require_once __DIR__ . '/shared-components/header.php';
             <?php else: ?>
                 <div class="event-grid">
                     <?php foreach ($events as $event): ?>
-                        <?php $image = resolve_event_image($pdo, (int) $event['EventID']); ?>
                         <article class="event-card">
-                            <img class="event-card__image" src="<?= escape_html(eventnest_url($image)) ?>" alt="Image for <?= escape_html($event['EventName']) ?>" loading="lazy">
+                            <img class="event-card__image" src="<?= escape_html(eventnest_url('images/eventnest-logo.png')) ?>" alt="EventNest" width="1600" height="900" loading="lazy">
                             <div class="event-card__content">
                                 <h3><?= escape_html($event['EventName']) ?></h3>
                                 <p><?= escape_html(format_datetime($event['EventDate'])) ?></p>

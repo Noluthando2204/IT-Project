@@ -9,26 +9,32 @@ $flashes = $flash ? [$flash] : [];
 // Calculated by the database so server/browser clocks and timezones cannot disagree.
 $timer_remaining = 0;
 $timer_booking_id = 0;
+$timer_event_id = 0;
+$timer_expires = 0;
 if (($_SESSION['role'] ?? null) === 'attendee' && !empty($_SESSION['user_id'])) {
     try {
+        eventnest_expire_pending(eventnest_db(), (int) $_SESSION['user_id']);
         $timer_stmt = eventnest_db()->prepare(
-            "SELECT BookingID, TIMESTAMPDIFF(SECOND, NOW(), DATE_ADD(BookingDate, INTERVAL 4 MINUTE)) AS SecondsLeft
+            "SELECT BookingID, EventID, UNIX_TIMESTAMP(DATE_ADD(BookingDate, INTERVAL 4 MINUTE)) AS ExpiresAt,
+                    TIMESTAMPDIFF(SECOND, NOW(), DATE_ADD(BookingDate, INTERVAL 4 MINUTE)) AS SecondsLeft
              FROM BOOKINGS
              WHERE UserID = :user_id AND Status = 'pending'
-             ORDER BY BookingDate DESC
-             LIMIT 1"
+             ORDER BY BookingDate DESC"
         );
         $timer_stmt->execute([':user_id' => (int) $_SESSION['user_id']]);
-        $timer_row = $timer_stmt->fetch(PDO::FETCH_ASSOC);
-        if ($timer_row && (int) $timer_row['SecondsLeft'] > 0) {
+        while ($timer_row = $timer_stmt->fetch(PDO::FETCH_ASSOC)) {
+          if ((int) $timer_row['SecondsLeft'] > 0 && !eventnest_checkout_started((int) $timer_row['BookingID'])) {
             $timer_remaining = min(240, (int) $timer_row['SecondsLeft']);
             $timer_booking_id = (int) $timer_row['BookingID'];
+            $timer_event_id = (int) $timer_row['EventID'];
+            $timer_expires = (int) $timer_row['ExpiresAt'];
+            break;
+          }
         }
     } catch (Throwable $exception) {
         $timer_remaining = 0;
     }
 }
-$timer_on_payment = basename($_SERVER['SCRIPT_NAME'] ?? '') === 'payment.php';
 ?>
 <!doctype html>
 <html lang="en">
@@ -39,18 +45,24 @@ $timer_on_payment = basename($_SERVER['SCRIPT_NAME'] ?? '') === 'payment.php';
     <title><?= e($page_title) ?> | EventNest</title>
     <link rel="stylesheet" href="<?= e(app_url('styles/main.css')) ?>">
     <link rel="stylesheet" href="<?= e(app_url('styles/responsive.css')) ?>">
+    <link rel="stylesheet" href="<?= e(app_url('styles/reservation-timer.css')) ?>">
 
 </head>
 <body>
 <?php if ($timer_remaining > 0): ?>
     <!-- Floating reservation timer, visible on every page while a booking is held. -->
-    <a id="reservation-timer" class="floating-timer"
-       href="<?= e(app_url('payment.php?booking_id=' . $timer_booking_id)) ?>"
-       data-remaining="<?= (int) $timer_remaining ?>"
-       data-on-payment="<?= $timer_on_payment ? '1' : '0' ?>"
-       data-expired-url="<?= e(app_url('events.php')) ?>">
+    <aside id="reservation-timer" class="floating-timer" aria-label="Ticket reservation"
+       data-booking-id="<?= $timer_booking_id ?>"
+       data-expires="<?= $timer_expires * 1000 ?>"
+       data-server-now="<?= time() * 1000 ?>"
+       data-csrf="<?= e(eventnest_csrf_token()) ?>"
+       data-expire-url="<?= e(app_url('reservation-expire.php')) ?>"
+       data-expired-url="<?= e(app_url('event-detail.php?event_id=' . $timer_event_id)) ?>">
+        <button type="button" class="timer-drag" aria-label="Drag reservation timer">Move</button>
+        <a href="<?= e(app_url('payment.php?booking_id=' . $timer_booking_id)) ?>">
         <span id="timer-text">Ticket reserved for <?= sprintf('%02d:%02d', intdiv($timer_remaining, 60), $timer_remaining % 60) ?></span>
-    </a>
+        </a>
+    </aside>
 <?php endif; ?>
 
 <a class="skip-link" href="#main-content">Skip to content</a>

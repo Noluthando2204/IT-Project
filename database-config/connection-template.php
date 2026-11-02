@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/shared-components/config.php';
+
 $host = getenv('DB_HOST');
 $port = getenv('DB_PORT') ?: '3306';
 $dbname = getenv('DB_NAME');

@@ -65,7 +65,7 @@ if (!$booking) {
     exit;
 }
 
-$expected_total = round((float) $booking['Price'] * (int) $booking['Quantity'], 2);
+$expected_total = round((float) $booking['TotalAmount'], 2);
 $stored_total = round((float) $booking['TotalAmount'], 2);
 $errors = [];
 $payfast_form = null;
@@ -80,11 +80,9 @@ if ($booking['Status'] !== 'pending') {
 if ($expected_total <= 0.0) {
     $errors[] = 'Free bookings do not use PayFast.';
 }
-if (abs($expected_total - $stored_total) > 0.009) {
-    error_log('EventNest payment total mismatch for booking ' . $booking_id);
-    $errors[] = 'The booking total could not be verified. Please contact EventNest support.';
+if ($booking['Status'] === 'pending' && eventnest_checkout_started($booking_id)) {
+    $errors[] = 'Checkout has already been opened. Payment confirmation is being processed. Check its status before starting another payment.';
 }
-
 $csrf_token = eventnest_csrf_token();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errors) {
@@ -97,8 +95,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errors) {
         if (!$booking || $booking['Status'] !== 'pending') {
             $errors[] = 'This booking is no longer waiting for payment.';
         } else {
-            $expected_total = round((float) $booking['Price'] * (int) $booking['Quantity'], 2);
-            if (abs($expected_total - round((float) $booking['TotalAmount'], 2)) > 0.009 || $expected_total <= 0.0) {
+            $expected_total = round((float) $booking['TotalAmount'], 2);
+            if ($expected_total <= 0.0) {
                 $errors[] = 'The booking total could not be verified.';
             }
         }
@@ -110,14 +108,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errors) {
         $passphrase = trim((string) getenv('PAYFAST_PASSPHRASE'));
 
         if ($merchant_id === '' || $merchant_key === '' || !filter_var(getenv('EVENTNEST_BASE_URL'), FILTER_VALIDATE_URL) || parse_url((string)getenv('EVENTNEST_BASE_URL'), PHP_URL_SCHEME) !== 'https') {
-            $errors[] = 'Sandbox payment and trusted HTTPS callback URLs must be configured on this server.';
+            $errors[] = 'PayFast payment and trusted HTTPS callback URLs must be configured on this server.';
         } else {
             $payfast_form = [
                 'merchant_id' => $merchant_id,
                 'merchant_key' => $merchant_key,
                 'return_url' => payment_absolute_url('payment-success.php?booking_id=' . $booking_id),
                 'cancel_url' => payment_absolute_url('payment-cancel.php?booking_id=' . $booking_id),
-                'notify_url' => payment_absolute_url('payment-success.php'),
+                'notify_url' => payment_absolute_url('payment-notify.php'),
                 'name_first' => (string) $booking['FirstName'],
                 'name_last' => (string) $booking['LastName'],
                 'email_address' => (string) $booking['Email'],
@@ -127,21 +125,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errors) {
                 'custom_int1' => (string) $booking_id,
             ];
             $payfast_form['signature'] = payment_payfast_signature($payfast_form, $passphrase);
+            try {
+                $pdo->beginTransaction();
+                $lock = $pdo->prepare("SELECT Status, BookingDate > DATE_SUB(NOW(), INTERVAL 4 MINUTE) AS Unexpired FROM BOOKINGS WHERE BookingID = ? AND UserID = ? FOR UPDATE");
+                $lock->execute([$booking_id, $user_id]);
+                $current = $lock->fetch();
+                if (!$current || $current['Status'] !== 'pending'
+                    || (!(int) $current['Unexpired'] && !eventnest_checkout_started($booking_id))) {
+                    throw new DomainException('This reservation has expired. Please book again.');
+                }
+                if (eventnest_checkout_started($booking_id)) {
+                    throw new DomainException('Checkout has already been opened. Please check your payment status.');
+                }
+                eventnest_mark_checkout($booking_id);
+                $pdo->commit();
+            } catch (Throwable $exception) {
+                if ($pdo->inTransaction()) { $pdo->rollBack(); }
+                $payfast_form = null;
+                $errors[] = $exception instanceof DomainException ? $exception->getMessage() : 'Secure checkout is temporarily unavailable.';
+            }
         }
     }
 }
 
-$page_title = 'Secure sandbox payment';
+$payment_mode = (getenv('PAYFAST_MODE') ?: 'sandbox') === 'live' ? 'live' : 'sandbox';
+$page_title = 'Secure payment';
 
 require_once __DIR__ . '/shared-components/header.php';
 ?>
 <main class="page-content payment-page">
     <p><a class="btn btn-outline" href="my-bookings.php">Back to my bookings</a></p>
     <h1>Confirm and pay</h1>
-    <p>Step 2 of 3 · PayFast sandbox</p>
+    <p>Step 2 of 3 &middot; PayFast <?= escape_html($payment_mode) ?></p>
 
     <div class="alert alert-info" role="status">
-        <strong>Prototype sandbox:</strong> this EventNest build uses PayFast sandbox for development testing.
+        <?= $payment_mode === 'sandbox' ? 'PayFast sandbox is active for development testing.' : 'PayFast live payment is active.' ?>
     </div>
 
     <?php if ($errors): ?>
@@ -165,7 +183,7 @@ require_once __DIR__ . '/shared-components/header.php';
         <section class="payment-redirect-card">
             <h2>Continue to PayFast</h2>
             <p>Your booking remains pending until EventNest receives and verifies the provider notification.</p>
-            <form method="post" action="https://sandbox.payfast.co.za/eng/process">
+            <form method="post" action="<?= escape_html(eventnest_payfast_origin() . '/eng/process') ?>">
                 <?php foreach ($payfast_form as $name => $value): ?>
                     <input type="hidden" name="<?= escape_html($name) ?>" value="<?= escape_html((string) $value) ?>">
                 <?php endforeach; ?>
@@ -178,6 +196,11 @@ require_once __DIR__ . '/shared-components/header.php';
             <input type="hidden" name="csrf_token" value="<?= escape_html($csrf_token) ?>">
             <button class="btn btn-primary" type="submit">Continue to secure payment</button>
         </form>
+    <?php elseif ($booking['Status'] === 'pending' && eventnest_checkout_started($booking_id)): ?>
+        <div class="button-row">
+            <a class="btn btn-primary" href="payment-success.php?booking_id=<?= $booking_id ?>">Check payment status</a>
+            <a class="btn btn-outline" href="payment-cancel.php?booking_id=<?= $booking_id ?>">Cancel this checkout</a>
+        </div>
     <?php elseif ($booking['Status'] === 'pending' && $errors && !in_array('This booking is no longer waiting for payment.', $errors, true)): ?>
         <form method="post" action="payment.php">
             <input type="hidden" name="booking_id" value="<?= $booking_id ?>">

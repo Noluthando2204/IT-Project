@@ -24,4 +24,6 @@ RUN a2enmod rewrite
 RUN printf '<Directory /var/www/html>\nAllowOverride All\nRequire all granted\n</Directory>\n' > /etc/apache2/conf-available/eventnest.conf \
     && a2enconf eventnest \
     && mkdir -p /var/www/eventnest-private/organiser-documents \
+    && mkdir -p /var/www/html/database-config/runtime \
+    && chown www-data:www-data /var/www/html/database-config/runtime \
     && chown -R www-data:www-data /var/www/eventnest-private /var/www/html/uploaded-content

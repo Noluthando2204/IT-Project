@@ -13,5 +13,6 @@
     </div>
 </footer>
 <script src="<?= e(app_url('scripts/main.js')) ?>" defer></script>
+<script src="<?= e(app_url('scripts/reservation-timer.js')) ?>" defer></script>
 </body>
 </html>

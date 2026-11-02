@@ -241,8 +241,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $blocking_error === '') {
                 throw new DomainException($locked_gate_error);
             }
 
-            // Reuse an unpaid reservation for the same ticket and quantity within its four-minute window.
-            $retry = $pdo->prepare("SELECT BookingID FROM BOOKINGS WHERE UserID=? AND EventID=? AND TicketID=? AND Quantity=? AND Status='pending' AND BookingDate>DATE_SUB(NOW(), INTERVAL 4 MINUTE) ORDER BY BookingID DESC LIMIT 1 FOR UPDATE");
+            // Reuse the active reservation, including a checkout awaiting provider confirmation.
+            $retry = $pdo->prepare("SELECT BookingID FROM BOOKINGS WHERE UserID=? AND EventID=? AND TicketID=? AND Quantity=? AND Status='pending' ORDER BY BookingID DESC LIMIT 1 FOR UPDATE");
             $retry->execute([$user_id,$event_id,$selected_ticket_id,$quantity]);
             $retry_id = $retry->fetchColumn();
             if ($retry_id) {
