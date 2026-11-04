@@ -4,6 +4,8 @@
 **/*.log
 **/*.backup
 database-config/connection.php
+database-config/local.php
+database-config/runtime
 node_modules
 vendor
 uploaded-content/*

@@ -6,6 +6,8 @@ require_once __DIR__ . '/database-config/connection.php';
 
 $pdo = eventnest_db();
 eventnest_ensure_session();
+header('Referrer-Policy: no-referrer');
+header('Cache-Control: no-store');
 $page_title = 'Reset password';
 $token = is_string($_POST['token'] ?? $_GET['token'] ?? null) ? trim((string) ($_POST['token'] ?? $_GET['token'])) : '';
 $message = '';
@@ -41,6 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $token_data !== null && $user !== n
     $confirm = is_string($_POST['confirm_password'] ?? null) ? $_POST['confirm_password'] : '';
 
     if (!eventnest_verify_csrf_token($_POST['csrf_token'] ?? null)) {
+        http_response_code(403);
         $message = 'Your session expired. Please refresh and try again.';
     } elseif (!eventnest_password_valid($password)) {
         $message = 'Use a password between 8 and 72 bytes long.';
@@ -67,6 +70,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $token_data !== null && $user !== n
             Once the password changes, the same reset link can no longer be used again.
 
             */
+            unset($_SESSION['password_reset_last_sent']);
+            session_regenerate_id(true);
             header('Location: ' . eventnest_url('login.php?reset=success'));
             exit;
         } catch (Throwable $exception) {
@@ -83,7 +88,7 @@ require_once __DIR__ . '/shared-components/header.php';
 
     <?php if ($token_data === null || $user === null): ?>
         <div class="alert alert-warning" role="alert">
-            This reset link is invalid, has expired, or has already been used.
+            This password reset link is invalid or has expired. Please request another password reset email.
         </div>
         <a class="btn btn-orange" href="forgot-password.php">Request a new reset link</a>
     <?php else: ?>

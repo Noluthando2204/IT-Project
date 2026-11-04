@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/reservations.php';
+
 // Event dates and booking cutoffs use South African time throughout the application.
 date_default_timezone_set('Africa/Johannesburg');
 
@@ -153,7 +156,7 @@ function event_booking_eligibility(PDO $pdo, array $event, array $user): array
 }
 
 // Only a configured support address can receive contact and report messages.
-function eventnest_send_mail(string $to, string $subject, string $body, ?string $reply_to = null): bool
+function eventnest_send_mail(string $to, string $subject, string $body, ?string $reply_to = null, ?string $html = null): bool
 {
     $autoload = eventnest_project_root() . '/vendor/autoload.php';
     if (!is_file($autoload) || !filter_var($to, FILTER_VALIDATE_EMAIL)) { return false; }
@@ -170,10 +173,120 @@ function eventnest_send_mail(string $to, string $subject, string $body, ?string 
         $mail->setFrom((string) getenv('EVENTNEST_FROM_EMAIL'), (string) (getenv('EVENTNEST_FROM_NAME') ?: 'EventNest'));
         $mail->addAddress($to);
         if ($reply_to && filter_var($reply_to, FILTER_VALIDATE_EMAIL)) { $mail->addReplyTo($reply_to); }
-        $mail->Subject = $subject; $mail->Body = $body;
+        $mail->SMTPDebug = 0;
+        $mail->Subject = $subject;
+        $mail->isHTML($html !== null);
+        $mail->Body = $html ?? $body;
+        $mail->AltBody = $html !== null ? $body : '';
         return $mail->send();
     } catch (Throwable $exception) {
         error_log('EventNest mail delivery failed: ' . get_class($exception)); return false;
+    }
+}
+
+function eventnest_send_password_reset(string $to, string $reset_url): bool
+{
+    $body = "Reset your EventNest password\n\nWe received a request to reset your EventNest password.\n"
+        . "Choose a new password: " . $reset_url . "\n\nThis link expires in 10 minutes.\n"
+        . "If you did not request this, safely ignore this email. Your password will remain unchanged.\n"
+        . "For your security, do not share this email or reset link with anyone.\n\nThe EventNest Team";
+    $url = escape_html($reset_url);
+    $html = '<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head>'
+        . '<body style="margin:0;background:#f5f7fa;font-family:Arial,sans-serif;color:#172c45">'
+        . '<table role="presentation" width="100%"><tr><td align="center" style="padding:24px 12px">'
+        . '<table role="presentation" width="100%" style="max-width:560px;background:#fff;border-radius:12px">'
+        . '<tr><td style="padding:28px;background:#172c45;color:#fff;font-size:26px;font-weight:bold">EventNest</td></tr>'
+        . '<tr><td style="padding:28px;line-height:1.6"><h1 style="font-size:24px">Reset your EventNest password</h1>'
+        . '<p>We received a request to reset the password for your EventNest account.</p>'
+        . '<p>Click the button below to choose a new password.</p>'
+        . '<p style="padding:16px 0"><a href="' . $url . '" style="display:inline-block;background:#ef7b32;color:#fff;padding:14px 24px;border-radius:6px;text-decoration:none;font-weight:bold">Reset Password</a></p>'
+        . '<p>This password reset link will expire in <strong>10 minutes</strong>.</p>'
+        . '<p>If you did not request a password reset, you can safely ignore this email. Your current password will remain unchanged.</p>'
+        . '<p>For your security, do not share this email or reset link with anyone.</p>'
+        . '<p>The EventNest Team</p><p style="font-size:12px;overflow-wrap:anywhere">Button not working? <a href="' . $url . '">Open the reset link</a>.</p>'
+        . '</td></tr></table></td></tr></table></body></html>';
+    return eventnest_send_mail($to, 'Reset your EventNest password', $body, null, $html);
+}
+
+// ---- Ticket holds and waitlist -------------------------------------------------
+// A booking is held for four minutes while payment is pending. While another
+// attendee holds the last tickets, new bookers see "Payment pending" and are
+// put on a waitlist; they are notified if the hold is released.
+
+/** Pending (unpaid, unexpired) holds on a ticket tier by users other than $exclude_user_id. */
+function eventnest_ticket_hold(PDO $pdo, int $ticket_id, int $exclude_user_id = 0): array
+{
+    $stmt = $pdo->prepare(
+        "SELECT COALESCE(SUM(Quantity), 0) AS held, MIN(BookingDate) AS oldest
+         FROM BOOKINGS
+         WHERE TicketID = ? AND Status = 'pending' AND UserID <> ?
+           AND BookingDate > DATE_SUB(NOW(), INTERVAL 4 MINUTE)"
+    );
+    $stmt->execute([$ticket_id, $exclude_user_id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['held' => 0, 'oldest' => null];
+    $held = (int) $row['held'];
+    $seconds_left = 0;
+    if ($held > 0 && !empty($row['oldest'])) {
+        $seconds_left = max(0, strtotime((string) $row['oldest']) + 240 - time());
+    }
+    return ['held' => $held, 'seconds_left' => $seconds_left];
+}
+
+function eventnest_waitlist_join(PDO $pdo, int $user_id, int $ticket_id, int $quantity): void
+{
+    try {
+        $stmt = $pdo->prepare(
+            'INSERT INTO TICKET_WAITLIST (UserID, TicketID, Quantity) VALUES (?, ?, ?)
+             ON DUPLICATE KEY UPDATE Quantity = VALUES(Quantity), NotifiedAt = NULL'
+        );
+        $stmt->execute([$user_id, $ticket_id, max(1, $quantity)]);
+    } catch (Throwable $exception) {
+        error_log('EventNest waitlist join failed: ' . get_class($exception));
+    }
+}
+
+function eventnest_waitlist_leave(PDO $pdo, int $user_id, int $ticket_id): void
+{
+    try {
+        $pdo->prepare('DELETE FROM TICKET_WAITLIST WHERE UserID = ? AND TicketID = ?')->execute([$user_id, $ticket_id]);
+    } catch (Throwable $exception) {
+        error_log('EventNest waitlist leave failed: ' . get_class($exception));
+    }
+}
+
+/** Call after tickets are restored. Notifies waiting attendees, first come first served. */
+function eventnest_waitlist_release(PDO $pdo, int $ticket_id): void
+{
+    try {
+        $stmt = $pdo->prepare('SELECT QuantityAvailable FROM TICKETS WHERE TicketID = ?');
+        $stmt->execute([$ticket_id]);
+        $remaining = (int) $stmt->fetchColumn();
+        if ($remaining <= 0) { return; }
+
+        $stmt = $pdo->prepare(
+            'SELECT w.WaitlistID, w.Quantity, u.Email, e.EventID, e.EventName, t.TicketType
+             FROM TICKET_WAITLIST w
+             INNER JOIN USERS u ON u.UserID = w.UserID AND u.UserStatus = \'active\'
+             INNER JOIN TICKETS t ON t.TicketID = w.TicketID
+             INNER JOIN EVENTS e ON e.EventID = t.EventID
+             WHERE w.TicketID = ? AND w.NotifiedAt IS NULL
+             ORDER BY w.CreatedAt, w.WaitlistID'
+        );
+        $stmt->execute([$ticket_id]);
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $wanted = (int) $row['Quantity'];
+            if ($wanted > $remaining) { continue; }
+            $pdo->prepare('UPDATE TICKET_WAITLIST SET NotifiedAt = NOW() WHERE WaitlistID = ?')->execute([(int) $row['WaitlistID']]);
+            $remaining -= $wanted;
+            eventnest_send_mail(
+                (string) $row['Email'],
+                'Tickets available: ' . $row['EventName'],
+                "Good news - " . $row['TicketType'] . " tickets for " . $row['EventName'] . " are available again.\n"
+                . "Book now before they are taken: " . eventnest_absolute_url('booking.php?event_id=' . (int) $row['EventID'] . '&ticket_id=' . $ticket_id)
+            );
+        }
+    } catch (Throwable $exception) {
+        error_log('EventNest waitlist release failed: ' . get_class($exception));
     }
 }
 
@@ -265,14 +378,18 @@ function eventnest_expire_pending(PDO $pdo, ?int $user_id = null): int
     $sql = "SELECT BookingID FROM BOOKINGS WHERE Status = 'pending' AND BookingDate <= DATE_SUB(NOW(), INTERVAL 4 MINUTE)";
     $params = [];
     if ($user_id !== null) { $sql .= ' AND UserID = ?'; $params[] = $user_id; }
-    $stmt = $pdo->prepare($sql . ' ORDER BY BookingID LIMIT 200'); $stmt->execute($params);
+    $stmt = $pdo->prepare($sql . ' ORDER BY BookingID'); $stmt->execute($params);
     $expired = 0;
     foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+        if ($expired >= 200) { break; }
+        if (eventnest_checkout_started((int) $id)) { continue; }
         try {
             $pdo->beginTransaction();
             $lock = $pdo->prepare('SELECT BookingID, TicketID, Quantity, Status FROM BOOKINGS WHERE BookingID = ? FOR UPDATE');
             $lock->execute([$id]); $booking = $lock->fetch();
             if ($booking && $booking['Status'] === 'pending') {
+                // A dispatched checkout must await provider truth or explicit cancellation.
+                if (eventnest_checkout_started((int) $id)) { $pdo->commit(); continue; }
                 $paid = $pdo->prepare("SELECT PaymentID FROM PAYMENTS WHERE BookingID = ? AND PaymentStatus IN ('success','refunded') FOR UPDATE");
                 $paid->execute([$id]);
                 if (!$paid->fetchColumn()) {
@@ -444,6 +561,9 @@ if (!function_exists('eventnest_url')) {
 
         $base = eventnest_base_url();
         $path = ltrim($path, '/');
+        if (str_starts_with($path, 'uploaded-content/')) {
+            $path = implode('/', array_map('rawurlencode', explode('/', $path)));
+        }
 
         if ($path === '') {
             return $base === '' ? '/' : $base . '/';
@@ -734,14 +854,33 @@ if (!function_exists('eventnest_safe_media_path')) {
             return null;
         }
 
-        $path = ltrim(trim(str_replace('\\', '/', $database_path)), '/');
+        $path = trim(str_replace('\\', '/', $database_path));
+        if (preg_match('#^https?://#i', $path)) {
+            $base = rtrim((string) getenv('EVENTNEST_BASE_URL'), '/');
+            if ($base === '' || !str_starts_with($path, $base . '/')) { return null; }
+            $path = substr($path, strlen($base) + 1);
+        }
+        $path = rawurldecode($path);
+        $root = str_replace('\\', '/', eventnest_project_root()) . '/';
+        if (strncasecmp($path, $root, strlen($root)) === 0) {
+            $path = substr($path, strlen($root));
+        }
+        $path = preg_replace('#^(?:\./)+#', '', $path);
+        $path = ltrim($path, '/');
+        $prefixes = array_unique(array_filter([trim(eventnest_base_url(), '/'), basename(eventnest_project_root())]));
+        foreach ($prefixes as $prefix) {
+            if (str_starts_with($path, $prefix . '/uploaded-content/')) {
+                $path = substr($path, strlen($prefix) + 1);
+                break;
+            }
+        }
 
         if (
             $path === '' ||
             strpos($path, "\0") !== false ||
             strpos($path, 'uploaded-content/') !== 0 ||
             preg_match('#(^|/)\.\.(/|$)#', $path) === 1 ||
-            preg_match('#^[A-Za-z0-9_./-]+$#D', $path) !== 1
+            preg_match('#[\x00-\x1f\x7f<>:"?*|%]#', $path) === 1
         ) {
             return null;
         }
@@ -785,11 +924,15 @@ if (!function_exists('eventnest_safe_media_path')) {
             return null;
         }
 
+        if (!class_exists('finfo')) { return null; }
         if (class_exists('finfo')) {
             $finfo = new finfo(FILEINFO_MIME_TYPE);
             $mime_type = $finfo->file($full_path);
             $image_types = ['image/jpeg', 'image/png', 'image/webp'];
             $video_types = ['video/mp4', 'video/webm'];
+            $extension_mimes = ['jpg'=>'image/jpeg', 'jpeg'=>'image/jpeg', 'png'=>'image/png',
+                'webp'=>'image/webp', 'mp4'=>'video/mp4', 'webm'=>'video/webm'];
+            if (($extension_mimes[$extension] ?? null) !== $mime_type) { return null; }
 
             if ($expected_type === 'image' && !in_array($mime_type, $image_types, true)) {
                 return null;
@@ -808,47 +951,8 @@ if (!function_exists('eventnest_safe_media_path')) {
     }
 }
 
-if (!function_exists('resolve_event_image')) {
-    function resolve_event_image(PDO $pdo, int $event_id): string
-    {
-        $fallback = 'images/eventnest-logo.png';
-
-        if ($event_id <= 0) {
-            return $fallback;
-        }
-
-        try {
-            $statement = $pdo->prepare(
-                "SELECT p.Media
-                 FROM POSTS p
-                 INNER JOIN EVENTS e
-                    ON e.EventID = p.EventID
-                   AND e.OrganiserID = p.OrganiserID
-                 WHERE p.EventID = :event_id
-                   AND p.Media_type = 'image'
-                   AND p.Media IS NOT NULL
-                   AND TRIM(p.Media) <> ''
-                 ORDER BY p.PostDate DESC, p.PostID DESC"
-            );
-
-            $statement->execute([
-                ':event_id' => $event_id,
-            ]);
-
-            while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
-                $safe_path = eventnest_safe_media_path((string) $row['Media'], 'image');
-
-                if ($safe_path !== null) {
-                    return $safe_path;
-                }
-            }
-        } catch (PDOException $exception) {
-            error_log('EventNest event image resolver failed: ' . $exception->getMessage());
-        }
-
-        return $fallback;
-    }
-}
+// Event presentation uses the existing EventNest default visual.
+// Linked POSTS media belongs exclusively to post rendering, never event artwork.
 
 if (!function_exists('eventnest_status_label')) {
     function eventnest_status_label(?string $status): string
@@ -981,11 +1085,9 @@ function payfast_validate_with_provider(array $data): bool
         return false;
     }
 
-    $validation_data = $data;
-    unset($validation_data['signature']);
-    $body = http_build_query($validation_data, '', '&', PHP_QUERY_RFC3986);
+    $body = eventnest_payfast_itn_parameters($data);
 
-    $curl = curl_init('https://sandbox.payfast.co.za/eng/query/validate');
+    $curl = curl_init(eventnest_payfast_origin() . '/eng/query/validate');
     if ($curl === false) {
         return false;
     }
@@ -999,7 +1101,7 @@ function payfast_validate_with_provider(array $data): bool
         CURLOPT_CONNECTTIMEOUT => 5,
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_SSL_VERIFYHOST => 2,
-        CURLOPT_USERAGENT => 'EventNest-PayFast-Sandbox/1.0',
+        CURLOPT_USERAGENT => 'EventNest-PayFast/1.0',
     ]);
 
     $response = curl_exec($curl);
@@ -1009,6 +1111,33 @@ function payfast_validate_with_provider(array $data): bool
     return $status === 200 && is_string($response) && trim($response) === 'VALID';
 }
 
+
+function eventnest_payfast_origin(): string
+{
+    $mode = getenv('PAYFAST_MODE') ?: 'sandbox';
+    if (!in_array($mode, ['sandbox', 'live'], true)) { throw new DomainException('Invalid PayFast mode.'); }
+    return $mode === 'live' ? 'https://www.payfast.co.za' : 'https://sandbox.payfast.co.za';
+}
+
+// ITNs include empty fields and preserve received field order and values.
+// Checkout signatures omit empty fields, so they must not share that serialisation.
+function eventnest_payfast_itn_parameters(array $data): string
+{
+    $parts = [];
+    foreach ($data as $key => $value) {
+        if ($key === 'signature') { continue; }
+        if (!is_scalar($value)) { throw new RuntimeException('Invalid notification value.'); }
+        $parts[] = $key . '=' . urlencode((string) $value);
+    }
+    return implode('&', $parts);
+}
+
+function eventnest_payfast_itn_signature(array $data, string $passphrase): string
+{
+    $parameters = eventnest_payfast_itn_parameters($data);
+    if ($passphrase !== '') { $parameters .= '&passphrase=' . urlencode($passphrase); }
+    return md5($parameters);
+}
 
 function eventnest_absolute_url(string $path): string
 {
@@ -1066,7 +1195,7 @@ function eventnest_password_reset_secret(): string
         : '';
 }
 
-function eventnest_create_password_reset_token(array $user, int $minutes = 30): ?string
+function eventnest_create_password_reset_token(array $user): ?string
 {
     $secret = eventnest_password_reset_secret();
     $user_id = (int) ($user['UserID'] ?? 0);
@@ -1082,7 +1211,7 @@ function eventnest_create_password_reset_token(array $user, int $minutes = 30): 
         'nonce' => bin2hex(random_bytes(16)),
         'uid' => $user_id,
         'email' => $email,
-        'exp' => time() + max(5, min(60, $minutes)) * 60,
+        'exp' => time() + 600,
         'pwd' => hash('sha256', $password_hash),
     ];
 
@@ -1100,7 +1229,7 @@ function eventnest_create_password_reset_token(array $user, int $minutes = 30): 
 function eventnest_read_password_reset_token(string $token): ?array
 {
     $secret = eventnest_password_reset_secret();
-    if ($secret === '' || substr_count($token, '.') !== 1) {
+    if ($secret === '' || strlen($token) > 2048 || substr_count($token, '.') !== 1) {
         return null;
     }
 
@@ -1127,7 +1256,10 @@ function eventnest_read_password_reset_token(string $token): ?array
     $expires = (int) ($payload['exp'] ?? 0);
     $password_marker = (string) ($payload['pwd'] ?? '');
 
-    if ($user_id <= 0 || !filter_var($email, FILTER_VALIDATE_EMAIL) || $expires <= time() || strlen($password_marker) !== 64) {
+    if (($payload['v'] ?? null) !== 1 || !is_string($payload['nonce'] ?? null)
+        || !preg_match('/^[a-f0-9]{32}$/D', $payload['nonce'])
+        || $user_id <= 0 || !filter_var($email, FILTER_VALIDATE_EMAIL) || $expires <= time()
+        || $expires > time() + 600 || strlen($password_marker) !== 64) {
         return null;
     }
 
@@ -1146,7 +1278,7 @@ function eventnest_verify_payfast_notification(array $post): void
     }
     $merchant = trim((string) getenv('PAYFAST_MERCHANT_ID'));
     if ($merchant === '' || !hash_equals($merchant, trim((string) ($post['merchant_id'] ?? '')))
-        || !hash_equals(payfast_signature($post, (string) getenv('PAYFAST_PASSPHRASE')), strtolower(trim((string) ($post['signature'] ?? ''))))
+        || !hash_equals(eventnest_payfast_itn_signature($post, (string) getenv('PAYFAST_PASSPHRASE')), strtolower(trim((string) ($post['signature'] ?? ''))))
         || !payfast_validate_with_provider($post)) {
         throw new RuntimeException('Payment verification failed.');
     }

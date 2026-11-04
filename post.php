@@ -45,6 +45,7 @@ try {
         if(($file['error'] ?? null)!==UPLOAD_ERR_OK || !is_string($file['tmp_name'] ?? null) || !is_string($file['name'] ?? null) || !is_int($file['size'] ?? null) || !is_uploaded_file($file['tmp_name'])) {
             throw new DomainException('The uploaded media is invalid.');
         }
+        if (!class_exists('finfo')) { throw new DomainException('Media uploads require the server Fileinfo extension. Contact support.'); }
         $mime=(new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
         $allowed=['image/jpeg'=>['jpg','jpeg'],'image/png'=>['png'],'image/webp'=>['webp'],'video/mp4'=>['mp4'],'video/webm'=>['webm']];
         if(!isset($allowed[$mime]) || !in_array(strtolower(pathinfo($file['name'],PATHINFO_EXTENSION)),$allowed[$mime],true)) {
@@ -57,6 +58,9 @@ try {
         }
         // Keep organiser post media separate from event banners and profile pictures.
         $target=eventnest_build_upload_path('posts',eventnest_generate_upload_filename('post',$mime));
+        if (!is_dir(dirname($target['absolute'])) && !mkdir(dirname($target['absolute']), 0755, true) && !is_dir(dirname($target['absolute']))) {
+            throw new DomainException('Media storage is unavailable.');
+        }
         if(!is_writable(dirname($target['absolute'])) || !move_uploaded_file($file['tmp_name'],$target['absolute'])) {
             throw new DomainException('Media storage is unavailable.');
         }

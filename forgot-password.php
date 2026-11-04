@@ -6,15 +6,21 @@ require_once __DIR__ . '/database-config/connection.php';
 
 $pdo = eventnest_db();
 eventnest_ensure_session();
+header('Cache-Control: no-store');
 $page_title = 'Forgot password';
 $email = is_string($_POST['email'] ?? $_GET['email'] ?? null) ? strtolower(trim((string) ($_POST['email'] ?? $_GET['email']))) : '';
 $message = '';
 $message_type = 'info';
+$cooldown = max(0, 60 - (time() - (int) ($_SESSION['password_reset_last_sent'] ?? 0)));
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!eventnest_verify_csrf_token($_POST['csrf_token'] ?? null)) {
+        http_response_code(403);
         $message = 'Your session expired. Please refresh and try again.';
         $message_type = 'danger';
+    } elseif ($cooldown > 0) {
+        $message = 'Please wait ' . $cooldown . ' seconds before requesting another reset email.';
+        $message_type = 'warning';
     } elseif (eventnest_password_reset_secret() === '' || trim((string) getenv('EVENTNEST_SMTP_HOST')) === ''
         || !is_file(__DIR__ . '/vendor/autoload.php')) {
         $message = 'Password recovery is not configured on this server yet. Please contact EventNest support.';
@@ -26,6 +32,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             // Validate the configured origin before looking up an account.
             $reset_page_url = eventnest_absolute_url('reset-password.php');
+            // Apply equally to known and unknown accounts; this limiter is session scoped.
+            $_SESSION['password_reset_last_sent'] = time();
+            $cooldown = 60;
             $stmt = $pdo->prepare(
                 "SELECT UserID, Email, PasswordHash, UserStatus
                  FROM USERS
@@ -36,14 +45,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($user && $user['UserStatus'] !== 'deleted') {
-                $token = eventnest_create_password_reset_token($user, 30);
+                $token = eventnest_create_password_reset_token($user);
 
                 if ($token !== null) {
                     $reset_url = $reset_page_url . '?token=' . rawurlencode($token);
-                    $body = "A password reset was requested for your EventNest account.\n\n"
-                        . "Reset your password using this link:\n" . $reset_url . "\n\n"
-                        . "The link expires in 30 minutes. If you did not request this, you can ignore this email.";
-                    if (!eventnest_send_mail((string) $user['Email'], 'Reset your EventNest password', $body)) {
+                    if (!eventnest_send_password_reset((string) $user['Email'], $reset_url)) {
                         error_log('EventNest password reset mail was not accepted by the configured transport.');
                     }
                 }
@@ -54,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             This prevents the recovery form from becoming a way to discover registered accounts.
 
             */
-            $message = 'If that email is registered and password recovery is available, you will receive a reset link. Check your inbox and spam folder.';
+            $message = 'If an EventNest account is registered with that email address, password reset instructions have been sent. Please check your inbox and spam folder. The link is valid for 10 minutes. You can request another email after 60 seconds.';
             $message_type = 'success';
         } catch (Throwable $exception) {
             error_log('EventNest forgot-password failed: ' . get_class($exception));
@@ -81,10 +87,12 @@ require_once __DIR__ . '/shared-components/header.php';
             <input id="email" name="email" type="email" maxlength="100" autocomplete="email" value="<?= escape_html($email) ?>" required>
         </div>
         <div class="form-actions">
-            <button class="btn btn-orange" type="submit">Send reset link</button>
+            <button id="reset-send" class="btn btn-orange" type="submit" data-cooldown-until="<?= (time() + $cooldown) * 1000 ?>" <?= $cooldown > 0 ? 'disabled' : '' ?>><?= isset($_SESSION['password_reset_last_sent']) ? 'Resend email' : 'Send reset link' ?></button>
+            <span id="reset-cooldown" role="status"></span>
             <a class="btn btn-outline" href="login.php">Back to login</a>
         </div>
     </form>
 </main>
 <script src="<?= escape_html(eventnest_url('scripts/validation.js')) ?>" defer></script>
+<script src="<?= escape_html(eventnest_url('scripts/password-reset.js')) ?>" defer></script>
 <?php require_once __DIR__ . '/shared-components/footer.php'; ?>

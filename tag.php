@@ -510,20 +510,14 @@ require_once __DIR__ . '/shared-components/header.php';
                 <div class="event-grid">
                     <?php foreach ($events as $event): ?>
                         <?php
-                        $event_image = resolve_event_image($pdo, (int) $event['EventID']);
                         $organiser_name = eventnest_organiser_display_name($event);
                         $event_tags = eventnest_extract_hashtags(
                             $event['Hashtags'] !== null ? (string) $event['Hashtags'] : null
                         );
                         ?>
                         <article class="event-card">
-                            <img
-                                class="event-card__image"
-                                src="<?= escape_html(eventnest_url($event_image)) ?>"
-                                alt="Image for <?= escape_html((string) $event['EventName']) ?>"
-                                loading="lazy"
-                            >
-                            <div class="event-card__body">
+                            <img class="event-card__image" src="<?= escape_html(eventnest_url('images/eventnest-logo.png')) ?>" alt="EventNest" width="1600" height="900" loading="lazy">
+                            <div class="event-card__content">
                                 <p class="eyebrow"><?= escape_html((string) $event['CategoryName']) ?></p>
                                 <h3><?= escape_html((string) $event['EventName']) ?></h3>
                                 <p><?= escape_html(format_datetime((string) $event['EventDate'])) ?></p>
