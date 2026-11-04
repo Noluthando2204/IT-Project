@@ -143,7 +143,7 @@ if ($page > $pages) {
 $sql = "
     SELECT
         e.EventID, e.OrganiserID, e.EventName, e.EventDate, e.Format,
-        e.Province, e.Venue, e.Hashtags, c.CategoryName,
+        e.Province, e.ImagePath, e.Venue, e.Hashtags, c.CategoryName,
         (SELECT MIN(t.Price) FROM TICKETS t WHERE t.EventID = e.EventID AND t.QuantityAvailable > 0) AS MinPrice,
         (SELECT MAX(t.Price) FROM TICKETS t WHERE t.EventID = e.EventID AND t.QuantityAvailable > 0) AS MaxPrice
     FROM EVENTS e
@@ -249,7 +249,7 @@ require_once __DIR__ . '/shared-components/header.php';
                 <div class="event-grid">
                     <?php foreach ($events as $event): ?>
                         <article class="event-card">
-                            <img class="event-card__image" src="<?= escape_html(eventnest_url('images/eventnest-logo.png')) ?>" alt="EventNest" width="1600" height="900" loading="lazy">
+                            <img class="event-card__image" src="<?= escape_html(eventnest_image_url($event['ImagePath'] ?? null)) ?>" alt="<?= escape_html($event['EventName'] ?? 'EventNest') ?>" width="1600" height="900" loading="lazy">
                             <div class="event-card__content">
                                 <h3><?= escape_html($event['EventName']) ?></h3>
                                 <p><?= escape_html(format_datetime($event['EventDate'])) ?></p>

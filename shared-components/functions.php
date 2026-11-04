@@ -290,88 +290,6 @@ function eventnest_waitlist_release(PDO $pdo, int $ticket_id): void
     }
 }
 
-// ---- Ticket holds and waitlist -------------------------------------------------
-// A booking is held for four minutes while payment is pending. While another
-// attendee holds the last tickets, new bookers see "Payment pending" and are
-// put on a waitlist; they are notified if the hold is released.
-
-/** Pending (unpaid, unexpired) holds on a ticket tier by users other than $exclude_user_id. */
-function eventnest_ticket_hold(PDO $pdo, int $ticket_id, int $exclude_user_id = 0): array
-{
-    $stmt = $pdo->prepare(
-        "SELECT COALESCE(SUM(Quantity), 0) AS held, MIN(BookingDate) AS oldest
-         FROM BOOKINGS
-         WHERE TicketID = ? AND Status = 'pending' AND UserID <> ?
-           AND BookingDate > DATE_SUB(NOW(), INTERVAL 4 MINUTE)"
-    );
-    $stmt->execute([$ticket_id, $exclude_user_id]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['held' => 0, 'oldest' => null];
-    $held = (int) $row['held'];
-    $seconds_left = 0;
-    if ($held > 0 && !empty($row['oldest'])) {
-        $seconds_left = max(0, strtotime((string) $row['oldest']) + 240 - time());
-    }
-    return ['held' => $held, 'seconds_left' => $seconds_left];
-}
-
-function eventnest_waitlist_join(PDO $pdo, int $user_id, int $ticket_id, int $quantity): void
-{
-    try {
-        $stmt = $pdo->prepare(
-            'INSERT INTO TICKET_WAITLIST (UserID, TicketID, Quantity) VALUES (?, ?, ?)
-             ON DUPLICATE KEY UPDATE Quantity = VALUES(Quantity), NotifiedAt = NULL'
-        );
-        $stmt->execute([$user_id, $ticket_id, max(1, $quantity)]);
-    } catch (Throwable $exception) {
-        error_log('EventNest waitlist join failed: ' . get_class($exception));
-    }
-}
-
-function eventnest_waitlist_leave(PDO $pdo, int $user_id, int $ticket_id): void
-{
-    try {
-        $pdo->prepare('DELETE FROM TICKET_WAITLIST WHERE UserID = ? AND TicketID = ?')->execute([$user_id, $ticket_id]);
-    } catch (Throwable $exception) {
-        error_log('EventNest waitlist leave failed: ' . get_class($exception));
-    }
-}
-
-/** Call after tickets are restored. Notifies waiting attendees, first come first served. */
-function eventnest_waitlist_release(PDO $pdo, int $ticket_id): void
-{
-    try {
-        $stmt = $pdo->prepare('SELECT QuantityAvailable FROM TICKETS WHERE TicketID = ?');
-        $stmt->execute([$ticket_id]);
-        $remaining = (int) $stmt->fetchColumn();
-        if ($remaining <= 0) { return; }
-
-        $stmt = $pdo->prepare(
-            'SELECT w.WaitlistID, w.Quantity, u.Email, e.EventID, e.EventName, t.TicketType
-             FROM TICKET_WAITLIST w
-             INNER JOIN USERS u ON u.UserID = w.UserID AND u.UserStatus = \'active\'
-             INNER JOIN TICKETS t ON t.TicketID = w.TicketID
-             INNER JOIN EVENTS e ON e.EventID = t.EventID
-             WHERE w.TicketID = ? AND w.NotifiedAt IS NULL
-             ORDER BY w.CreatedAt, w.WaitlistID'
-        );
-        $stmt->execute([$ticket_id]);
-        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-            $wanted = (int) $row['Quantity'];
-            if ($wanted > $remaining) { continue; }
-            $pdo->prepare('UPDATE TICKET_WAITLIST SET NotifiedAt = NOW() WHERE WaitlistID = ?')->execute([(int) $row['WaitlistID']]);
-            $remaining -= $wanted;
-            eventnest_send_mail(
-                (string) $row['Email'],
-                'Tickets available: ' . $row['EventName'],
-                "Good news - " . $row['TicketType'] . " tickets for " . $row['EventName'] . " are available again.\n"
-                . "Book now before they are taken: " . eventnest_absolute_url('booking.php?event_id=' . (int) $row['EventID'] . '&ticket_id=' . $ticket_id)
-            );
-        }
-    } catch (Throwable $exception) {
-        error_log('EventNest waitlist release failed: ' . get_class($exception));
-    }
-}
-
 // Booking locks are shared with callbacks. Only the first pending transition restores stock.
 function eventnest_expire_pending(PDO $pdo, ?int $user_id = null): int
 {
@@ -948,6 +866,70 @@ if (!function_exists('eventnest_safe_media_path')) {
         }
 
         return $path;
+    }
+}
+
+if (!function_exists('eventnest_save_image_upload')) {
+    /**
+     * Validate and store one optional image upload (jpg, png, webp; max 5 MB).
+     * Returns null when no file was chosen, otherwise ['relative'=>..., 'absolute'=>...].
+     * Throws DomainException with a user-friendly message on any problem.
+     */
+    function eventnest_save_image_upload(?array $file, string $subdirectory, string $prefix): ?array
+    {
+        if ($file === null || ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+            return null;
+        }
+        $error = $file['error'] ?? null;
+        if ($error === UPLOAD_ERR_INI_SIZE || $error === UPLOAD_ERR_FORM_SIZE) {
+            throw new DomainException('The image is too large. Choose an image up to 5 MB.');
+        }
+        if ($error !== UPLOAD_ERR_OK || !is_string($file['tmp_name'] ?? null) || !is_string($file['name'] ?? null)
+            || !is_int($file['size'] ?? null) || !is_uploaded_file($file['tmp_name'])) {
+            throw new DomainException('The uploaded image is invalid. Please try again.');
+        }
+        if (!class_exists('finfo')) {
+            throw new DomainException('Image uploads require the server Fileinfo extension. Contact support.');
+        }
+        $max = 5 * 1024 * 1024;
+        $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
+        $allowed = ['image/jpeg' => ['jpg', 'jpeg'], 'image/png' => ['png'], 'image/webp' => ['webp']];
+        $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if (!isset($allowed[$mime]) || !in_array($extension, $allowed[$mime], true)) {
+            throw new DomainException('Choose a JPG, PNG or WebP image with a matching file extension.');
+        }
+        if ($file['size'] < 1 || $file['size'] > $max || filesize($file['tmp_name']) > $max
+            || @getimagesize($file['tmp_name']) === false) {
+            throw new DomainException('The image is empty, invalid or larger than 5 MB.');
+        }
+        $target = eventnest_build_upload_path($subdirectory, eventnest_generate_upload_filename($prefix, $mime));
+        $dir = dirname($target['absolute']);
+        if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+            throw new DomainException('Image storage is unavailable.');
+        }
+        if (!is_writable($dir) || !move_uploaded_file($file['tmp_name'], $target['absolute'])) {
+            throw new DomainException('Image storage is unavailable.');
+        }
+        return $target;
+    }
+}
+
+if (!function_exists('eventnest_delete_upload')) {
+    function eventnest_delete_upload(?string $database_path): void
+    {
+        $safe = eventnest_safe_media_path($database_path, 'image');
+        if ($safe !== null) {
+            @unlink(eventnest_project_root() . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $safe));
+        }
+    }
+}
+
+if (!function_exists('eventnest_image_url')) {
+    /** Public URL for a stored image, or the EventNest logo when none exists. */
+    function eventnest_image_url(?string $database_path): string
+    {
+        $safe = $database_path ? eventnest_safe_media_path($database_path, 'image') : null;
+        return eventnest_url($safe ?? 'images/eventnest-logo.png');
     }
 }
 

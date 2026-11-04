@@ -190,7 +190,7 @@ if ($current_user_id > 0 && $current_role === 'attendee') {
 }
 
 $hero_stmt = $pdo->query(
-    "SELECT e.EventID, e.EventName, e.EventDate, e.Format, e.Venue, e.Province,
+    "SELECT e.EventID, e.EventName, e.EventDate, e.Format, e.Venue, e.Province, e.ImagePath,
             e.Hashtags, e.OrganiserID, e.CategoryID, c.CategoryName,
             u.FirstName, u.LastName,
             (SELECT MIN(t.Price) FROM TICKETS t WHERE t.EventID = e.EventID AND t.QuantityAvailable > 0) AS MinimumPrice
@@ -209,7 +209,7 @@ $hero_stmt = $pdo->query(
 $hero_event = $hero_stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 
 $featured_sql =
-    "SELECT e.EventID, e.EventName, e.EventDate, e.Format, e.Venue, e.Province,
+    "SELECT e.EventID, e.EventName, e.EventDate, e.Format, e.Venue, e.Province, e.ImagePath,
             e.Hashtags, e.OrganiserID, e.CategoryID, c.CategoryName,
             u.FirstName, u.LastName, e.IsFeatured,
             (SELECT MIN(t.Price) FROM TICKETS t WHERE t.EventID = e.EventID AND t.QuantityAvailable > 0) AS MinimumPrice
@@ -298,7 +298,7 @@ if ($attendee) {
     }
 
     $explore_stmt = $pdo->prepare(
-        "SELECT e.EventID, e.EventName, e.EventDate, e.Format, e.Venue, e.Province,
+        "SELECT e.EventID, e.EventName, e.EventDate, e.Format, e.Venue, e.Province, e.ImagePath,
                 e.OrganiserID, c.CategoryName,
                 (SELECT MIN(t.Price) FROM TICKETS t WHERE t.EventID = e.EventID AND t.QuantityAvailable > 0) AS MinimumPrice
          FROM EVENTS e
@@ -349,7 +349,7 @@ require_once __DIR__ . '/shared-components/header.php';
 
         <?php if ($hero_event): ?>
             <article class="hero-event">
-                <img class="hero-event__image" src="<?= escape_html(eventnest_url('images/eventnest-logo.png')) ?>" alt="EventNest" width="1600" height="900">
+                <img class="hero-event__image" src="<?= escape_html(eventnest_image_url($hero_event['ImagePath'] ?? null)) ?>" alt="<?= escape_html($hero_event['EventName']) ?>" width="1600" height="900">
                 <div>
                     <p class="eyebrow">Featured event</p>
                     <h2><?= escape_html($hero_event['EventName']) ?></h2>
@@ -389,7 +389,7 @@ require_once __DIR__ . '/shared-components/header.php';
                 <div class="event-grid">
                     <?php foreach ($recommendation_events as $event): ?>
                         <article class="event-card">
-                            <img class="event-card__image" src="<?= escape_html(eventnest_url('images/eventnest-logo.png')) ?>" alt="EventNest" width="1600" height="900" loading="lazy">
+                            <img class="event-card__image" src="<?= escape_html(eventnest_image_url($event['ImagePath'] ?? null)) ?>" alt="<?= escape_html($event['EventName'] ?? 'EventNest') ?>" width="1600" height="900" loading="lazy">
                             <div class="event-card__content">
                                 <h3><?= escape_html($event['EventName']) ?></h3>
                                 <p><?= escape_html(eventnest_event_location($event)) ?></p>
@@ -413,7 +413,7 @@ require_once __DIR__ . '/shared-components/header.php';
                 <div class="event-grid">
                     <?php foreach ($explore_events as $event): ?>
                         <article class="event-card">
-                            <img class="event-card__image" src="<?= escape_html(eventnest_url('images/eventnest-logo.png')) ?>" alt="EventNest" width="1600" height="900" loading="lazy">
+                            <img class="event-card__image" src="<?= escape_html(eventnest_image_url($event['ImagePath'] ?? null)) ?>" alt="<?= escape_html($event['EventName'] ?? 'EventNest') ?>" width="1600" height="900" loading="lazy">
                             <div class="event-card__content">
                                 <h3><?= escape_html($event['EventName']) ?></h3>
                                 <p><?= escape_html(eventnest_event_location($event)) ?></p>
@@ -441,7 +441,7 @@ require_once __DIR__ . '/shared-components/header.php';
             <div class="event-grid">
                 <?php foreach ($featured_events as $event): ?>
                     <article class="event-card">
-                        <img class="event-card__image" src="<?= escape_html(eventnest_url('images/eventnest-logo.png')) ?>" alt="EventNest" width="1600" height="900" loading="lazy">
+                        <img class="event-card__image" src="<?= escape_html(eventnest_image_url($event['ImagePath'] ?? null)) ?>" alt="<?= escape_html($event['EventName'] ?? 'EventNest') ?>" width="1600" height="900" loading="lazy">
                         <div class="event-card__content">
                             <h3><?= escape_html($event['EventName']) ?></h3>
                                 <p><?= escape_html(eventnest_event_location($event)) ?></p>

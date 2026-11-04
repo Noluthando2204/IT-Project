@@ -434,7 +434,7 @@ use events-and-posts hashtag page.
             e.Description,
             e.EventDate,
             e.Venue,
-            e.Province,
+            e.Province, e.ImagePath,
             e.Format,
             e.Hashtags,
             e.OrganiserID,
@@ -811,7 +811,7 @@ require_once __DIR__ . '/shared-components/header.php';
                 <div class="event-grid">
                     <?php foreach ($events as $event): ?>
                         <article class="event-card">
-                            <img class="event-card__image" src="<?= escape_html(eventnest_url('images/eventnest-logo.png')) ?>" alt="EventNest" width="1600" height="900" loading="lazy">
+                            <img class="event-card__image" src="<?= escape_html(eventnest_image_url($event['ImagePath'] ?? null)) ?>" alt="<?= escape_html($event['EventName'] ?? 'EventNest') ?>" width="1600" height="900" loading="lazy">
                             <div class="event-card__content">
                                 <h3>
                                     <?= search_escape((string) $event['EventName']) ?>

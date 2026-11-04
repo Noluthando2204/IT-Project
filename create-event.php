@@ -10,6 +10,7 @@ $category_ids = array_map('intval',array_column($categories,'CategoryID'));
 $event = [];
 $tickets = [];
 $message = '';
+$saved_image = null;
 if ($editing) {
     $stmt = $pdo->prepare('SELECT * FROM EVENTS WHERE EventID = ? AND OrganiserID = ?');
     $stmt->execute([$event_id,$user['UserID']]);
@@ -68,6 +69,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$valid_rows) {
             throw new DomainException('Enable at least one ticket tier.');
         }
+        // Optional banner image (JPG/PNG/WebP, up to 5 MB). Stored under uploaded-content/event-banners.
+        $new_image = eventnest_save_image_upload(is_array($_FILES['event_image'] ?? null) ? $_FILES['event_image'] : null,'event-banners','event');
+        $saved_image = $new_image['absolute'] ?? null;
+        $image_path = $new_image['relative'] ?? ($editing ? ($event['ImagePath'] ?? null) : null);
+        $remove_image = $editing && !$new_image && isset($_POST['remove_image']);
+        if ($remove_image) {
+            $image_path = null;
+        }
         $pdo->beginTransaction();
         if ($editing) {
             // Lock the event before its tickets, matching the booking creation order.
@@ -76,13 +85,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!in_array($lock->fetchColumn(),['draft','published'],true)) {
                 throw new DomainException('Event state changed. Reload before editing.');
             }
-            $stmt = $pdo->prepare('UPDATE EVENTS SET EventName=?,Description=?,Venue=?,EventDate=?,AgeRestriction=?,Format=?,Hashtags=?,CareerGoalType=?,AllowedCareerField=?,AllowedEmailDomain=?,Province=?,CategoryID=? WHERE EventID=? AND OrganiserID=?');
-            $stmt->execute([$name,$description,$venue,$date->format('Y-m-d H:i:s'),$age ?: null,$format,$tags,$gate,$allowed,$domain,$province ?: null,$category,$event_id,$user['UserID']]);
+            $stmt = $pdo->prepare('UPDATE EVENTS SET EventName=?,Description=?,Venue=?,EventDate=?,AgeRestriction=?,Format=?,Hashtags=?,CareerGoalType=?,AllowedCareerField=?,AllowedEmailDomain=?,Province=?,CategoryID=?,ImagePath=? WHERE EventID=? AND OrganiserID=?');
+            $stmt->execute([$name,$description,$venue,$date->format('Y-m-d H:i:s'),$age ?: null,$format,$tags,$gate,$allowed,$domain,$province ?: null,$category,$image_path,$event_id,$user['UserID']]);
         }
         else {
             // Publication and featured status are administrator-controlled.
-            $stmt = $pdo->prepare("INSERT INTO EVENTS (OrganiserID,CategoryID,EventName,Description,Venue,EventDate,AgeRestriction,Format,Hashtags,CareerGoalType,AllowedCareerField,AllowedEmailDomain,Province,Status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'draft')");
-            $stmt->execute([$user['UserID'],$category,$name,$description,$venue,$date->format('Y-m-d H:i:s'),$age ?: null,$format,$tags,$gate,$allowed,$domain,$province ?: null]);
+            $stmt = $pdo->prepare("INSERT INTO EVENTS (OrganiserID,CategoryID,EventName,Description,Venue,EventDate,AgeRestriction,Format,Hashtags,CareerGoalType,AllowedCareerField,AllowedEmailDomain,Province,ImagePath,Status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,'draft')");
+            $stmt->execute([$user['UserID'],$category,$name,$description,$venue,$date->format('Y-m-d H:i:s'),$age ?: null,$format,$tags,$gate,$allowed,$domain,$province ?: null,$image_path]);
             $event_id = (int)$pdo->lastInsertId();
         }
         $stmt = $pdo->prepare('SELECT * FROM TICKETS WHERE EventID = ? FOR UPDATE');
@@ -119,12 +128,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$event_id,$type,$price,$capacity,$capacity,$text]);
         }
         $pdo->commit();
+        // Only discard the previous file once the new database row is safely committed.
+        if ($editing && !empty($event['ImagePath']) && $event['ImagePath'] !== $image_path) {
+            eventnest_delete_upload($event['ImagePath']);
+        }
         auth_set_flash('Event saved. New events await administrator publication.','success');
         auth_redirect('manage-events.php');
     }
     catch (Throwable $exception) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
+        }
+        if ($saved_image && is_file($saved_image)) {
+            @unlink($saved_image);
         }
         $message = $exception instanceof DomainException ? $exception->getMessage() : 'The event could not be saved. Please try again.';
         if (!$exception instanceof DomainException) {
@@ -140,7 +156,7 @@ require __DIR__ . '/shared-components/header.php';
 ?>
 <div class="dashboard-layout"><?php eventnest_sidebar('organiser'); ?><main class="dashboard-main"><h1><?= escape_html($page_title) ?></h1>
 <?php if ($message): ?><p role="alert" class="alert alert-danger"><?= escape_html($message) ?></p><?php endif; ?>
-<form class="content-card" method="post" data-validate="true"><?php eventnest_csrf_field(); ?>
+<form class="content-card" method="post" enctype="multipart/form-data" data-validate="true"><?php eventnest_csrf_field(); ?>
 <?php if ($editing): ?><input type="hidden" name="event_id" value="<?= $event_id ?>"><?php endif; ?>
 <h2>Event details</h2><div class="form-grid">
 <?php foreach (['event_name'=>['Event title','EventName',100],'venue'=>['Public venue / town or suburb','Venue',150],'age_restriction'=>['Age restriction','AgeRestriction',10],'hashtags'=>['Hashtags','Hashtags',255]] as $field=>[$label,$column,$max]): ?>
@@ -150,6 +166,7 @@ require __DIR__ . '/shared-components/header.php';
 <div class="field"><label for="event_date">Date and time</label><input id="event_date" name="event_date" type="datetime-local" required value="<?= escape_html($_POST['event_date'] ?? (!empty($event['EventDate'])?date('Y-m-d\TH:i',strtotime($event['EventDate'])):'')) ?>"></div>
 <div class="field"><label for="category_id">Career field</label><select id="category_id" name="category_id" required><option value="">Choose category</option><?php foreach ($categories as $c): ?><option value="<?= (int)$c['CategoryID'] ?>" <?= event_form_value('category_id','CategoryID',$event)==$c['CategoryID']?'selected':'' ?>><?= escape_html($c['CategoryName']) ?></option><?php endforeach; ?></select></div>
 <div class="field"><label for="format">Format</label><select id="format" name="format"><?php foreach (['online','physical','hybrid'] as $v): ?><option value="<?= $v ?>" <?= event_form_value('format','Format',$event)===$v?'selected':'' ?>><?= ucfirst($v) ?></option><?php endforeach; ?></select></div>
+<div class="field full"><label for="event_image">Event image (optional)</label><?php if (!empty($event['ImagePath'])): ?><img class="event-card__image" style="max-width:320px" src="<?= escape_html(eventnest_image_url($event['ImagePath'])) ?>" alt="Current event image"><label><input type="checkbox" name="remove_image" value="1"> Remove current image</label><?php endif; ?><input id="event_image" type="file" name="event_image" accept=".jpg,.jpeg,.png,.webp" data-media-preview><small>JPG, PNG or WebP, up to 5 MB. Uploading a new image replaces the current one.</small><div data-upload-preview></div></div>
 <div class="field full"><label for="description">Description</label><textarea id="description" name="description" maxlength="15000"><?= escape_html(event_form_value('description','Description',$event)) ?></textarea></div>
 <div class="field"><label for="career_gate_type">Career gate</label><select id="career_gate_type" name="career_gate_type"><?php foreach (['none','field','email_domain'] as $v): ?><option value="<?= $v ?>" <?= event_form_value('career_gate_type','CareerGoalType',$event)===$v?'selected':'' ?>><?= escape_html(ucfirst(str_replace('_',' ',$v))) ?></option><?php endforeach; ?></select></div>
 <div class="field" data-gate-field><label for="allowed_career_field">Permitted category</label><select id="allowed_career_field" name="allowed_career_field"><option value="">Choose category</option><?php foreach ($categories as $c): ?><option value="<?= (int)$c['CategoryID'] ?>" <?= event_form_value('allowed_career_field','AllowedCareerField',$event)==$c['CategoryID']?'selected':'' ?>><?= escape_html($c['CategoryName']) ?></option><?php endforeach; ?></select></div>
