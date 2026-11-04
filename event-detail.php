@@ -192,6 +192,14 @@ require_once __DIR__ . '/shared-components/header.php';
                 · <a href="report-event.php?event_id=<?= $event_id ?>">Report this event</a>
             </p>
 
+            <?php
+            try { $event_share_url = eventnest_absolute_url('event-detail.php?event_id=' . $event_id); }
+            catch (DomainException $exception) { $event_share_url = eventnest_url('event-detail.php?event_id=' . $event_id); }
+            $event_mailto = 'mailto:?subject=' . rawurlencode('Check out this event on EventNest: ' . $event['EventName'])
+                . '&body=' . rawurlencode("I thought you might be interested in this event:\n\n" . $event['EventName'] . "\n" . format_datetime($event['EventDate']) . "\n" . $event_share_url);
+            ?>
+            <?php if ($event['Status'] !== 'draft'): ?><p><a class="btn btn-outline" href="<?= escape_html($event_mailto) ?>">Share by email</a></p><?php endif; ?>
+
             <?php $tags = event_detail_tags($event['Hashtags']); ?>
             <?php if ($tags): ?>
                 <div class="event-tags" aria-label="Event hashtags">

@@ -1253,6 +1253,60 @@ function eventnest_read_password_reset_token(string $token): ?array
     ];
 }
 
+// ---- Account email change (verified by a link sent to the NEW address) ----------
+function eventnest_create_email_change_token(int $user_id, string $old_email, string $new_email): ?string
+{
+    $secret = eventnest_password_reset_secret();
+    $old_email = strtolower(trim($old_email));
+    $new_email = strtolower(trim($new_email));
+    if ($secret === '' || $user_id <= 0 || !filter_var($old_email, FILTER_VALIDATE_EMAIL) || !filter_var($new_email, FILTER_VALIDATE_EMAIL)) {
+        return null;
+    }
+    $json = json_encode([
+        'v' => 1, 'purpose' => 'email-change', 'nonce' => bin2hex(random_bytes(16)),
+        'uid' => $user_id, 'old' => $old_email, 'new' => $new_email, 'exp' => time() + 3600,
+    ], JSON_UNESCAPED_SLASHES);
+    if (!is_string($json)) { return null; }
+    $encoded = eventnest_base64url_encode($json);
+    // The purpose prefix stops a password-reset token from ever validating here (and vice versa).
+    return $encoded . '.' . eventnest_base64url_encode(hash_hmac('sha256', 'email-change|' . $encoded, $secret, true));
+}
+
+function eventnest_read_email_change_token(string $token): ?array
+{
+    $secret = eventnest_password_reset_secret();
+    if ($secret === '' || strlen($token) > 2048 || substr_count($token, '.') !== 1) { return null; }
+    [$encoded, $signature_text] = explode('.', $token, 2);
+    $signature = eventnest_base64url_decode($signature_text);
+    $json = eventnest_base64url_decode($encoded);
+    if ($signature === null || $json === null
+        || !hash_equals(hash_hmac('sha256', 'email-change|' . $encoded, $secret, true), $signature)) { return null; }
+    $payload = json_decode($json, true);
+    if (!is_array($payload) || ($payload['v'] ?? null) !== 1 || ($payload['purpose'] ?? null) !== 'email-change') { return null; }
+    $user_id = (int) ($payload['uid'] ?? 0);
+    $old = strtolower(trim((string) ($payload['old'] ?? '')));
+    $new = strtolower(trim((string) ($payload['new'] ?? '')));
+    $expires = (int) ($payload['exp'] ?? 0);
+    if ($user_id <= 0 || !filter_var($old, FILTER_VALIDATE_EMAIL) || !filter_var($new, FILTER_VALIDATE_EMAIL)
+        || $expires <= time() || $expires > time() + 3600) { return null; }
+    return ['user_id' => $user_id, 'old_email' => $old, 'new_email' => $new, 'expires' => $expires];
+}
+
+function eventnest_send_email_change_verification(string $to, string $confirm_url): bool
+{
+    $body = "Confirm your new EventNest email address\n\nWe received a request to change the email address on an EventNest account to this address.\n"
+        . "Confirm the change: " . $confirm_url . "\n\nThis link expires in 60 minutes.\n"
+        . "If you did not request this, ignore this email. The account email will stay unchanged.\n\nThe EventNest Team";
+    $url = escape_html($confirm_url);
+    $html = '<!doctype html><html><body style="font-family:Arial,sans-serif;color:#172c45;line-height:1.6">'
+        . '<h1 style="font-size:22px">Confirm your new EventNest email address</h1>'
+        . '<p>We received a request to change the email address on an EventNest account to this address.</p>'
+        . '<p><a href="' . $url . '" style="display:inline-block;background:#ef7b32;color:#fff;padding:12px 22px;border-radius:6px;text-decoration:none;font-weight:bold">Confirm email change</a></p>'
+        . '<p>This link expires in <strong>60 minutes</strong>. If you did not request this, ignore this email and the account email will stay unchanged.</p>'
+        . '<p>The EventNest Team</p><p style="font-size:12px;overflow-wrap:anywhere">Button not working? <a href="' . $url . '">Open the confirmation link</a>.</p></body></html>';
+    return eventnest_send_mail($to, 'Confirm your new EventNest email address', $body, null, $html);
+}
+
 function eventnest_verify_payfast_notification(array $post): void
 {
     foreach ($post as $value) {
