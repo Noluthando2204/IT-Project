@@ -92,7 +92,7 @@ $upcoming_stmt = $pdo->prepare(
         e.EventName,
         e.EventDate,
         e.Format,
-        e.Province,
+        e.Province, e.ImagePath,
         e.Venue,
         e.Hashtags,
         (SELECT MIN(t.Price)
@@ -175,7 +175,7 @@ require_once __DIR__ . '/shared-components/header.php';
             <div class="event-grid">
                 <?php foreach ($upcoming_events as $event): ?>
                     <article class="event-card">
-                        <img class="event-card__image" src="<?= escape_html(eventnest_url('images/eventnest-logo.png')) ?>" alt="EventNest" width="1600" height="900" loading="lazy">
+                        <img class="event-card__image" src="<?= escape_html(eventnest_image_url($event['ImagePath'] ?? null)) ?>" alt="<?= escape_html($event['EventName'] ?? 'EventNest') ?>" width="1600" height="900" loading="lazy">
                         <div class="event-card__content">
                             <h3><?= escape_html($event['EventName']) ?></h3>
                             <p><?= escape_html(format_datetime($event['EventDate'])) ?></p>

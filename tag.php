@@ -263,7 +263,7 @@ try {
                 e.EventDate,
                 e.Format,
                 e.Venue,
-                e.Province,
+                e.Province, e.ImagePath,
                 e.Hashtags,
                 e.OrganiserID,
                 c.CategoryName,
@@ -516,7 +516,7 @@ require_once __DIR__ . '/shared-components/header.php';
                         );
                         ?>
                         <article class="event-card">
-                            <img class="event-card__image" src="<?= escape_html(eventnest_url('images/eventnest-logo.png')) ?>" alt="EventNest" width="1600" height="900" loading="lazy">
+                            <img class="event-card__image" src="<?= escape_html(eventnest_image_url($event['ImagePath'] ?? null)) ?>" alt="<?= escape_html($event['EventName'] ?? 'EventNest') ?>" width="1600" height="900" loading="lazy">
                             <div class="event-card__content">
                                 <p class="eyebrow"><?= escape_html((string) $event['CategoryName']) ?></p>
                                 <h3><?= escape_html((string) $event['EventName']) ?></h3>
