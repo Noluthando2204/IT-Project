@@ -37,3 +37,22 @@ try {
     http_response_code(503);
     exit('EventNest is temporarily unavailable.');
 }
+
+// Self-healing upgrade: add the image columns on first start if the database predates them.
+// Does nothing once the columns exist, and never stops the site if it is not allowed to alter tables.
+try {
+    $missing = $pdo->query(
+        "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE() AND COLUMN_NAME = 'ImagePath'
+            AND TABLE_NAME IN ('CATEGORIES', 'EVENTS')"
+    )->fetchAll(PDO::FETCH_COLUMN);
+    $have = array_map('strtoupper', $missing);
+    if (!in_array('CATEGORIES', $have, true)) {
+        $pdo->exec('ALTER TABLE CATEGORIES ADD COLUMN ImagePath VARCHAR(255) NULL AFTER Description');
+    }
+    if (!in_array('EVENTS', $have, true)) {
+        $pdo->exec('ALTER TABLE EVENTS ADD COLUMN ImagePath VARCHAR(255) NULL AFTER Province');
+    }
+} catch (Throwable $exception) {
+    error_log('EventNest image column upgrade skipped: ' . get_class($exception));
+}
