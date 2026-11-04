@@ -104,6 +104,52 @@ function eventnest_organisation_initials(string $name): string
     return $initials !== '' ? $initials : 'EN';
 }
 
+function eventnest_compact_count(int $count): string
+{
+    if ($count < 1000) { return (string) $count; }
+    return rtrim(rtrim(number_format($count / 1000, 1, '.', ''), '0'), '.') . 'k';
+}
+
+function eventnest_demo_insufficient_funds(PDO $pdo, array $user, float $amount): bool
+{
+    // Production gateway enforcement is unchanged. Only the explicitly seeded Neo
+    // fixture has this presentation guard; balances are never payment authorisation.
+    if ((getenv('PAYFAST_MODE') ?: 'sandbox') !== 'sandbox' || $amount <= 0) { return false; }
+    if (($user['Email'] ?? '') !== 'neo.lowbalance@example.com' || !isset($user['SandboxBalance'])) { return false; }
+    $stmt=$pdo->prepare("SELECT EntityID FROM DEMO_FIXTURES WHERE FixtureKey='neo-balance' AND EntityID=?");
+    $stmt->execute([$user['UserID']]);
+    return (bool) $stmt->fetchColumn() && $amount > (float) $user['SandboxBalance'];
+}
+
+// A request-local cache also supports cards whose query selects only organiser IDs.
+function eventnest_organiser_avatar(array $organiser, int $size = 56): string
+{
+    static $profiles = null;
+    if ($profiles === null) {
+        $profiles = eventnest_db()->query("SELECT UserID,OrganisationName,FirstName,LastName,ProfileImagePath FROM USERS WHERE Role='organiser'")->fetchAll(PDO::FETCH_UNIQUE | PDO::FETCH_ASSOC);
+    }
+    $profile = $profiles[(int) ($organiser['OrganiserID'] ?? $organiser['UserID'] ?? 0)] ?? $organiser;
+    $name = eventnest_organiser_display_name($profile);
+    $path = eventnest_safe_media_path($profile['ProfileImagePath'] ?? null, 'image');
+    $initials = escape_html(eventnest_organisation_initials($name));
+    $image = $path ? '<img src="' . escape_html(eventnest_url($path)) . '" alt="' . escape_html($name . ' company logo') . '" width="' . $size . '" height="' . $size . '" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false">' : '';
+    return '<span class="company-avatar" style="--avatar-size:' . $size . 'px">' . $image . '<span' . ($path ? ' hidden' : '') . '>' . $initials . '</span></span>';
+}
+
+function eventnest_save_company_logo(?array $file): ?array
+{
+    if ($file !== null && ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+        if (($file['size'] ?? 0) > 2 * 1024 * 1024 || in_array($file['error'] ?? null, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
+            throw new DomainException('Choose a company logo up to 2 MB.');
+        }
+        $dimensions = @getimagesize($file['tmp_name'] ?? '');
+        if (!$dimensions || $dimensions[0] < 16 || $dimensions[1] < 16 || $dimensions[0] > 4096 || $dimensions[1] > 4096) {
+            throw new DomainException('Choose a valid logo between 16 and 4096 pixels on each side.');
+        }
+    }
+    return eventnest_save_image_upload($file, 'profile-pictures', 'company');
+}
+
 function eventnest_provinces(): array
 {
     return ['Eastern Cape', 'Free State', 'Gauteng', 'KwaZulu-Natal', 'Limpopo',

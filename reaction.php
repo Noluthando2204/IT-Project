@@ -31,9 +31,9 @@ $pdo = eventnest_db();
 try {
     $pdo->beginTransaction();
     $stmt = $pdo->prepare("SELECT p.PostID FROM POSTS p
-        INNER JOIN EVENTS e ON e.EventID = p.EventID AND e.OrganiserID = p.OrganiserID
+        LEFT JOIN EVENTS e ON e.EventID = p.EventID AND e.OrganiserID = p.OrganiserID
         INNER JOIN USERS u ON u.UserID = p.OrganiserID
-        WHERE p.PostID = ? AND e.Status IN ('published', 'completed')
+        WHERE p.PostID = ? AND (p.EventID IS NULL OR e.Status IN ('published', 'completed'))
         AND u.Role = 'organiser' AND u.UserStatus = 'active' AND u.VerificationStatus = 'verified'
         AND NOT EXISTS (SELECT 1 FROM BLOCKS b WHERE b.OrganiserID = p.OrganiserID AND LOWER(b.BlockedEmail) = LOWER(?))
         FOR UPDATE");

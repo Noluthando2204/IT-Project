@@ -9,6 +9,7 @@ $organiser_intent = ($_POST['account_type'] ?? $_GET['account_type'] ?? '') === 
 $page_title = $organiser_intent ? 'Create organiser account' : 'Create account';
 $message = '';
 $account_exists = false;
+$logo = null;
 $organisation_name = '';
 $email = '';
 $categories = $pdo->query('SELECT CategoryName FROM CATEGORIES ORDER BY CategoryName')->fetchAll(PDO::FETCH_COLUMN);
@@ -60,12 +61,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         Organisers still start with pending verification and cannot create approved public events immediately.
 
         */
+        $logo = $organiser_intent ? eventnest_save_company_logo($_FILES['company_logo'] ?? null) : null;
         $stmt = $pdo->prepare(
             "INSERT INTO USERS
                 (FirstName, LastName, Email, PasswordHash, Phone, CareerField, Role, UserStatus,
-                 VerificationStatus, RecommendationOptIn, LastLoginAt, OrganisationName)
+                 VerificationStatus, RecommendationOptIn, LastLoginAt, OrganisationName, ProfileImagePath)
              VALUES
-                (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, CURRENT_TIMESTAMP, ?)"
+                (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, CURRENT_TIMESTAMP, ?, ?)"
         );
         $stmt->execute([
             $first_name,
@@ -78,6 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $organiser_intent ? 'pending' : 'unverified',
             !$organiser_intent && ($_POST['recommendation_opt_in'] ?? '') === '1' ? 1 : 0,
             $organiser_intent ? $organisation_name : null,
+            $logo['relative'] ?? null,
         ]);
 
         $role = $organiser_intent ? 'organiser' : 'attendee';
@@ -99,6 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (DomainException $exception) {
         $message = $exception->getMessage();
     } catch (PDOException $exception) {
+        if ($logo) { @unlink($logo['absolute']); }
         $driver_code = (int) ($exception->errorInfo[1] ?? 0);
         if ($exception->getCode() === '23000' && $driver_code === 1062) {
             $message = 'An account with that email is already registered.';
@@ -132,13 +136,14 @@ require __DIR__ . '/shared-components/header.php';
             </div>
         <?php endif; ?>
 
-        <form method="post" action="<?= escape_html(eventnest_url('register.php')) ?>" data-validate="true">
+        <form enctype="multipart/form-data" method="post" action="<?= escape_html(eventnest_url('register.php')) ?>" data-validate="true">
             <?php eventnest_csrf_field(); ?>
             <input type="hidden" name="account_type" value="<?= $organiser_intent ? 'organiser' : 'attendee' ?>">
 
             <div class="form-grid">
                 <?php if ($organiser_intent): ?>
                     <div class="field full">
+                        <label for="company_logo">Upload company logo (optional)</label><input id="company_logo" name="company_logo" type="file" accept="image/png,image/jpeg,image/webp" data-logo-input><small>PNG, JPG or WebP; up to 2 MB, 16 to 4096 pixels per side. Transparent PNG supported.</small><div data-logo-preview></div>
                         <label for="organisation_name">Business / organisation name</label>
                         <input id="organisation_name" name="organisation_name" type="text" maxlength="150" value="<?= escape_html($organisation_name) ?>" required>
                     </div>
@@ -194,4 +199,5 @@ require __DIR__ . '/shared-components/header.php';
     </aside>
 </main>
 <script src="<?= escape_html(eventnest_url('scripts/validation.js')) ?>" defer></script>
+<script src="scripts/company-logo.js" defer></script>
 <?php require __DIR__ . '/shared-components/footer.php'; ?>

@@ -205,7 +205,8 @@ function auth_current_user(): ?array
                 VerificationFeePaidAt,
                 VerificationFeePaidUntil,
                 VerificationFeePaymentStatus,
-                VerificationFeeGatewayReference
+                VerificationFeeGatewayReference,
+                OrganisationName, ProfileImagePath, SandboxBalance
             FROM USERS
             WHERE UserID = :user_id
             LIMIT 1

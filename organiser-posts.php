@@ -101,8 +101,8 @@ if (!$organiser) {
 
 $where = [
     'p.OrganiserID = :organiser_id',
-    'e.OrganiserID = p.OrganiserID',
-    "e.Status IN ('published', 'completed')",
+    '(p.EventID IS NULL OR e.OrganiserID = p.OrganiserID)',
+    "(p.EventID IS NULL OR e.Status IN ('published', 'completed'))",
 ];
 
 if ($post_type === 'updates') {
@@ -123,7 +123,7 @@ try {
     $count_statement = $pdo->prepare(
         "SELECT COUNT(*)
          FROM POSTS p
-         INNER JOIN EVENTS e ON e.EventID = p.EventID
+         LEFT JOIN EVENTS e ON e.EventID = p.EventID
          WHERE {$where_sql}"
     );
     $count_statement->execute([
@@ -159,7 +159,7 @@ try {
              WHERE r3.PostID = p.PostID
                AND r3.ReactionType = 'lightbulb') AS LightbulbTotal
          FROM POSTS p
-         INNER JOIN EVENTS e ON e.EventID = p.EventID
+         LEFT JOIN EVENTS e ON e.EventID = p.EventID
          WHERE {$where_sql}
          ORDER BY p.PostDate DESC, p.PostID DESC
          LIMIT :limit OFFSET :offset"
@@ -194,7 +194,7 @@ require_once __DIR__ . '/shared-components/header.php';
 
 <main class="page-shell organiser-posts-page">
     <header class="page-header organiser-brand">
-        <div class="organisation-avatar" aria-hidden="true"><?= escape_html(eventnest_organisation_initials($organiser_name)) ?></div>
+        <?= eventnest_organiser_avatar($organiser, 120) ?>
         <div>
             <p class="eyebrow">Verified organiser</p>
             <h1>Posts and media by <?= escape_html($organiser_name) ?></h1>

@@ -135,11 +135,11 @@ $post_stmt = $pdo->prepare(
         (SELECT COUNT(*) FROM REACTIONS r2 WHERE r2.PostID = p.PostID AND r2.ReactionType = 'clap') AS ClapTotal,
         (SELECT COUNT(*) FROM REACTIONS r3 WHERE r3.PostID = p.PostID AND r3.ReactionType = 'lightbulb') AS LightbulbTotal
      FROM POSTS p
-     INNER JOIN EVENTS e
+     LEFT JOIN EVENTS e
         ON e.EventID = p.EventID
        AND e.OrganiserID = p.OrganiserID
      WHERE p.OrganiserID = :organiser_id
-       AND e.Status IN ('published','completed')
+       AND (p.EventID IS NULL OR e.Status IN ('published','completed'))
      ORDER BY p.PostDate DESC, p.PostID DESC
      LIMIT 4"
 );
@@ -155,12 +155,12 @@ require_once __DIR__ . '/shared-components/header.php';
 ?>
 <main class="page-content organiser-profile-page">
     <section class="page-heading organiser-brand">
-        <div class="organisation-avatar" aria-hidden="true"><?= escape_html(eventnest_organisation_initials($organiser_name)) ?></div>
+        <?= eventnest_organiser_avatar($organiser, 120) ?>
         <div>
             <p class="eyebrow">Verified organiser</p>
             <h1>Events by <?= escape_html($organiser_name) ?></h1>
             <p><span class="status status-success">Verified organiser</span></p>
-            <p>Published events, completed event history, and public event-linked posts.</p>
+            <p>Published events, completed event history, and public career posts.</p>
         </div>
     </section>
 
@@ -175,7 +175,7 @@ require_once __DIR__ . '/shared-components/header.php';
             <div class="event-grid">
                 <?php foreach ($upcoming_events as $event): ?>
                     <article class="event-card">
-                        <img class="event-card__image" src="<?= escape_html(eventnest_image_url($event['ImagePath'] ?? null)) ?>" alt="<?= escape_html($event['EventName'] ?? 'EventNest') ?>" width="1600" height="900" loading="lazy">
+                        <img class="event-card__image event-banner" src="<?= escape_html(eventnest_image_url($event['ImagePath'] ?? null)) ?>" alt="<?= escape_html($event['EventName'] ?? 'EventNest') ?>" width="1600" height="900" loading="lazy">
                         <div class="event-card__content">
                             <h3><?= escape_html($event['EventName']) ?></h3>
                             <p><?= escape_html(format_datetime($event['EventDate'])) ?></p>

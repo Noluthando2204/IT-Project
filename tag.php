@@ -182,8 +182,8 @@ if ($ticket_type !== '') {
 $event_where_sql = implode(' AND ', $event_where);
 
 $post_where = [
-    "e.Status IN ('published', 'completed')",
-    'e.OrganiserID = p.OrganiserID',
+    "(p.EventID IS NULL OR e.Status IN ('published', 'completed'))",
+    '(p.EventID IS NULL OR e.OrganiserID = p.OrganiserID)',
     "COALESCE(p.Hashtags, '') REGEXP :post_tag_regex",
     "u.Role = 'organiser'",
     "u.VerificationStatus = 'verified'",
@@ -226,7 +226,7 @@ try {
     $post_count_statement = $pdo->prepare(
         "SELECT COUNT(*)
          FROM POSTS p
-         INNER JOIN EVENTS e ON e.EventID = p.EventID
+         LEFT JOIN EVENTS e ON e.EventID = p.EventID
          INNER JOIN USERS u ON u.UserID = p.OrganiserID
          WHERE {$post_where_sql}"
     );
@@ -321,7 +321,7 @@ try {
                  WHERE r3.PostID = p.PostID
                    AND r3.ReactionType = 'lightbulb') AS LightbulbTotal
              FROM POSTS p
-             INNER JOIN EVENTS e ON e.EventID = p.EventID
+             LEFT JOIN EVENTS e ON e.EventID = p.EventID
              INNER JOIN USERS u ON u.UserID = p.OrganiserID
              WHERE {$post_where_sql}
              ORDER BY p.PostDate DESC, p.PostID DESC
@@ -516,7 +516,7 @@ require_once __DIR__ . '/shared-components/header.php';
                         );
                         ?>
                         <article class="event-card">
-                            <img class="event-card__image" src="<?= escape_html(eventnest_image_url($event['ImagePath'] ?? null)) ?>" alt="<?= escape_html($event['EventName'] ?? 'EventNest') ?>" width="1600" height="900" loading="lazy">
+                            <img class="event-card__image event-banner" src="<?= escape_html(eventnest_image_url($event['ImagePath'] ?? null)) ?>" alt="<?= escape_html($event['EventName'] ?? 'EventNest') ?>" width="1600" height="900" loading="lazy">
                             <div class="event-card__content">
                                 <p class="eyebrow"><?= escape_html((string) $event['CategoryName']) ?></p>
                                 <h3><?= escape_html((string) $event['EventName']) ?></h3>

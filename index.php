@@ -236,8 +236,8 @@ $hashtag_counts = [];
 $tag_stmt = $pdo->query(
     "SELECT Hashtags FROM EVENTS WHERE Status = 'published' AND Hashtags IS NOT NULL AND Hashtags <> ''
      UNION ALL
-     SELECT p.Hashtags FROM POSTS p INNER JOIN EVENTS e ON e.EventID = p.EventID
-     WHERE e.Status IN ('published','completed') AND p.Hashtags IS NOT NULL AND p.Hashtags <> ''
+     SELECT p.Hashtags FROM POSTS p LEFT JOIN EVENTS e ON e.EventID = p.EventID AND e.OrganiserID=p.OrganiserID
+     WHERE (p.EventID IS NULL OR e.Status IN ('published','completed')) AND p.Hashtags IS NOT NULL AND p.Hashtags <> ''
      LIMIT 300"
 );
 foreach ($tag_stmt->fetchAll(PDO::FETCH_COLUMN) as $tag_string) {
@@ -349,7 +349,7 @@ require_once __DIR__ . '/shared-components/header.php';
 
         <?php if ($hero_event): ?>
             <article class="hero-event">
-                <img class="hero-event__image" src="<?= escape_html(eventnest_image_url($hero_event['ImagePath'] ?? null)) ?>" alt="<?= escape_html($hero_event['EventName']) ?>" width="1600" height="900">
+                <img class="hero-event__image event-banner" src="<?= escape_html(eventnest_image_url($hero_event['ImagePath'] ?? null)) ?>" alt="<?= escape_html($hero_event['EventName']) ?>" width="1600" height="900">
                 <div>
                     <p class="eyebrow">Featured event</p>
                     <h2><?= escape_html($hero_event['EventName']) ?></h2>
@@ -389,7 +389,7 @@ require_once __DIR__ . '/shared-components/header.php';
                 <div class="event-grid">
                     <?php foreach ($recommendation_events as $event): ?>
                         <article class="event-card">
-                            <img class="event-card__image" src="<?= escape_html(eventnest_image_url($event['ImagePath'] ?? null)) ?>" alt="<?= escape_html($event['EventName'] ?? 'EventNest') ?>" width="1600" height="900" loading="lazy">
+                            <img class="event-card__image event-banner" src="<?= escape_html(eventnest_image_url($event['ImagePath'] ?? null)) ?>" alt="<?= escape_html($event['EventName'] ?? 'EventNest') ?>" width="1600" height="900" loading="lazy">
                             <div class="event-card__content">
                                 <h3><?= escape_html($event['EventName']) ?></h3>
                                 <p><?= escape_html(eventnest_event_location($event)) ?></p>
@@ -413,7 +413,7 @@ require_once __DIR__ . '/shared-components/header.php';
                 <div class="event-grid">
                     <?php foreach ($explore_events as $event): ?>
                         <article class="event-card">
-                            <img class="event-card__image" src="<?= escape_html(eventnest_image_url($event['ImagePath'] ?? null)) ?>" alt="<?= escape_html($event['EventName'] ?? 'EventNest') ?>" width="1600" height="900" loading="lazy">
+                            <img class="event-card__image event-banner" src="<?= escape_html(eventnest_image_url($event['ImagePath'] ?? null)) ?>" alt="<?= escape_html($event['EventName'] ?? 'EventNest') ?>" width="1600" height="900" loading="lazy">
                             <div class="event-card__content">
                                 <h3><?= escape_html($event['EventName']) ?></h3>
                                 <p><?= escape_html(eventnest_event_location($event)) ?></p>
@@ -441,7 +441,7 @@ require_once __DIR__ . '/shared-components/header.php';
             <div class="event-grid">
                 <?php foreach ($featured_events as $event): ?>
                     <article class="event-card">
-                        <img class="event-card__image" src="<?= escape_html(eventnest_image_url($event['ImagePath'] ?? null)) ?>" alt="<?= escape_html($event['EventName'] ?? 'EventNest') ?>" width="1600" height="900" loading="lazy">
+                        <img class="event-card__image event-banner" src="<?= escape_html(eventnest_image_url($event['ImagePath'] ?? null)) ?>" alt="<?= escape_html($event['EventName'] ?? 'EventNest') ?>" width="1600" height="900" loading="lazy">
                         <div class="event-card__content">
                             <h3><?= escape_html($event['EventName']) ?></h3>
                                 <p><?= escape_html(eventnest_event_location($event)) ?></p>
