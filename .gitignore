@@ -29,3 +29,19 @@ vendor/
 *.backup
 database-config/runtime/
 database-config/local.php
+
+# Private local verification artifacts and database backups
+.review/
+
+# Approved presentation branding; user uploads remain ignored.
+!uploaded-content/profile-pictures/
+uploaded-content/profile-pictures/*
+!uploaded-content/profile-pictures/cloudstep_careers_b.png
+!uploaded-content/profile-pictures/designforward_collective_b.png
+!uploaded-content/profile-pictures/finbridge_advisory_group_b.png
+!uploaded-content/profile-pictures/ubuntu_health_careers_network_b.png
+!uploaded-content/profile-pictures/mzansi_engineering_works_b.png
+!uploaded-content/profile-pictures/protrade_skills_institute_b.png
+!uploaded-content/profile-pictures/graduate_summit_b.png
+!uploaded-content/profile-pictures/futuretech_b.png
+!uploaded-content/profile-pictures/creative_lab_b.png

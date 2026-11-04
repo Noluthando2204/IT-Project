@@ -15,6 +15,7 @@ $nav_unread = ($nav_role && isset($_SESSION['user_id']) && $current_page !== 'no
             <a <?= $current_page === 'index.php' ? 'aria-current="page"' : '' ?> href="<?= e(app_url('index.php')) ?>">Home</a>
             <a <?= $current_page === 'events.php' ? 'aria-current="page"' : '' ?> href="<?= e(app_url('events.php')) ?>">Events</a>
             <a href="<?= e(app_url('career-fields.php')) ?>">Career Fields</a>
+            <a href="<?= e(app_url('organisers.php')) ?>">Organisers</a>
             <a href="<?= e(app_url('about.php')) ?>">About</a>
             <a href="<?= e(app_url('contact.php')) ?>">Contact</a>
             <a class="nav-login" href="<?= e(app_url('login.php')) ?>">Log in</a>
@@ -31,6 +32,7 @@ $nav_unread = ($nav_role && isset($_SESSION['user_id']) && $current_page !== 'no
             <?php if ($nav_role === 'attendee'): ?>
                 <a <?= $current_page === 'events.php' ? 'aria-current="page"' : '' ?> href="<?= e(app_url('events.php')) ?>">Events</a>
                 <a href="<?= e(app_url('career-fields.php')) ?>">Career Fields</a>
+            <a href="<?= e(app_url('organisers.php')) ?>">Organisers</a>
             <?php endif; ?>
 
             <a <?= $current_page === 'notifications.php' ? 'aria-current="page"' : '' ?> href="<?= e(app_url('notifications.php')) ?>">Notifications<?php if ($nav_unread > 0): ?><span class="nav-badge" aria-label="<?= (int) $nav_unread ?> unread"><?= $nav_unread > 9 ? '9+' : (int) $nav_unread ?></span><?php endif; ?></a>

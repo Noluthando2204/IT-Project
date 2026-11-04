@@ -135,8 +135,8 @@ function search_resolve_hashtag(PDO $pdo, string $query): ?string
 
              SELECT p.Hashtags AS Tags
              FROM POSTS p
-             INNER JOIN EVENTS e ON e.EventID = p.EventID
-             WHERE e.Status = 'published'
+             LEFT JOIN EVENTS e ON e.EventID = p.EventID AND e.OrganiserID=p.OrganiserID
+             WHERE (p.EventID IS NULL OR e.Status = 'published')
                AND p.Hashtags LIKE :post_term ESCAPE '\\\\'
          ) AS public_tags
          LIMIT 80"
@@ -811,7 +811,7 @@ require_once __DIR__ . '/shared-components/header.php';
                 <div class="event-grid">
                     <?php foreach ($events as $event): ?>
                         <article class="event-card">
-                            <img class="event-card__image" src="<?= escape_html(eventnest_image_url($event['ImagePath'] ?? null)) ?>" alt="<?= escape_html($event['EventName'] ?? 'EventNest') ?>" width="1600" height="900" loading="lazy">
+                            <img class="event-card__image event-banner" src="<?= escape_html(eventnest_image_url($event['ImagePath'] ?? null)) ?>" alt="<?= escape_html($event['EventName'] ?? 'EventNest') ?>" width="1600" height="900" loading="lazy">
                             <div class="event-card__content">
                                 <h3>
                                     <?= search_escape((string) $event['EventName']) ?>

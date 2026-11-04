@@ -15,7 +15,7 @@ $events=$stmt->fetchAll();
 $page_title='Organiser dashboard';
 require __DIR__.'/shared-components/header.php';
 ?>
-<div class="dashboard-layout"><?php eventnest_sidebar('organiser'); ?><main class="dashboard-main"><h1>Organiser overview</h1><p>Hi, <?= escape_html($user['FirstName']) ?>. Verification: <?= eventnest_status_badge($user['VerificationStatus']) ?></p>
+<div class="dashboard-layout"><?php eventnest_sidebar('organiser'); ?><main class="dashboard-main"><?= eventnest_organiser_avatar($user,120) ?><h1><?= escape_html(eventnest_organiser_display_name($user)) ?></h1><p>Hi, <?= escape_html($user['FirstName']) ?>. Verification: <?= eventnest_status_badge($user['VerificationStatus']) ?></p>
 <div class="stat-grid"><div class="stat-card"><span>Total events</span><strong><?= (int)$totals['Events'] ?></strong></div><div class="stat-card"><span>Published events</span><strong><?= (int)$totals['Published'] ?></strong></div><div class="stat-card"><span>Bookings</span><strong><?= (int)$booking_count ?></strong></div></div>
 <?php if($user['VerificationStatus']==='verified'): ?><p><a class="btn btn-orange" href="create-event.php">Create event</a></p><?php else: ?><p class="callout">Your account requires document approval before managing events. <a href="organiser-verification.php">View verification</a>.</p><?php endif; ?>
 <section class="content-card"><h2>Upcoming events</h2><?php foreach($events as $event): ?><p><?= escape_html($event['EventName']) ?> ? <?= escape_html(format_datetime($event['EventDate'])) ?> <?= eventnest_status_badge($event['Status']) ?></p><?php endforeach; ?><?php if(!$events): ?><p>No upcoming events.</p><?php endif; ?></section>

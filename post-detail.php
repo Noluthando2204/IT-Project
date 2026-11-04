@@ -47,7 +47,7 @@ try {
             u.LastName,
             u.OrganisationName
          FROM POSTS p
-         INNER JOIN EVENTS e
+         LEFT JOIN EVENTS e
             ON e.EventID = p.EventID
            AND e.OrganiserID = p.OrganiserID
          INNER JOIN USERS u
@@ -56,7 +56,7 @@ try {
            AND u.VerificationStatus = 'verified'
            AND u.UserStatus = 'active'
          WHERE p.PostID = :post_id
-           AND e.Status IN ('published', 'completed')
+           AND (p.EventID IS NULL OR e.Status IN ('published', 'completed'))
          LIMIT 1"
     );
     $post_statement->execute([
@@ -106,14 +106,14 @@ try {
 
 $post = array_merge($post, $reaction_totals);
 $post_viewer = eventnest_post_viewer($pdo, [$post]);
-$page_title = 'Post - ' . $post['EventName'];
+$page_title = 'Post - ' . ($post['EventName'] ?? 'General update');
 require_once __DIR__ . '/shared-components/header.php';
 ?>
 <main class="page-shell post-detail-page">
-    <h1 class="sr-only">Post for <?= e($post['EventName']) ?></h1>
+    <h1 class="sr-only">Post for <?= e(($post['EventName'] ?? 'General update')) ?></h1>
     <?php eventnest_render_post($post, $post_viewer, true); ?>
     <nav class="button-row" aria-label="Post navigation">
-        <a href="<?= e(eventnest_url('event-detail.php?event_id=' . (int) $post['EventID'])) ?>">View related event</a>
+        <?php if ($post['EventID'] !== null): ?><a href="<?= e(eventnest_url('event-detail.php?event_id=' . (int) $post['EventID'])) ?>">View related event</a><?php endif; ?>
         <a href="<?= e(eventnest_url('organiser-posts.php?organiser_id=' . (int) $post['OrganiserID'])) ?>">More organiser posts</a>
     </nav>
 </main>

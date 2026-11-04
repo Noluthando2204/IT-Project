@@ -260,7 +260,7 @@ small,.form-help,.field-hint { color:var(--muted); }
 .event-card__content { padding:16px; display:flex; flex-direction:column; align-items:flex-start; flex:1; }
 .event-card__content .btn { margin-top:auto; }
 .event-card__content p { margin:8px 0; font-size:.9rem; }
-img[src$="eventnest-logo.png"]:not(.brand img) { object-fit:contain; background:linear-gradient(135deg,var(--navy),var(--teal)); padding:20px; }
+img[src$="eventnest-logo.png"]:not(.brand img):not(.event-banner) { object-fit:contain; background:linear-gradient(135deg,var(--navy),var(--teal)); padding:20px; }
 .hero-empty { min-height:250px; display:grid; place-items:center; background:linear-gradient(135deg,var(--navy),var(--teal)); border-radius:10px; }
 .hero-empty img { width:180px; height:auto; }
 .tag-chip,.tag,.tag-list a,.event-tags a,.post-tags a { display:inline-block; padding:5px 12px; margin:4px; border-radius:20px; background:#E6F7F7; color:#087A80; font-size:.85rem; }
@@ -487,3 +487,17 @@ a.floating-timer:hover, a.floating-timer:focus { color: #fff; text-decoration: u
 .payment-pending-notice { margin-bottom: 20px; }
 .payment-pending-notice h2 { margin: 0 0 8px; font-size: 1.15rem; }
 .ticket-tier .status { margin-right: 6px; }
+/* Company artwork remains transparent and fully contained in a neutral circle. */
+.company-avatar { width:var(--avatar-size,56px); height:var(--avatar-size,56px); display:inline-flex; flex-shrink:0; align-items:center; justify-content:center; border-radius:50%; background:#edf2f6; border:1px solid #d8e1e9; box-shadow:0 2px 5px #10243a12; overflow:hidden; vertical-align:middle; }
+.company-avatar img { width:100%; height:100%; object-fit:contain; padding:8%; box-sizing:border-box; }
+.company-avatar [hidden] { display:none; }
+.company-logo-preview { object-fit:contain; border-radius:50%; background:#edf2f6; padding:10px; }
+.email-confirm-action { margin-top:1.25rem; }
+.social-post__header { flex-wrap:wrap; gap:.75rem; }
+.table-wrap { overflow-x:auto; }
+
+/* Event banners only: preserve the full artwork on a neutral card surface.
+   Fixed responsive frames keep card layouts steady; contain preserves image proportions. */
+img.event-banner { object-fit:contain; object-position:center; background:var(--white); }
+/* Horizontal listing cards need one results column, including tablet breakpoints. */
+.events-page .search-layout .event-grid { grid-template-columns:minmax(0,1fr); }

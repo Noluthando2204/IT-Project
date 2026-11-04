@@ -313,7 +313,7 @@ VALUES
     'Graduate Career Summit',
     'A career-development event connecting graduates with employers and professional speakers.',
     'Sandton Convention Centre',
-    '2026-11-07 10:00:00',
+    '2026-11-19 10:45:00',
     '18+',
     'published',
     'physical',
@@ -331,7 +331,7 @@ VALUES
     'Cloud Skills Workshop',
     'A practical professional-development workshop covering cloud careers and entry-level skills.',
     'Online',
-    '2026-11-14 10:00:00',
+    '2026-11-26 10:20:00',
     '18+',
     'published',
     'online',
@@ -349,7 +349,7 @@ VALUES
     'Creative Design Lab',
     'A design-focused career workshop for attendees interested in creative and digital design.',
     'Braamfontein Creative Hub',
-    '2026-11-21 11:00:00',
+    '2026-11-21 11:15:00',
     '18+',
     'published',
     'physical',
@@ -645,3 +645,8 @@ VALUES
 
 
 
+
+-- Optional presentation overlay (repeatable, preserves this useful small base seed):
+-- Apply database/migration_presentation.sql, then:
+-- php database/seed_presentation.php --apply
+-- php database/seed_presentation.php --reactions

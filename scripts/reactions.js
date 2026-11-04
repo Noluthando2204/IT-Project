@@ -31,7 +31,9 @@
                 : (currentReaction ? 'change' : 'add');
 
             if (count && Object.prototype.hasOwnProperty.call(totals, type)) {
-                count.textContent = String(totals[type]);
+                const total = Number(totals[type]);
+                count.textContent = total < 1000 ? String(total) : (total / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+                count.title = String(total) + ' reactions';
             }
         });
     };
