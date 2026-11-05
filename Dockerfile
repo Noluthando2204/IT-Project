@@ -45,12 +45,18 @@ RUN printf '<Directory /var/www/html>\nAllowOverride All\nRequire all granted\n<
 
 # TEMPORARY SIT DATABASE UPDATE
 #
-# On container startup:
-# 1. Apply the presentation/demo data
-# 2. Add the presentation reaction data
-# 3. Apply the final public-facing presentation wording
-# 4. Verify the resulting SIT database
-# 5. Start Apache normally
+# Start Apache first so Render detects an open web port.
+# Then update and verify the Aiven SIT database in the same container.
 #
-# Remove this CMD after the Aiven SIT database has been updated successfully.
-CMD ["/bin/sh", "-c", "php database/seed_presentation.php --apply && php database/seed_presentation.php --reactions && php database/update_presentation_copy.php && php database/verify_presentation.php && exec apache2-foreground"]
+# Sequence:
+# 1. Start Apache
+# 2. Apply presentation/demo data
+# 3. Add presentation reaction data
+# 4. Apply final public-facing presentation wording
+# 5. Verify the resulting SIT database
+# 6. Keep Apache running
+#
+# Remove this temporary CMD after the SIT database has been
+# successfully updated and verified.
+
+CMD ["/bin/sh", "-c", "apache2-foreground & APACHE_PID=$!; php database/seed_presentation.php --apply && php database/seed_presentation.php --reactions && php database/update_presentation_copy.php && php database/verify_presentation.php; STATUS=$?; if [ $STATUS -ne 0 ]; then kill $APACHE_PID 2>/dev/null || true; exit $STATUS; fi; wait $APACHE_PID"]
