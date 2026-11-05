@@ -3,10 +3,20 @@
 .env*
 **/*.log
 **/*.backup
+
 database-config/connection.php
 database-config/local.php
 database-config/runtime
+
 node_modules
 vendor
+
+# Ignore uploaded content by default
 uploaded-content/*
+
+# Keep the web protection file
 !uploaded-content/.htaccess
+
+# Include organiser/company profile pictures in Render deployments
+!uploaded-content/profile-pictures/
+!uploaded-content/profile-pictures/*.png
