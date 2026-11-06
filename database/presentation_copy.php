@@ -2,12 +2,33 @@
 // Public-facing copy shared by fresh seeds and the guarded existing-data update.
 return [
     'categories' => [
+        'Career Development' => 'Plan your next career step through employability skills, graduate readiness, CV and interview practice, and professional progression.',
+        'Cloud Computing' => 'Explore cloud infrastructure, platforms, deployment and cloud engineering through practical digital career skills.',
+        'Dermatology' => 'Discover skin health, skincare science and treatments, dermatology practice and related healthcare career pathways.',
+        'Leadership' => 'Develop team management, communication, sound decision-making and the leadership capability to support professional growth.',
+        'Networking' => 'Build professional relationships through industry connections, mentorship and opportunities to join career communities.',
+        'Security' => 'Explore cybersecurity, information security, risk assessment, defensive practices and pathways into security careers.',
+        'Technology' => 'Build skills in software, digital innovation and emerging technologies while exploring technical careers and professional practice.',
         'Finance & Accounting' => 'Explore careers in accounting, audit, financial analysis and financial services. Connect with professionals and build the skills to take your next step.',
         'Healthcare & Medical' => 'Discover nursing, allied health, clinical practice and health-services careers. Explore study routes, graduate opportunities and the skills that support patient care.',
         'Engineering' => 'Explore civil, mechanical, electrical and renewable-energy engineering. Meet professionals, develop practical skills and discover graduate career pathways.',
         'ICT & Digital Technology' => 'Build your future in cloud computing, cybersecurity, software development and digital services through practical workshops and career conversations.',
         'Skilled Trades & Technical Careers' => 'Discover apprenticeships and technical careers in electrical work, artisan trades and mechatronics. Explore hands-on training and the skills employers value.',
         'Design & Creative Careers' => 'Explore graphic design, user experience and digital product careers. Develop your portfolio, exchange ideas and learn from creative professionals.',
+    ],
+    'event_tags' => [
+        'Chartered Accountancy Career Lab' => '#Accounting #CharteredAccountancy #FinanceCareers',
+        'Financial Analyst Pathways Forum' => '#FinancialAnalysis #FinanceCareers #FinancialModelling',
+        'Allied Health Careers Expo' => '#AlliedHealth #HealthcareCareers #HealthProfessions',
+        'Healthcare Graduate Pathways' => '#HealthcareCareers #GraduateCareers #ClinicalPractice',
+        'Engineering Graduate Launchpad' => '#Engineering #GraduateCareers #EngineeringSkills',
+        'Renewable Energy Engineering Workshop' => '#RenewableEnergy #Engineering #SolarEnergy',
+        'Cloud Skills Workshop' => '#CloudComputing #CloudCareers #CloudSkills',
+        'Cybersecurity Careers Bootcamp' => '#Cybersecurity #InformationSecurity #SecurityCareers',
+        'Artisan Careers Open Day' => '#ArtisanCareers #SkilledTrades #Apprenticeships',
+        'Electrical & Mechatronics Apprenticeship Fair' => '#Mechatronics #ElectricalCareers #Apprenticeships',
+        'Creative Design Lab' => '#CreativeDesign #DesignCareers #Portfolio',
+        'UX & Digital Product Careers Evening' => '#UXCareers #DigitalProducts #UserExperience',
     ],
     'events' => [
         'Cloud Skills Workshop' => 'Build a foundation in cloud computing through practical deployment exercises and career guidance. Explore entry-level roles, discuss learning resources and plan a project that demonstrates your skills.',

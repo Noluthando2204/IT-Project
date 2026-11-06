@@ -12,7 +12,7 @@
         <div class="footer-contact"><a href="<?= e(app_url('contact.php')) ?>">Contact us</a></div>
     </div>
 </footer>
-<script src="<?= e(app_url('scripts/main.js')) ?>" defer></script>
+<script src="<?= e(app_url('scripts/main.js')) ?>?v=<?= filemtime(dirname(__DIR__).'/scripts/main.js') ?>" defer></script>
 <script src="<?= e(app_url('scripts/reservation-timer.js')) ?>" defer></script>
 </body>
 </html>

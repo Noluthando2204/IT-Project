@@ -106,6 +106,23 @@ if (!function_exists('eventnest_collect_notices')) {
         $notices = [];
 
         if ($role === 'attendee') {
+            // Actionable reminders are derived independently of read cookies and booking recency.
+            $reviews = $pdo->prepare("SELECT b.BookingID,e.EventName,e.EventDate
+                FROM BOOKINGS b JOIN EVENTS e ON e.EventID=b.EventID
+                WHERE b.UserID=? AND b.Status='paid' AND e.Status='completed' AND e.EventDate < NOW()
+                AND NOT EXISTS (SELECT 1 FROM REVIEWS r WHERE r.BookingID=b.BookingID)
+                ORDER BY e.EventDate DESC,b.BookingID DESC LIMIT 50");
+            $reviews->execute([$user_id]);
+            foreach ($reviews->fetchAll(PDO::FETCH_ASSOC) as $booking) {
+                $notices[] = [
+                    'type' => 'Review', 'title' => 'How was ' . $booking['EventName'] . '?',
+                    'message' => 'Share private feedback with the organiser.',
+                    'action' => 'Rate your experience',
+                    'url' => 'leave-review.php?booking_id=' . (int) $booking['BookingID'],
+                    'time' => eventnest_notice_time($booking['EventDate']),
+                ];
+            }
+
             /* Waitlist: tickets freed after another attendee's payment hold lapsed or was canceled */
             try {
                 $wait = $pdo->prepare(

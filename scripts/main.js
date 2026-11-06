@@ -78,34 +78,6 @@
         updateGateFields();
     }
 
-    var ratingInputs = qsa('input[name="rating"]');
-    function updateReviewFields() {
-        var checked = qs('input[name="rating"]:checked');
-        var rating = checked ? parseInt(checked.value, 10) : 0;
-        var high = qs('[data-high-rating]');
-        var low = qs('[data-low-rating]');
-        if (high) high.hidden = !(rating >= 4);
-        if (low) low.hidden = !(rating > 0 && rating < 4);
-        var tags = qs('[name="compliment_tags[]"]');
-        var comment = qs('[name="complaint_text"]');
-        if (tags) tags.required = false;
-        if (comment) comment.required = rating > 0 && rating < 4;
-    }
-    ratingInputs.forEach(function (input) { input.addEventListener('change', updateReviewFields); });
-    updateReviewFields();
-
-    var contactCheckbox = qs('[data-contact-permission]');
-    function updateContactField() {
-        var wrap = qs('[data-contact-email]');
-        var input = wrap ? qs('input[type="email"]', wrap) : null;
-        if (wrap && contactCheckbox) wrap.hidden = !contactCheckbox.checked;
-        if (input && contactCheckbox) input.required = contactCheckbox.checked;
-    }
-    if (contactCheckbox) {
-        contactCheckbox.addEventListener('change', updateContactField);
-        updateContactField();
-    }
-
     qsa('form[data-live-search]').forEach(function (form, index) {
         var input = qs('input[name="q"]', form);
         var box = qs('[data-search-suggestions]', form);
@@ -114,7 +86,7 @@
         var timer, controller, serial = 0, focused = -1;
         box.id = (input.id || 'event-search-' + index) + '-suggestions';
         box.setAttribute('role', 'listbox');
-        box.setAttribute('aria-label', 'Upcoming events');
+        box.setAttribute('aria-label', 'Events, career fields and hashtags');
         input.setAttribute('role', 'combobox');
         input.setAttribute('aria-autocomplete', 'list');
         input.setAttribute('aria-haspopup', 'listbox');
@@ -145,27 +117,53 @@
                     var data = await response.json();
                     if (request !== serial || input.value.trim() !== query) return;
                     (Array.isArray(data.suggestions) ? data.suggestions : []).slice(0, 8).forEach(function (item) {
-                        if (item.type !== 'event' || !Number.isSafeInteger(item.event_id) || item.event_id < 1 || typeof item.label !== 'string') return;
+                        if (typeof item.label !== 'string') return;
+                        var destination;
+                        if (item.type === 'event' && Number.isSafeInteger(item.event_id) && item.event_id > 0) {
+                            destination = 'event-detail.php?event_id=' + item.event_id;
+                        } else if (item.type === 'category' && Number.isSafeInteger(item.category_id) && item.category_id > 0) {
+                            destination = 'events.php?category_id=' + item.category_id;
+                        } else if (item.type === 'hashtag' && typeof item.tag === 'string' && /^[A-Za-z0-9_]{1,50}$/.test(item.tag)) {
+                            destination = 'tag.php?tag=' + encodeURIComponent(item.tag);
+                        } else { return; }
                         var link = document.createElement('a');
                         link.className = 'suggestion-item';
                         link.id = box.id + '-' + box.children.length;
                         link.setAttribute('role', 'option');
                         link.setAttribute('aria-selected', 'false');
                         link.tabIndex = -1;
-                        link.href = new URL('event-detail.php?event_id=' + item.event_id, endpoint).href;
+                        link.href = new URL(destination, endpoint).href;
                         var label = document.createElement('span');
                         label.className = 'suggestion-label';
                         label.textContent = item.label;
                         var meta = document.createElement('span');
                         meta.className = 'suggestion-meta';
-                        meta.textContent = [item.date, item.location || item.format].filter(function (value) { return typeof value === 'string' && value; }).join(' \u00b7 ');
+                        meta.textContent = {event: 'Event', category: 'Career field', hashtag: 'Hashtag'}[item.type];
                         link.append(label, meta);
                         box.appendChild(link);
                     });
-                    box.hidden = box.children.length === 0;
+                    if (!box.children.length) {
+                        var empty = document.createElement('p');
+                        empty.className = 'suggestion-empty';
+                        empty.setAttribute('role', 'status');
+                        empty.textContent = 'No matching events, career fields or hashtags.';
+                        box.appendChild(empty);
+                    }
+                    box.hidden = false;
                     box.classList.toggle('open', !box.hidden);
                     input.setAttribute('aria-expanded', String(!box.hidden));
-                } catch (error) { if (request === serial) close(); }
+                } catch (error) {
+                    if (request !== serial || error.name === 'AbortError') return;
+                    close();
+                    var notice = document.createElement('p');
+                    notice.className = 'suggestion-empty';
+                    notice.setAttribute('role', 'status');
+                    notice.textContent = 'Suggestions unavailable. Press Search to try the results page.';
+                    box.appendChild(notice);
+                    box.hidden = false;
+                    box.classList.add('open');
+                    input.setAttribute('aria-expanded', 'true');
+                }
             }, 250);
         });
         input.addEventListener('compositionend', function () { input.dispatchEvent(new Event('input')); });

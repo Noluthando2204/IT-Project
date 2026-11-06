@@ -43,7 +43,7 @@ if (($_SESSION['role'] ?? null) === 'attendee' && !empty($_SESSION['user_id'])) 
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="EventNest career-event discovery and booking platform">
     <title><?= e($page_title) ?> | EventNest</title>
-    <link rel="stylesheet" href="<?= e(app_url('styles/main.css')) ?>">
+    <link rel="stylesheet" href="<?= e(app_url('styles/main.css')) ?>?v=<?= filemtime(dirname(__DIR__).'/styles/main.css') ?>">
     <link rel="stylesheet" href="<?= e(app_url('styles/responsive.css')) ?>">
     <link rel="stylesheet" href="<?= e(app_url('styles/reservation-timer.css')) ?>">
 
@@ -73,6 +73,11 @@ if (($_SESSION['role'] ?? null) === 'attendee' && !empty($_SESSION['user_id'])) 
         </a>
         <?php require __DIR__ . '/navbar.php'; ?>
     </div>
+    <form class="header-search" action="<?= e(app_url('search-results.php')) ?>" method="get" role="search" data-live-search>
+        <label class="sr-only" for="header-search-q">Search events, career fields or hashtags</label>
+        <div class="search-input-wrap"><input id="header-search-q" type="search" name="q" maxlength="100" placeholder="Search events, career fields or #hashtags" autocomplete="off"><div class="search-suggestions" data-search-suggestions hidden></div></div>
+        <button class="btn btn-blue" type="submit">Search</button>
+    </form>
 </header>
 
 <?php if ($flashes): ?>

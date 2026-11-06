@@ -32,7 +32,7 @@ function eventnest_valid_date(string $value): bool
     return $date !== false && $date->format('Y-m-d') === $value;
 }
 
-$raw_tag = isset($_GET['tag']) ? (string) $_GET['tag'] : '';
+$raw_tag = is_string($_GET['tag'] ?? null) ? $_GET['tag'] : '';
 $tag = eventnest_normalise_hashtag($raw_tag);
 
 if ($tag === null) {

@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $token_data !== null && $user !== n
         http_response_code(403);
         $message = 'Your session expired. Please refresh and try again.';
     } elseif (!eventnest_password_valid($password)) {
-        $message = 'Use a password between 8 and 72 bytes long.';
+        $message = eventnest_password_error();
     } elseif ($password !== $confirm) {
         $message = 'The two passwords do not match.';
     } else {
@@ -102,12 +102,14 @@ require_once __DIR__ . '/shared-components/header.php';
 
             <div class="field">
                 <label for="new_password">New password</label>
-                <input id="new_password" name="new_password" type="password" minlength="8" maxlength="72" autocomplete="new-password" required>
+                <input id="new_password" name="new_password" data-password-rules type="password" minlength="16" maxlength="72" autocomplete="new-password" required>
+                <?php eventnest_password_guidance(); ?>
             </div>
 
             <div class="field">
                 <label for="confirm_password">Confirm new password</label>
-                <input id="confirm_password" name="confirm_password" type="password" minlength="8" maxlength="72" autocomplete="new-password" required>
+                <input id="confirm_password" name="confirm_password" type="password" minlength="16" maxlength="72" autocomplete="new-password" required>
+                <small class="password-match" data-password-match aria-live="polite"></small>
             </div>
 
             <div class="form-actions">

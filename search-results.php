@@ -256,30 +256,47 @@ try {
     $pdo = eventnest_db();
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // Text-only upcoming events; the full search page remains separate.
+    // Reuse this endpoint for each public discovery suggestion type.
     if ($is_suggest) {
-        $pattern = search_like($q);
-        $stmt = $pdo->prepare(
-            "SELECT EventID, EventName, EventDate, Format, Province
-             FROM EVENTS
-             WHERE Status = 'published'
-               AND EventDate >= NOW()
-               AND EventName LIKE :term ESCAPE '\\\\'
-             ORDER BY CASE WHEN EventName LIKE :prefix ESCAPE '\\\\' THEN 0 ELSE 1 END,
-                      EventDate ASC, EventID ASC
-             LIMIT 8"
-        );
-        $stmt->execute(['term' => $pattern, 'prefix' => substr($pattern, 1)]);
+        $term = str_starts_with($q, '#') ? substr($q, 1) : $q;
+        $pattern = search_like($term);
         $suggestions = [];
-        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $event) {
-            $suggestions[] = [
-                'type' => 'event',
-                'event_id' => (int) $event['EventID'],
-                'label' => (string) $event['EventName'],
-                'date' => date('d M Y', strtotime((string) $event['EventDate'])),
-                'format' => ucfirst((string) $event['Format']),
-                'location' => $event['Format'] === 'online' ? 'Online' : (string) ($event['Province'] ?? ''),
-            ];
+        $stmt = $pdo->prepare("SELECT e.EventID,e.EventName FROM EVENTS e
+            JOIN USERS u ON u.UserID=e.OrganiserID
+            WHERE e.Status='published' AND e.EventDate >= NOW()
+              AND u.Role='organiser' AND u.UserStatus='active' AND u.VerificationStatus='verified'
+              AND e.EventName LIKE ? ESCAPE '\\\\'
+            ORDER BY e.EventDate,e.EventID LIMIT 3");
+        $stmt->execute([$pattern]);
+        foreach ($stmt->fetchAll() as $event) {
+            $suggestions[] = ['type'=>'event','event_id'=>(int)$event['EventID'],'label'=>$event['EventName']];
+        }
+        // Career fields are the public taxonomy shown on career-fields.php, including fields with no upcoming events.
+        $stmt = $pdo->prepare("SELECT CategoryID,CategoryName FROM CATEGORIES
+            WHERE CategoryName LIKE ? ESCAPE '\\\\' ORDER BY CategoryName LIMIT 2");
+        $stmt->execute([$pattern]);
+        foreach ($stmt->fetchAll() as $category) {
+            $suggestions[] = ['type'=>'category','category_id'=>(int)$category['CategoryID'],'label'=>$category['CategoryName']];
+        }
+        $stmt = $pdo->prepare("SELECT e.Hashtags AS Tags FROM EVENTS e JOIN USERS u ON u.UserID=e.OrganiserID
+            WHERE e.Status='published' AND u.Role='organiser' AND u.UserStatus='active' AND u.VerificationStatus='verified'
+              AND e.Hashtags LIKE ? ESCAPE '\\\\'
+            UNION ALL
+            SELECT p.Hashtags FROM POSTS p JOIN USERS u ON u.UserID=p.OrganiserID
+            LEFT JOIN EVENTS e ON e.EventID=p.EventID AND e.OrganiserID=p.OrganiserID
+            WHERE (p.EventID IS NULL OR e.Status IN ('published','completed'))
+              AND u.Role='organiser' AND u.UserStatus='active' AND u.VerificationStatus='verified'
+              AND p.Hashtags LIKE ? ESCAPE '\\\\' LIMIT 100");
+        $stmt->execute([$pattern,$pattern]);
+        $tags = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $stored) {
+            foreach (eventnest_extract_hashtags($stored) as $tag) {
+                if (mb_stripos($tag, $term, 0, 'UTF-8') !== false) { $tags[strtolower($tag)] = $tag; }
+            }
+        }
+        ksort($tags);
+        foreach (array_slice($tags,0,3) as $tag) {
+            $suggestions[] = ['type'=>'hashtag','tag'=>$tag,'label'=>'#'.$tag];
         }
         echo json_encode(['suggestions' => $suggestions], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         exit;
