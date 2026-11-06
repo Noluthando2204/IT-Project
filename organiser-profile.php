@@ -95,6 +95,7 @@ $upcoming_stmt = $pdo->prepare(
         e.Province, e.ImagePath,
         e.Venue,
         e.Hashtags,
+        (SELECT CategoryName FROM CATEGORIES c WHERE c.CategoryID=e.CategoryID) AS CategoryName,
         (SELECT MIN(t.Price)
            FROM TICKETS t
           WHERE t.EventID = e.EventID
@@ -177,6 +178,7 @@ require_once __DIR__ . '/shared-components/header.php';
                     <article class="event-card">
                         <img class="event-card__image event-banner" src="<?= escape_html(eventnest_image_url($event['ImagePath'] ?? null)) ?>" alt="<?= escape_html($event['EventName'] ?? 'EventNest') ?>" width="1600" height="900" loading="lazy">
                         <div class="event-card__content">
+                            <p class="eyebrow"><?= escape_html($event['CategoryName']) ?></p>
                             <h3><?= escape_html($event['EventName']) ?></h3>
                             <p><?= escape_html(format_datetime($event['EventDate'])) ?></p>
                             <p>

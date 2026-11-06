@@ -510,7 +510,7 @@ CREATE TABLE REVIEWS (
 
     CONSTRAINT chk_reviews_content_by_rating
         CHECK (
-            (Rating >= 4 AND Tags IS NOT NULL AND CHAR_LENGTH(TRIM(Tags)) > 0 AND Comment IS NULL)
+            (Rating >= 4 AND Comment IS NULL)
             OR
             (Rating < 4 AND Comment IS NOT NULL AND CHAR_LENGTH(TRIM(Comment)) > 0 AND Tags IS NULL)
         ),

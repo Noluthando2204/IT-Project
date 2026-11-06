@@ -5,7 +5,13 @@ $user=auth_require_attendee();
 $pdo=eventnest_db();
 $message='';
 $event_id=eventnest_id($_POST['event_id'] ?? $_GET['event_id'] ?? null);
-$booking_id=eventnest_id($_POST['booking_id'] ?? $_GET['booking_id'] ?? null);
+$raw_booking_id=$_POST['booking_id'] ?? $_GET['booking_id'] ?? null;
+$booking_id=eventnest_id($raw_booking_id);
+// The form uses zero for no optional booking; malformed supplied IDs are not context-free reports.
+if ($raw_booking_id !== null && $raw_booking_id !== '' && $raw_booking_id !== '0' && $raw_booking_id !== 0 && !$booking_id) {
+    http_response_code(404);
+    exit('Booking not found for your account.');
+}
 $stmt=$pdo->prepare('SELECT EventID,EventName,Status FROM EVENTS WHERE EventID=?');
 $stmt->execute([$event_id]);
 $event=$stmt->fetch();
@@ -29,7 +35,7 @@ if($_SERVER['REQUEST_METHOD']==='POST') {
     $issue=trim_input($_POST['issue_category'] ?? '');
     $explanation=trim_input($_POST['explanation'] ?? '');
     if(!in_array($issue,$issues,true) || mb_strlen($explanation)<20 || mb_strlen($explanation)>5000) {
-        $message='Choose an issue and explain it in 20?5,000 characters.';
+        $message='Choose an issue and explain it in 20–5,000 characters.';
     }
     else {
         $body='Event: '.$event['EventName'].' (#'.$event_id.')'."\nBooking: ".($booking['BookingReference'] ?? 'Not supplied')."\nIssue: ".$issue."\nAttendee: ".$user['Email']."\n\n".$explanation;

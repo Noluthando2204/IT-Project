@@ -25,3 +25,36 @@ verify('No duplicate reactions',(int)$pdo->query('SELECT COUNT(*) FROM (SELECT U
 $neo=$pdo->query("SELECT * FROM USERS WHERE Email='neo.lowbalance@example.com'")->fetch();
 verify('Neo R10 sandbox guard',eventnest_demo_insufficient_funds($pdo,$neo,40));
 putenv('PAYFAST_MODE=live');verify('Production bypasses demo guard',!eventnest_demo_insufficient_funds($pdo,$neo,40));
+
+// Additional readiness assertions retain all historical checks above.
+$copy=require __DIR__.'/presentation_copy.php';
+$categories=$pdo->query('SELECT CategoryName,Description FROM CATEGORIES')->fetchAll(PDO::FETCH_KEY_PAIR);
+foreach (['Career Development','Cloud Computing','Dermatology','Leadership','Networking','Security','Technology'] as $name) {
+    verify('Distinct career description: '.$name,trim((string)($categories[$name]??''))!=='');
+}
+verify('Seven distinct descriptions',count(array_unique(array_intersect_key($categories,array_flip(['Career Development','Cloud Computing','Dermatology','Leadership','Networking','Security','Technology']))))===7);
+foreach ($events as $event) {
+    verify('Relevant fixture tags: '.$event['EventName'],($copy['event_tags'][$event['EventName']]??null)===$event['Hashtags']);
+}
+verify('All designated posts have three real reaction types',(int)$pdo->query("SELECT COUNT(*) FROM (SELECT p.PostID FROM POSTS p JOIN DEMO_FIXTURES f ON f.EntityID=p.PostID AND f.EntityType='post' JOIN REACTIONS r ON r.PostID=p.PostID GROUP BY p.PostID HAVING COUNT(DISTINCT r.ReactionType)=3) x")->fetchColumn()===18);
+verify('Company logos cannot render as event/category artwork',str_ends_with(eventnest_image_url('uploaded-content/profile-pictures/cloudstep_careers_b.png'),'images/event-placeholder.svg') && str_ends_with(eventnest_image_url('uploaded-content/profile-pictures/cloudstep_careers_b.png','category'),'images/category-placeholder.svg'));
+foreach (['graduate_summit_b.png', 'futuretech_b.png', 'creative_lab_b.png'] as $file) {
+    verify('Profile-directory artwork rejected: '.$file, str_ends_with(eventnest_image_url('uploaded-content/profile-pictures/'.$file), 'images/event-placeholder.svg'));
+}
+$event=$pdo->query("SELECT e.*,u.VerificationStatus FROM EVENTS e JOIN DEMO_FIXTURES f ON f.EntityID=e.EventID AND f.FixtureKey='review-event-20261105' JOIN USERS u ON u.UserID=e.OrganiserID")->fetch();
+verify('5 November completed review event',$event && $event['EventDate']==='2026-11-05 14:00:00' && $event['Status']==='completed' && $event['VerificationStatus']==='verified' && strtotime($event['EventDate'])<time());
+$stmt=$pdo->prepare("SELECT b.*,u.Role FROM BOOKINGS b JOIN USERS u ON u.UserID=b.UserID JOIN TICKETS t ON t.TicketID=b.TicketID AND t.EventID=b.EventID WHERE b.EventID=?");
+$stmt->execute([$event['EventID']]);$bookings=$stmt->fetchAll();
+verify('Exactly two valid attendee bookings',count($bookings)===2 && count(array_unique(array_column($bookings,'UserID')))===2 && count(array_filter($bookings,fn($b)=>$b['Status']==='paid' && $b['Role']==='attendee' && (int)$b['Quantity']===1 && (float)$b['TotalAmount']===0.0))===2);
+$stmt=$pdo->prepare('SELECT BookingID FROM REVIEWS WHERE EventID=?');$stmt->execute([$event['EventID']]);
+$reviewed=array_map('intval',$stmt->fetchAll(PDO::FETCH_COLUMN));
+// Readiness is opt-in; normal deployments must also accept a legitimately completed demo.
+if (in_array('--require-unreviewed',$argv,true)) {
+    verify('Both demo bookings initially unreviewed',$reviewed===[]);
+}
+require_once dirname(__DIR__).'/shared-components/notifications.php';
+foreach($bookings as $booking) {
+    $notices=eventnest_collect_notices($pdo,(int)$booking['UserID']);
+    $expected=in_array((int)$booking['BookingID'],$reviewed,true)?0:1;
+    verify('Own reminder matches review state '.$booking['BookingReference'],count(array_filter($notices,fn($n)=>$n['url']==='leave-review.php?booking_id='.$booking['BookingID'] && ($n['action']??'')==='Rate your experience'))===$expected);
+}

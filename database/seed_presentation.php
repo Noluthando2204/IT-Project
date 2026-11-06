@@ -50,9 +50,9 @@ function remember(string $key, string $type, int $id): int
     return $id;
 }
 
-function asset(string $file): ?string
+function asset(string $file, string $directory = 'profile-pictures'): ?string
 {
-    $path = 'uploaded-content/profile-pictures/' . $file;
+    $path = 'uploaded-content/' . $directory . '/' . $file;
     $info = @getimagesize(dirname(__DIR__) . '/' . $path);
 
     if (!$info || $info['mime'] !== 'image/png') {
@@ -474,7 +474,7 @@ try {
                         $venue,
                         $date,
                         $format,
-                        '#CareerPathways'
+                        $copy['event_tags'][$name]
                     ]
                 );
 
@@ -544,7 +544,7 @@ try {
                     [$name, $owners[3], $owners[5]]
                 )->fetchColumn();
 
-                if ($id && ($path = asset($file))) {
+                if ($id && ($path = asset($file, 'event-banners'))) {
                     query(
                         'UPDATE EVENTS
                          SET ImagePath=?
@@ -697,6 +697,9 @@ try {
                 ? 'uploaded-content/posts/' . $file
                 : null;
 
+            preg_match_all('/#[A-Za-z0-9_]{1,50}\b/', $content, $tagMatches);
+            $postTags=trim(implode(' ',array_unique(array_merge($tagMatches[0],explode(' ', $event===null ? '' : $copy['event_tags'][$events[$event][1]])))));
+
             query(
                 'INSERT INTO POSTS (
                     OrganiserID,
@@ -714,8 +717,7 @@ try {
                     strtr($content, $copy['phrases']),
                     $media,
                     $media ? 'image' : null,
-                    '#CareerGrowth #' .
-                    str_replace([' ', '&'], '', $families[$owner]),
+                    trim($postTags),
                     '2026-11-' . $date . ':00'
                 ]
             );
@@ -725,6 +727,38 @@ try {
                 'post',
                 (int) $pdo->lastInsertId()
             );
+        }
+
+        // A separate registry-owned event preserves the historical September review fixtures.
+        $reviewEvent = fixture('review-event-20261105');
+        if (!$reviewEvent) {
+            $name = 'Career Development Reflection Workshop';
+            if (query('SELECT 1 FROM EVENTS WHERE EventName=?', [$name])->fetchColumn()) {
+                throw new RuntimeException('Unmanaged review event collision.');
+            }
+            $category = (int) query("SELECT CategoryID FROM CATEGORIES WHERE CategoryName='Career Development'")->fetchColumn();
+            if (!$category) { throw new RuntimeException('Career Development category is required.'); }
+            if (!query("SELECT 1 FROM USERS WHERE UserID=? AND Role='organiser' AND UserStatus='active' AND VerificationStatus='verified'",[$owners[3]])->fetchColumn()) {
+                throw new RuntimeException('Review demonstration organiser must be verified.');
+            }
+            query("INSERT INTO EVENTS (OrganiserID,CategoryID,EventName,Description,Venue,EventDate,Status,Format,Province,Hashtags)
+                VALUES (?,?,?,?,?,'2026-11-05 14:00:00','completed','physical','Gauteng',?)",
+                [$owners[3],$category,$name,'Reflect on career planning, practise interview skills and build a professional development action plan.','Johannesburg Career Centre','#CareerDevelopment #GraduateCareers #Employability']);
+            $reviewEvent = remember('review-event-20261105','event',(int)$pdo->lastInsertId());
+            query("INSERT INTO TICKETS (EventID,TicketType,Price,QuantityAvailable,Capacity,Description) VALUES (?,'General',0,0,2,'Free presentation workshop admission.')",[$reviewEvent]);
+            remember('review-ticket-20261105','ticket',(int)$pdo->lastInsertId());
+        }
+        foreach (['a'=>0,'b'=>1] as $label=>$attendee) {
+            $key='review-booking-'.$label;
+            if (fixture($key)) { continue; } // Never delete a submitted review on reruns.
+            $reference='EN-REVIEW-20261105-'.strtoupper($label);
+            if (query('SELECT 1 FROM BOOKINGS WHERE BookingReference=?',[$reference])->fetchColumn()) {
+                throw new RuntimeException('Unmanaged review booking reference collision.');
+            }
+            query("INSERT INTO BOOKINGS (EventID,UserID,TicketID,BookingDate,Quantity,TotalAmount,Status,BookingReference)
+                VALUES (?,?,?,'2026-11-04 10:00:00',1,0,'paid',?)",
+                [$reviewEvent,fixture('attendee'.$attendee),fixture('review-ticket-20261105'),$reference]);
+            remember($key,'booking',(int)$pdo->lastInsertId());
         }
     } elseif ($mode === '--reactions') {
         // NULL password disables login; these users cannot receive real email and are not registered through HTTP.
@@ -827,6 +861,8 @@ try {
             12 => [1300, 1900, 1100],
             15 => [1600, 1200, 1800]
         ];
+
+        for ($post=0; $post<18; $post++) { $targets[$post] ??= [3,2,1]; }
 
         foreach ($targets as $post => $counts) {
             $postID = fixture('post' . $post);
@@ -934,6 +970,7 @@ try {
     }
 
     $pdo->commit();
+    if ($mode === '--apply') { require __DIR__ . '/update_presentation_copy.php'; }
 
     echo $mode .
         ' completed in ' .

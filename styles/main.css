@@ -492,12 +492,46 @@ a.floating-timer:hover, a.floating-timer:focus { color: #fff; text-decoration: u
 .company-avatar img { width:100%; height:100%; object-fit:contain; padding:8%; box-sizing:border-box; }
 .company-avatar [hidden] { display:none; }
 .company-logo-preview { object-fit:contain; border-radius:50%; background:#edf2f6; padding:10px; }
-.email-confirm-action { margin-top:1.25rem; }
+.email-change-form > .email-confirm-action { margin-block-start:20px; }
 .social-post__header { flex-wrap:wrap; gap:.75rem; }
 .table-wrap { overflow-x:auto; }
 
-/* Event banners only: preserve the full artwork on a neutral card surface.
-   Fixed responsive frames keep card layouts steady; contain preserves image proportions. */
-img.event-banner { object-fit:contain; object-position:center; background:var(--white); }
+/* Event banners retain their proportions inside centred, stable media frames. */
+img.event-banner { object-fit:cover; object-position:center; background:var(--white); }
 /* Horizontal listing cards need one results column, including tablet breakpoints. */
 .events-page .search-layout .event-grid { grid-template-columns:minmax(0,1fr); }
+
+/* Organiser cards use the same aspect ratio at every breakpoint. */
+.organiser-profile-page .event-card__image { height:auto; max-height:none; aspect-ratio:16/9; }
+
+.header-search { display:flex; gap:8px; max-width:720px; margin:0 auto; padding:0 16px 12px; }
+.header-search .search-input-wrap { flex:1; min-width:0; }
+.header-search input { width:100%; }
+
+/* Private review: scoped styles keep other cards/forms unchanged. */
+.review-form { max-width:760px; margin-inline:auto; }
+.review-form h1 { font-size:clamp(1.5rem,4vw,2rem); line-height:1.25; margin-bottom:12px; }
+.review-banner { width:100%; height:auto; max-height:260px; object-fit:contain; background:var(--off-white); border-radius:8px; margin-bottom:24px; }
+.review-privacy,.review-form fieldset p,.review-form .field p { color:var(--muted); font-size:.9rem; }
+.review-form .review-rating { text-align:center; border:0; padding:16px 0; }
+.review-rating legend { width:100%; font-weight:700; color:var(--navy); }
+.review-stars { display:flex; justify-content:center; gap:clamp(2px,2vw,14px); }
+.review-star { position:relative; display:block; width:clamp(40px,10vw,56px); height:56px; cursor:pointer; }
+.review-star input,.review-chip input { position:absolute; width:1px; height:1px; min-height:0; padding:0; margin:0; opacity:0; }
+.review-star svg { width:100%; height:100%; fill:transparent; stroke:var(--muted); stroke-width:1.5; padding:3px; }
+.review-star.is-filled svg,.review-stars:has(input:checked) .review-star:not(:has(input:checked) ~ .review-star) svg { fill:var(--yellow); stroke:#9A6700; }
+.review-star:focus-within,.review-chip:focus-within span { outline:3px solid var(--blue); outline-offset:3px; border-radius:8px; }
+.review-rating-cue { margin:8px 0 0; color:var(--muted); }
+.review-compliments { display:flex; flex-wrap:wrap; gap:10px; }
+.review-chip { position:relative; cursor:pointer; }
+.review-chip span { display:flex; align-items:center; min-height:44px; padding:8px 14px; border:1px solid var(--line); border-radius:24px; }
+.review-chip input:checked + span { border:2px solid var(--teal); background:#EAF9F9; font-weight:700; }
+.review-chip input:checked + span::before { content:'✓ '; margin-right:6px; }
+.review-contact { display:flex; align-items:center; gap:10px; margin:20px 0; }
+.review-form textarea,.review-form input[type=email] { width:100%; }
+.suggestion-empty { padding:12px 14px; margin:0; color:var(--muted); font-size:.9rem; }
+
+.password-rules { margin:8px 0 0; padding:12px 16px; border:1px solid var(--line); border-radius:8px; background:var(--off-white); list-style:none; }
+.password-rules li { color:var(--danger); font-size:.86rem; }
+.password-rules li.is-met, .password-match.is-match { color:var(--success); }
+.password-match { display:block; min-height:1.25rem; color:var(--danger); }

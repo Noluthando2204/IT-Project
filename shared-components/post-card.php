@@ -34,8 +34,6 @@ function eventnest_render_post(array $post, array $viewer, bool $detail = false)
     try { $share_url = eventnest_absolute_url('post-detail.php?post_id=' . $id); }
     catch (DomainException $exception) { $share_url = $url; }
     $share_title = ($post['EventName'] ?? 'General update') . ' — ' . $name;
-    $mailto = 'mailto:?subject=' . rawurlencode('Check out this EventNest post: ' . $share_title)
-        . '&body=' . rawurlencode("I thought you might like this on EventNest:\n\n" . $share_title . "\n" . $share_url);
     $blocked = !empty($viewer['blocked'][$organiser]);
     $can_react = $viewer['attendee'] && !$blocked;
     $selected = $viewer['selected'][$id] ?? null;
@@ -98,8 +96,6 @@ function eventnest_render_post(array $post, array $viewer, bool $detail = false)
             </div>
             <div class="social-post__share" data-post-share data-share-url="<?= e($share_url) ?>" data-share-title="<?= e(($post['EventName'] ?? 'General update') . ' — ' . $name) ?>">
                 <button type="button" class="reaction-button" data-share-native>Share</button>
-                <button type="button" class="reaction-button" data-share-copy>Copy link</button>
-                <a class="reaction-button" href="<?= e($mailto) ?>" data-share-email rel="noopener">Share by email</a>
                 <span class="social-post__status" role="status" data-share-message></span>
             </div>
         </div>

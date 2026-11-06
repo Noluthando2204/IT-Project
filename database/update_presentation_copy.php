@@ -7,6 +7,22 @@ $copy = require __DIR__ . '/presentation_copy.php';
 $changed = ['categories'=>0, 'events'=>0, 'posts'=>0];
 $pdo->beginTransaction();
 try {
+    // Only empty values or exact previous seed copy are replaced; custom descriptions survive.
+    $base = [
+        'Technology'=>'Technology, software and digital career events.',
+        'Dermatology'=>'Dermatology, skin health, skincare treatments and dermatology career events.',
+        'Security'=>'Cybersecurity and information-security career events.',
+        'Networking'=>'Professional networking and career-connection events.',
+        'Leadership'=>'Leadership and professional-development events.',
+        'Cloud Computing'=>'Cloud infrastructure, cloud engineering and related careers.',
+        'Career Development'=>'Graduate, employability and career-development events.',
+    ];
+    foreach ($base as $name=>$old) {
+        $pdo->prepare('INSERT IGNORE INTO CATEGORIES (CategoryName,Description) VALUES (?,?)')->execute([$name,$copy['categories'][$name]]);
+        $stmt=$pdo->prepare("UPDATE CATEGORIES SET Description=? WHERE CategoryName=? AND (Description IS NULL OR TRIM(Description)='' OR Description=?)");
+        $stmt->execute([$copy['categories'][$name],$name,$old]);
+        $changed['categories'] += $stmt->rowCount();
+    }
     $category = $pdo->prepare('UPDATE CATEGORIES SET Description=? WHERE CategoryName=? AND Description=?');
     foreach ($copy['categories'] as $name=>$description) {
         $category->execute([$description,$name,'Presentation career family: '.$name.'. Fictional demo events; this is not a statistical ranking.']);
@@ -20,17 +36,19 @@ try {
             $description=$copy['events'][$event['EventName']];
         }
         $tags=preg_replace('/(?<!\S)#EventNestDemo\b/', '', (string)$event['Hashtags']);
-        $tags=trim(preg_replace('/\s+/', ' ', $tags));
+        $tags=$copy['event_tags'][$event['EventName']] ?? trim(preg_replace('/\s+/', ' ', $tags));
         if ($description!==$event['Description'] || $tags!==(string)$event['Hashtags']) {
             $updateEvent->execute([$description,$tags ?: null,$event['EventID']]);
             $changed['events'] += $updateEvent->rowCount();
         }
     }
-    $posts=$pdo->query("SELECT DISTINCT p.PostID,p.Content,p.Hashtags FROM POSTS p JOIN DEMO_FIXTURES f ON f.EntityID=p.PostID AND f.EntityType='post' FOR UPDATE")->fetchAll();
+    $posts=$pdo->query("SELECT DISTINCT p.PostID,p.Content,p.Hashtags,e.EventName FROM POSTS p LEFT JOIN EVENTS e ON e.EventID=p.EventID JOIN DEMO_FIXTURES f ON f.EntityID=p.PostID AND f.EntityType='post' FOR UPDATE")->fetchAll();
     $updatePost=$pdo->prepare('UPDATE POSTS SET Content=?,Hashtags=? WHERE PostID=?');
     foreach ($posts as $post) {
         $content=strtr((string)$post['Content'],$copy['phrases']);
-        $tags=preg_replace('/(?<!\S)#EventNestDemo\b/','#CareerGrowth',(string)$post['Hashtags']);
+        preg_match_all('/#[A-Za-z0-9_]{1,50}\b/', $content, $matches);
+        $tags=trim(implode(' ', array_unique(array_merge($matches[0], explode(' ', $copy['event_tags'][$post['EventName'] ?? ''] ?? '')))));
+        if ($tags==='') { $tags=(string)$post['Hashtags']; }
         if ($content!==(string)$post['Content'] || $tags!==(string)$post['Hashtags']) {
             $updatePost->execute([$content,$tags,$post['PostID']]);
             $changed['posts'] += $updatePost->rowCount();

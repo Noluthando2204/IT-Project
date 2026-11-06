@@ -21,12 +21,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $last_name = trim_input($_POST['last_name'] ?? '');
     $organisation_name = $organiser_intent ? trim_input($_POST['organisation_name'] ?? '') : '';
     $email = strtolower(trim_input($_POST['email'] ?? ''));
-    $phone = trim_input($_POST['phone'] ?? '');
+    $phone = is_string($_POST['phone'] ?? null) ? $_POST['phone'] : '';
     $career_field = trim_input($_POST['career_field'] ?? '');
     $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
     $confirmation = is_string($_POST['confirm_password'] ?? null) ? $_POST['confirm_password'] : '';
 
     try {
+        if (!eventnest_phone_valid($phone)) { throw new DomainException('Enter exactly 10 digits with a valid South African mobile prefix (for example 072, 073 or 082), without spaces.'); }
+        if (!eventnest_password_valid($password)) { throw new DomainException(eventnest_password_error()); }
         foreach ([[$first_name, 50], [$last_name, 50], [$organisation_name, 150], [$email, 100], [$phone, 15]] as [$value, $limit]) {
             if (mb_strlen($value) > $limit) {
                 throw new DomainException('A field exceeds its allowed length.');
@@ -38,14 +40,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $last_name === '' ||
             ($organiser_intent && $organisation_name === '') ||
             !filter_var($email, FILTER_VALIDATE_EMAIL) ||
-            !eventnest_password_valid($password) ||
             $password !== $confirmation ||
             ($career_field !== '' && !in_array($career_field, $categories, true))
         ) {
             throw new DomainException(
                 $organiser_intent
-                    ? 'Enter the organisation name, representative name, a valid email and matching passwords of at least 8 characters.'
-                    : 'Enter your name, a valid email and matching passwords of at least 8 characters. Choose a listed career field or leave it blank.'
+                    ? 'Enter the organisation name, representative name, a valid email and matching passwords meeting the displayed requirements.'
+                    : 'Enter your name, a valid email and matching passwords meeting the displayed requirements. Choose a listed career field or leave it blank.'
             );
         }
 
@@ -152,7 +153,8 @@ require __DIR__ . '/shared-components/header.php';
                 <?php foreach (['first_name' => 'First name', 'last_name' => 'Last name', 'email' => 'Email address', 'phone' => 'Phone'] as $field => $label): ?>
                     <div class="field">
                         <label for="<?= $field ?>"><?= $label ?></label>
-                        <input id="<?= $field ?>" name="<?= $field ?>" type="<?= $field === 'email' ? 'email' : 'text' ?>" maxlength="<?= $field === 'email' ? 100 : ($field === 'phone' ? 15 : 50) ?>" value="<?= escape_html(trim_input($_POST[$field] ?? '')) ?>" <?= $field !== 'phone' ? 'required' : '' ?>>
+                        <input id="<?= $field ?>" name="<?= $field ?>" type="<?= $field === 'email' ? 'email' : ($field === 'phone' ? 'tel' : 'text') ?>" maxlength="<?= $field === 'email' ? 100 : ($field === 'phone' ? 10 : 50) ?>" value="<?= escape_html(is_string($_POST[$field] ?? null) ? $_POST[$field] : '') ?>" <?= $field === 'phone' ? 'data-sa-mobile inputmode="numeric" autocomplete="tel-national" pattern="0[0-9]{9}"' : '' ?> required>
+                        <?php if ($field === 'phone'): ?><small>Exactly 10 digits with a South African mobile prefix, e.g. 0821234567. No spaces or +27.</small><?php endif; ?>
                     </div>
                 <?php endforeach; ?>
 
@@ -168,12 +170,14 @@ require __DIR__ . '/shared-components/header.php';
 
                 <div class="field">
                     <label for="password">Password</label>
-                    <input id="password" name="password" type="password" minlength="8" maxlength="72" autocomplete="new-password" required>
+                    <input id="password" name="password" type="password" data-password-rules minlength="16" maxlength="72" autocomplete="new-password" required>
+                    <?php eventnest_password_guidance(); ?>
                 </div>
 
                 <div class="field">
                     <label for="confirm_password">Confirm password</label>
-                    <input id="confirm_password" name="confirm_password" type="password" minlength="8" maxlength="72" autocomplete="new-password" required>
+                    <input id="confirm_password" name="confirm_password" type="password" minlength="16" maxlength="72" autocomplete="new-password" required>
+                    <small data-password-match class="password-match" aria-live="polite"></small>
                 </div>
             </div>
 

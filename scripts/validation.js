@@ -20,6 +20,22 @@
         return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
     }
 
+    function validSouthAfricanMobile(value) {
+        return /^0\d{9}$/.test(value) && ['060','061','062','063','064','065','066','067','068','069','071','072','073','074','076','077','078','079','081','082','083','084'].indexOf(value.slice(0, 3)) !== -1;
+    }
+
+    function checkPhone(field) {
+        var value = field.value;
+        var message = '';
+        if (!value && field.required) message = 'Phone number is required.';
+        else if (!value) message = '';
+        else if (!/^\d+$/.test(value)) message = 'Phone number must contain digits only.';
+        else if (value.length !== 10) message = 'Enter exactly 10 digits.';
+        else if (!validSouthAfricanMobile(value)) message = 'Enter a valid South African mobile number.';
+        errorFor(field, message);
+        field.setCustomValidity(message);
+    }
+
     function validate(form) {
         var firstInvalid = null;
         var valid = true;
@@ -42,12 +58,18 @@
             }
         });
 
-        var password = form.querySelector('[name="password"], [name="new_password"]');
+        var password = form.querySelector('[name="new_password"], [name="password"][data-password-rules]');
         var confirm = form.querySelector('[name="confirm_password"]');
         var passwordBytes = password ? new TextEncoder().encode(password.value).length : 0;
-        if (password && password.value && (passwordBytes < 8 || passwordBytes > 72)) {
-            errorFor(password, 'Use a password between 8 and 72 bytes long.');
+        if (password && password.value && (Array.from(password.value).length < 16 || passwordBytes > 72 || /[\s\u0085]/u.test(password.value) || !/[A-Z]/.test(password.value) || !/[a-z]/.test(password.value) || !/[0-9]/.test(password.value) || !/[^A-Za-z0-9\s]/.test(password.value))) {
+            errorFor(password, passwordBytes > 72 ? 'This password is too long. Choose a shorter one that meets the rules below.' : 'Use at least 16 characters with uppercase and lowercase letters, a number and a special character, without spaces.');
             valid = false; firstInvalid = firstInvalid || password;
+        }
+
+        var phone = form.querySelector('[name="phone"][data-sa-mobile]');
+        if (phone) {
+            checkPhone(phone);
+            if (!phone.validity.valid) { valid = false; firstInvalid = firstInvalid || phone; }
         }
         if (password && confirm && confirm.value !== password.value) {
             errorFor(confirm, 'Passwords do not match.');
@@ -97,5 +119,36 @@
     document.addEventListener('submit', function (event) {
         var form = event.target;
         if (form.matches('[data-validate]') && !validate(form)) event.preventDefault();
+    });
+
+    document.querySelectorAll('[data-password-rules]').forEach(function (field) {
+        var wrap=field.closest('.field'), panel=wrap.querySelector('[data-password-rules-panel]');
+        var confirm=field.form.querySelector('[name="confirm_password"]');
+        var match=confirm && confirm.closest('.field').querySelector('[data-password-match]');
+        function update() {
+            var value=field.value;
+            var checks={length:Array.from(value).length>=16,max:new TextEncoder().encode(value).length<=72,
+                upper:/[A-Z]/.test(value),lower:/[a-z]/.test(value),number:/[0-9]/.test(value),
+                special:/[^A-Za-z0-9\s]/.test(value),space:!/[\s\u0085]/u.test(value)};
+            if (panel) panel.hidden = value.length === 0;
+            if (panel) panel.querySelectorAll('[data-rule]').forEach(function (rule) {
+                var met=checks[rule.dataset.rule];
+                rule.classList.toggle('is-met',met);
+                if (!rule.dataset.label) rule.dataset.label = rule.textContent.slice(2);
+                rule.textContent=(met?'\u2713 Met: ':'\u2717 Needed: ')+rule.dataset.label;
+            });
+            if (match) {
+                var equal=confirm.value!=='' && value===confirm.value;
+                match.textContent=confirm.value===''?'':equal?'Passwords match.':'Passwords do not match.';
+                match.classList.toggle('is-match',equal);
+            }
+        }
+        field.addEventListener('input',update);
+        if (confirm) confirm.addEventListener('input',update);
+        update();
+    });
+    document.querySelectorAll('[name="phone"][data-sa-mobile]').forEach(function (field) {
+        field.addEventListener('input', function () { checkPhone(field); });
+        field.addEventListener('blur', function () { if (field.value) checkPhone(field); });
     });
 })();
