@@ -22,8 +22,5 @@ uploaded-content/*
 !uploaded-content/profile-pictures/*.png
 
 # Include event banner images in Render deployments
-!uploaded-content/event-banners/
-!uploaded-content/event-banners/*.jpg
-!uploaded-content/event-banners/*.jpeg
-!uploaded-content/event-banners/*.png
-!uploaded-content/event-banners/*.webp
+!uploaded-content/category-images/
+!uploaded-content/category-images/*.png
