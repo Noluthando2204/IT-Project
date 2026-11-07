@@ -45,8 +45,20 @@ $fallbacks = [
     'artisan-careers-open-day' => 'heritage-creative-evening',
 ];
 
+echo "== EventNest image check ==\n";
+foreach (['event-banners', 'category-images'] as $folder) {
+    $names = array_map('basename', glob(dirname(__DIR__) . "/uploaded-content/$folder/*") ?: []);
+    echo "FOLDER $folder: " . count($names) . ' file(s): ' . implode(', ', $names) . "\n";
+}
+
+// Career fields without their own picture borrow the closest finished one.
+$categoryFallbacks = [
+    'design-creative-careers' => 'design',
+    'ict-digital-technology' => 'technology',
+    'healthcare-medical' => 'dermatology',
+];
+
 try {
-    echo "== EventNest image check ==\n";
 
     foreach ($pdo->query('SELECT EventID, EventName, ImagePath FROM EVENTS')->fetchAll() as $event) {
         $slug = img_slug((string) $event['EventName']);
@@ -72,6 +84,9 @@ try {
     foreach ($pdo->query('SELECT CategoryID, CategoryName, ImagePath FROM CATEGORIES')->fetchAll() as $category) {
         $slug = img_slug((string) $category['CategoryName']);
         $path = img_find('category-images', 'category', [$slug]);
+        if ($path === null && empty($category['ImagePath']) && isset($categoryFallbacks[$slug])) {
+            $path = img_find('category-images', 'category', [$categoryFallbacks[$slug]]);
+        }
 
         if ($path === null) {
             echo "FIELD  {$category['CategoryName']}: no image. Add uploaded-content/category-images/category-$slug-01.png\n";
