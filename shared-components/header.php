@@ -73,11 +73,13 @@ if (($_SESSION['role'] ?? null) === 'attendee' && !empty($_SESSION['user_id'])) 
         </a>
         <?php require __DIR__ . '/navbar.php'; ?>
     </div>
+    <?php if (basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')) !== 'index.php'): ?>
     <form class="header-search" action="<?= e(app_url('search-results.php')) ?>" method="get" role="search" data-live-search>
         <label class="sr-only" for="header-search-q">Search events, career fields or hashtags</label>
         <div class="search-input-wrap"><input id="header-search-q" type="search" name="q" maxlength="100" placeholder="Search events, career fields or #hashtags" autocomplete="off"><div class="search-suggestions" data-search-suggestions hidden></div></div>
         <button class="btn btn-blue" type="submit">Search</button>
     </form>
+    <?php endif; ?>
 </header>
 
 <?php if ($flashes): ?>
