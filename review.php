@@ -14,25 +14,36 @@ try {
     }
     if($rating>=4) {
         $selected=$_POST['compliment_tags'] ?? [];
-        if(!is_array($selected) || !$selected || array_diff($selected,['Helpful','Professional','Well organised','Inspiring','Good networking'])) {
-            throw new DomainException('Choose at least one approved compliment.');
+        // An empty select is the no-JavaScript equivalent of no checked chip.
+        if($selected === ['']) { $selected=[]; }
+        if(!is_array($selected) || count($selected)>1 || count(array_filter($selected,'is_string'))!==count($selected) || array_diff($selected,['Helpful','Professional','Well organised','Inspiring','Good networking'])) {
+            throw new DomainException('Choose no more than one approved compliment.');
         }
-        $tags=implode(', ',array_unique($selected));
+        if(!is_string($_POST['complaint_text'] ?? '') || trim($_POST['complaint_text'] ?? '')!=='') {
+            throw new DomainException('Written feedback is only accepted for 1–3 stars.');
+        }
+        $tags=$selected ? implode(', ',$selected) : null;
     }
     else {
+        if(!is_string($_POST['complaint_text'] ?? '') || !in_array($_POST['compliment_tags'] ?? [], [[], ['']], true)) {
+            throw new DomainException('For 1–3 stars, enter written feedback without a compliment.');
+        }
         $comment=trim_input($_POST['complaint_text'] ?? '');
-        if($comment==='' || mb_strlen($comment)>5000) {
+        if($comment==='' || preg_match('/[^\s\p{Z}]/u',$comment)!==1 || mb_strlen($comment)>5000) {
             throw new DomainException('Explain what could improve (up to 5,000 characters).');
         }
     }
     $contact=($_POST['wants_contact'] ?? '')==='1';
+    if($contact && !is_string($_POST['contact_email'] ?? '')) {
+        throw new DomainException('Enter a valid contact email.');
+    }
     $email=$contact?trim_input($_POST['contact_email'] ?? ''):null;
     if($contact && (!filter_var($email,FILTER_VALIDATE_EMAIL) || strlen($email)>100)) {
         throw new DomainException('Enter a valid contact email.');
     }
     $pdo->beginTransaction();
     // Lock the attendee's booking so simultaneous submissions cannot create two reviews.
-    $stmt=$pdo->prepare("SELECT b.EventID FROM BOOKINGS b JOIN EVENTS e ON e.EventID=b.EventID WHERE b.BookingID=? AND b.UserID=? AND b.Status='paid' AND e.Status='completed' FOR UPDATE");
+    $stmt=$pdo->prepare("SELECT b.EventID FROM BOOKINGS b JOIN EVENTS e ON e.EventID=b.EventID WHERE b.BookingID=? AND b.UserID=? AND b.Status='paid' AND e.Status='completed' AND e.EventDate < NOW() FOR UPDATE");
     $stmt->execute([$booking_id,$user['UserID']]);
     $event_id=$stmt->fetchColumn();
     if(!$event_id) {

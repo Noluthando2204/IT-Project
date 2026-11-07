@@ -81,7 +81,7 @@ require_once __DIR__ . '/shared-components/header.php';
                     </div>
                     <h2><?= escape_html($notice['title']) ?></h2>
                     <p><?= escape_html($notice['message']) ?></p>
-                    <a class="btn btn-outline" href="<?= escape_html(eventnest_url($notice['url'])) ?>">View details</a>
+                    <a class="btn btn-outline" href="<?= escape_html(eventnest_url($notice['url'])) ?>"><?= escape_html($notice['action'] ?? 'View details') ?></a>
                 </article>
             <?php endforeach; ?>
         </div>

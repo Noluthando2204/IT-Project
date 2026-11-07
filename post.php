@@ -31,11 +31,12 @@ try {
         throw new DomainException('Invalid post action.');
     }
     $event_id=eventnest_id($_POST['EventID'] ?? null);
+    if (!empty($_POST['EventID']) && !$event_id) { throw new DomainException('Invalid event.'); }
     $content=trim_input($_POST['Content'] ?? '');
     $hashtags=eventnest_normalise_hashtags(trim_input($_POST['Hashtags'] ?? ''));
     $stmt=$pdo->prepare("SELECT EventID FROM EVENTS WHERE EventID=? AND OrganiserID=? AND Status IN ('draft','published','completed') FOR UPDATE");
     $stmt->execute([$event_id,$user['UserID']]);
-    if(!$stmt->fetchColumn() || mb_strlen($content)>10000) {
+    if(($event_id && !$stmt->fetchColumn()) || mb_strlen($content)>10000) {
         throw new DomainException('Select one of your available events and keep text within 10,000 characters.');
     }
     $media=null;
@@ -71,7 +72,7 @@ try {
         throw new DomainException('Add an event update or approved media file.');
     }
     $stmt=$pdo->prepare('INSERT INTO POSTS (EventID,OrganiserID,Content,Media,Media_type,Hashtags) VALUES (?,?,?,?,?,?)');
-    $stmt->execute([$event_id,$user['UserID'],$content ?: null,$media,$type,$hashtags]);
+    $stmt->execute([$event_id ?: null,$user['UserID'],$content ?: null,$media,$type,$hashtags]);
     $pdo->commit();
     auth_set_flash('Post saved. Draft-event posts remain private until publication.','success');
 }

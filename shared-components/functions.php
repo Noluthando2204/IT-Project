@@ -64,7 +64,44 @@ function eventnest_sidebar(string $role): void
 
 function eventnest_password_valid(string $password): bool
 {
-    return strlen($password) >= 8 && strlen($password) <= 72;
+    $characters = function_exists('mb_strlen') ? mb_strlen($password, 'UTF-8') : strlen($password);
+    return $characters >= 16
+        && strlen($password) <= 72
+        && preg_match('/[\s\x{FEFF}]/u', $password) !== 1
+        && preg_match('/[A-Z]/', $password) === 1
+        && preg_match('/[a-z]/', $password) === 1
+        && preg_match('/[0-9]/', $password) === 1
+        && preg_match('/[^A-Za-z0-9\s]/u', $password) === 1;
+}
+
+function eventnest_password_error(): string
+{
+    return 'Use at least 16 characters with uppercase and lowercase letters, a number and a special character, without spaces. If your password is too long, choose a shorter one that meets these rules.';
+}
+
+function eventnest_phone_valid(string $phone): bool
+{
+    static $mobile_prefixes = [
+        '060', '061', '062', '063', '064', '065', '066', '067', '068', '069',
+        '071', '072', '073', '074', '076', '077', '078', '079',
+        '081', '082', '083', '084',
+    ];
+
+    return preg_match('/^0[0-9]{9}$/D', $phone) === 1
+        && in_array(substr($phone, 0, 3), $mobile_prefixes, true);
+}
+
+// Shared guidance prevents registration/reset/settings from drifting apart.
+function eventnest_password_guidance(): void
+{
+    $rules = ['length'=>'At least 16 characters','max'=>'Password is not too long',
+        'upper'=>'At least one uppercase letter, e.g. A','lower'=>'At least one lowercase letter, e.g. a','number'=>'At least one number, e.g. 7',
+        'special'=>'At least one special character, e.g. ! @ # $','space'=>'No spaces'];
+    echo '<ul class="password-rules" data-password-rules-panel hidden aria-live="polite" aria-label="Password requirements">';
+    foreach ($rules as $key=>$label) {
+        echo '<li data-rule="'.escape_html($key).'">&#9675; '.escape_html($label).'</li>';
+    }
+    echo '</ul>';
 }
 
 function eventnest_organiser_display_name(array $organiser): string
@@ -102,6 +139,56 @@ function eventnest_organisation_initials(string $name): string
     }
 
     return $initials !== '' ? $initials : 'EN';
+}
+
+function eventnest_compact_count(int $count): string
+{
+    if ($count < 1000) { return (string) $count; }
+    return rtrim(rtrim(number_format($count / 1000, 1, '.', ''), '0'), '.') . 'k';
+}
+
+function eventnest_demo_insufficient_funds(PDO $pdo, array $user, float $amount): bool
+{
+    // Production gateway enforcement is unchanged. Only the explicitly seeded Neo
+    // fixture has this presentation guard; balances are never payment authorisation.
+    if ((getenv('PAYFAST_MODE') ?: 'sandbox') !== 'sandbox' || $amount <= 0) { return false; }
+    if (($user['Email'] ?? '') !== 'neo.lowbalance@example.com' || !isset($user['SandboxBalance'])) { return false; }
+    $stmt=$pdo->prepare("SELECT EntityID FROM DEMO_FIXTURES WHERE FixtureKey='neo-balance' AND EntityID=?");
+    $stmt->execute([$user['UserID']]);
+    return (bool) $stmt->fetchColumn() && $amount > (float) $user['SandboxBalance'];
+}
+
+// A request-local cache also supports cards whose query selects only organiser IDs.
+function eventnest_organiser_avatar(array $organiser, int $size = 56): string
+{
+    static $profiles = null;
+    if ($profiles === null) {
+        $profiles = eventnest_db()->query("SELECT UserID,OrganisationName,FirstName,LastName,ProfileImagePath FROM USERS WHERE Role='organiser'")->fetchAll(PDO::FETCH_UNIQUE | PDO::FETCH_ASSOC);
+    }
+    $profile = $profiles[(int) ($organiser['OrganiserID'] ?? $organiser['UserID'] ?? 0)] ?? $organiser;
+    $name = eventnest_organiser_display_name($profile);
+    $path = eventnest_safe_media_path($profile['ProfileImagePath'] ?? null, 'image');
+    if ($path !== null && (!str_starts_with($path, 'uploaded-content/profile-pictures/')
+        || in_array(basename($path), ['graduate_summit_b.png','futuretech_b.png','creative_lab_b.png'], true))) {
+        $path = null;
+    }
+    $initials = escape_html(eventnest_organisation_initials($name));
+    $image = $path ? '<img src="' . escape_html(eventnest_url($path)) . '" alt="' . escape_html($name . ' company logo') . '" width="' . $size . '" height="' . $size . '" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false">' : '';
+    return '<span class="company-avatar" style="--avatar-size:' . $size . 'px">' . $image . '<span' . ($path ? ' hidden' : '') . '>' . $initials . '</span></span>';
+}
+
+function eventnest_save_company_logo(?array $file): ?array
+{
+    if ($file !== null && ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+        if (($file['size'] ?? 0) > 2 * 1024 * 1024 || in_array($file['error'] ?? null, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
+            throw new DomainException('Choose a company logo up to 2 MB.');
+        }
+        $dimensions = @getimagesize($file['tmp_name'] ?? '');
+        if (!$dimensions || $dimensions[0] < 16 || $dimensions[1] < 16 || $dimensions[0] > 4096 || $dimensions[1] > 4096) {
+            throw new DomainException('Choose a valid logo between 16 and 4096 pixels on each side.');
+        }
+    }
+    return eventnest_save_image_upload($file, 'profile-pictures', 'company');
 }
 
 function eventnest_provinces(): array
@@ -925,11 +1012,15 @@ if (!function_exists('eventnest_delete_upload')) {
 }
 
 if (!function_exists('eventnest_image_url')) {
-    /** Public URL for a stored image, or the EventNest logo when none exists. */
-    function eventnest_image_url(?string $database_path): string
+    /** Keep event/category media separate from company avatars and post media. */
+    function eventnest_image_url(?string $database_path, string $kind = 'event'): string
     {
         $safe = $database_path ? eventnest_safe_media_path($database_path, 'image') : null;
-        return eventnest_url($safe ?? 'images/eventnest-logo.png');
+        $prefix = $kind === 'category' ? 'uploaded-content/category-images/' : 'uploaded-content/event-banners/';
+        if ($safe !== null && !str_starts_with($safe, $prefix)) {
+            $safe = null;
+        }
+        return eventnest_url($safe ?? ($kind === 'category' ? 'images/category-placeholder.svg' : 'images/event-placeholder.svg'));
     }
 }
 

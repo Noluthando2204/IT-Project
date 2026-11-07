@@ -9,6 +9,7 @@ $organiser_intent = ($_POST['account_type'] ?? $_GET['account_type'] ?? '') === 
 $page_title = $organiser_intent ? 'Create organiser account' : 'Create account';
 $message = '';
 $account_exists = false;
+$logo = null;
 $organisation_name = '';
 $email = '';
 $categories = $pdo->query('SELECT CategoryName FROM CATEGORIES ORDER BY CategoryName')->fetchAll(PDO::FETCH_COLUMN);
@@ -20,12 +21,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $last_name = trim_input($_POST['last_name'] ?? '');
     $organisation_name = $organiser_intent ? trim_input($_POST['organisation_name'] ?? '') : '';
     $email = strtolower(trim_input($_POST['email'] ?? ''));
-    $phone = trim_input($_POST['phone'] ?? '');
+    $phone = is_string($_POST['phone'] ?? null) ? $_POST['phone'] : '';
     $career_field = trim_input($_POST['career_field'] ?? '');
     $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
     $confirmation = is_string($_POST['confirm_password'] ?? null) ? $_POST['confirm_password'] : '';
 
     try {
+        if (!eventnest_phone_valid($phone)) { throw new DomainException('Enter exactly 10 digits with a valid South African mobile prefix (for example 072, 073 or 082), without spaces.'); }
+        if (!eventnest_password_valid($password)) { throw new DomainException(eventnest_password_error()); }
         foreach ([[$first_name, 50], [$last_name, 50], [$organisation_name, 150], [$email, 100], [$phone, 15]] as [$value, $limit]) {
             if (mb_strlen($value) > $limit) {
                 throw new DomainException('A field exceeds its allowed length.');
@@ -37,14 +40,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $last_name === '' ||
             ($organiser_intent && $organisation_name === '') ||
             !filter_var($email, FILTER_VALIDATE_EMAIL) ||
-            !eventnest_password_valid($password) ||
             $password !== $confirmation ||
             ($career_field !== '' && !in_array($career_field, $categories, true))
         ) {
             throw new DomainException(
                 $organiser_intent
-                    ? 'Enter the organisation name, representative name, a valid email and matching passwords of at least 8 characters.'
-                    : 'Enter your name, a valid email and matching passwords of at least 8 characters. Choose a listed career field or leave it blank.'
+                    ? 'Enter the organisation name, representative name, a valid email and matching passwords meeting the displayed requirements.'
+                    : 'Enter your name, a valid email and matching passwords meeting the displayed requirements. Choose a listed career field or leave it blank.'
             );
         }
 
@@ -60,12 +62,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         Organisers still start with pending verification and cannot create approved public events immediately.
 
         */
+        $logo = $organiser_intent ? eventnest_save_company_logo($_FILES['company_logo'] ?? null) : null;
         $stmt = $pdo->prepare(
             "INSERT INTO USERS
                 (FirstName, LastName, Email, PasswordHash, Phone, CareerField, Role, UserStatus,
-                 VerificationStatus, RecommendationOptIn, LastLoginAt, OrganisationName)
+                 VerificationStatus, RecommendationOptIn, LastLoginAt, OrganisationName, ProfileImagePath)
              VALUES
-                (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, CURRENT_TIMESTAMP, ?)"
+                (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, CURRENT_TIMESTAMP, ?, ?)"
         );
         $stmt->execute([
             $first_name,
@@ -78,6 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $organiser_intent ? 'pending' : 'unverified',
             !$organiser_intent && ($_POST['recommendation_opt_in'] ?? '') === '1' ? 1 : 0,
             $organiser_intent ? $organisation_name : null,
+            $logo['relative'] ?? null,
         ]);
 
         $role = $organiser_intent ? 'organiser' : 'attendee';
@@ -99,6 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (DomainException $exception) {
         $message = $exception->getMessage();
     } catch (PDOException $exception) {
+        if ($logo) { @unlink($logo['absolute']); }
         $driver_code = (int) ($exception->errorInfo[1] ?? 0);
         if ($exception->getCode() === '23000' && $driver_code === 1062) {
             $message = 'An account with that email is already registered.';
@@ -132,13 +137,14 @@ require __DIR__ . '/shared-components/header.php';
             </div>
         <?php endif; ?>
 
-        <form method="post" action="<?= escape_html(eventnest_url('register.php')) ?>" data-validate="true">
+        <form enctype="multipart/form-data" method="post" action="<?= escape_html(eventnest_url('register.php')) ?>" data-validate="true">
             <?php eventnest_csrf_field(); ?>
             <input type="hidden" name="account_type" value="<?= $organiser_intent ? 'organiser' : 'attendee' ?>">
 
             <div class="form-grid">
                 <?php if ($organiser_intent): ?>
                     <div class="field full">
+                        <label for="company_logo">Upload company logo (optional)</label><input id="company_logo" name="company_logo" type="file" accept="image/png,image/jpeg,image/webp" data-logo-input><small>PNG, JPG or WebP; up to 2 MB, 16 to 4096 pixels per side. Transparent PNG supported.</small><div data-logo-preview></div>
                         <label for="organisation_name">Business / organisation name</label>
                         <input id="organisation_name" name="organisation_name" type="text" maxlength="150" value="<?= escape_html($organisation_name) ?>" required>
                     </div>
@@ -147,7 +153,8 @@ require __DIR__ . '/shared-components/header.php';
                 <?php foreach (['first_name' => 'First name', 'last_name' => 'Last name', 'email' => 'Email address', 'phone' => 'Phone'] as $field => $label): ?>
                     <div class="field">
                         <label for="<?= $field ?>"><?= $label ?></label>
-                        <input id="<?= $field ?>" name="<?= $field ?>" type="<?= $field === 'email' ? 'email' : 'text' ?>" maxlength="<?= $field === 'email' ? 100 : ($field === 'phone' ? 15 : 50) ?>" value="<?= escape_html(trim_input($_POST[$field] ?? '')) ?>" <?= $field !== 'phone' ? 'required' : '' ?>>
+                        <input id="<?= $field ?>" name="<?= $field ?>" type="<?= $field === 'email' ? 'email' : ($field === 'phone' ? 'tel' : 'text') ?>" maxlength="<?= $field === 'email' ? 100 : ($field === 'phone' ? 10 : 50) ?>" value="<?= escape_html(is_string($_POST[$field] ?? null) ? $_POST[$field] : '') ?>" <?= $field === 'phone' ? 'data-sa-mobile inputmode="numeric" autocomplete="tel-national" pattern="0[0-9]{9}"' : '' ?> required>
+                        <?php if ($field === 'phone'): ?><small>Exactly 10 digits with a South African mobile prefix, e.g. 0821234567. No spaces or +27.</small><?php endif; ?>
                     </div>
                 <?php endforeach; ?>
 
@@ -163,12 +170,14 @@ require __DIR__ . '/shared-components/header.php';
 
                 <div class="field">
                     <label for="password">Password</label>
-                    <input id="password" name="password" type="password" minlength="8" maxlength="72" autocomplete="new-password" required>
+                    <input id="password" name="password" type="password" data-password-rules minlength="16" maxlength="72" autocomplete="new-password" required>
+                    <?php eventnest_password_guidance(); ?>
                 </div>
 
                 <div class="field">
                     <label for="confirm_password">Confirm password</label>
-                    <input id="confirm_password" name="confirm_password" type="password" minlength="8" maxlength="72" autocomplete="new-password" required>
+                    <input id="confirm_password" name="confirm_password" type="password" minlength="16" maxlength="72" autocomplete="new-password" required>
+                    <small data-password-match class="password-match" aria-live="polite"></small>
                 </div>
             </div>
 
@@ -194,4 +203,5 @@ require __DIR__ . '/shared-components/header.php';
     </aside>
 </main>
 <script src="<?= escape_html(eventnest_url('scripts/validation.js')) ?>" defer></script>
+<script src="scripts/company-logo.js" defer></script>
 <?php require __DIR__ . '/shared-components/footer.php'; ?>

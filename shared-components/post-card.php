@@ -33,9 +33,7 @@ function eventnest_render_post(array $post, array $viewer, bool $detail = false)
     $url = eventnest_url('post-detail.php?post_id=' . $id);
     try { $share_url = eventnest_absolute_url('post-detail.php?post_id=' . $id); }
     catch (DomainException $exception) { $share_url = $url; }
-    $share_title = $post['EventName'] . ' — ' . $name;
-    $mailto = 'mailto:?subject=' . rawurlencode('Check out this EventNest post: ' . $share_title)
-        . '&body=' . rawurlencode("I thought you might like this on EventNest:\n\n" . $share_title . "\n" . $share_url);
+    $share_title = ($post['EventName'] ?? 'General update') . ' — ' . $name;
     $blocked = !empty($viewer['blocked'][$organiser]);
     $can_react = $viewer['attendee'] && !$blocked;
     $selected = $viewer['selected'][$id] ?? null;
@@ -47,6 +45,7 @@ function eventnest_render_post(array $post, array $viewer, bool $detail = false)
     ?>
     <article class="post-card social-post<?= $detail ? ' social-post--detail' : '' ?>" aria-label="Post by <?= e($name) ?>">
         <header class="social-post__header">
+            <?= eventnest_organiser_avatar($post) ?>
             <a class="social-post__author" href="<?= e(eventnest_url('organiser-profile.php?organiser_id=' . $organiser)) ?>"><?= e($name) ?></a>
             <time datetime="<?= e(date('c', strtotime($post['PostDate']))) ?>"><?= e(format_datetime($post['PostDate'])) ?></time>
         </header>
@@ -54,10 +53,10 @@ function eventnest_render_post(array $post, array $viewer, bool $detail = false)
             <div class="social-post__media">
                 <?php if ($type === 'image'): ?>
                     <?php if (!$detail): ?><a href="<?= e($url) ?>"><?php endif; ?>
-                    <img src="<?= e(eventnest_url($media)) ?>" alt="Image shared for <?= e($post['EventName']) ?> by <?= e($name) ?>" <?= $detail ? '' : 'loading="lazy"' ?>>
+                    <img src="<?= e(eventnest_url($media)) ?>" alt="Image shared for <?= e(($post['EventName'] ?? 'General update')) ?> by <?= e($name) ?>" <?= $detail ? '' : 'loading="lazy"' ?>>
                     <?php if (!$detail): ?></a><?php endif; ?>
                 <?php else: ?>
-                    <video controls playsinline preload="metadata" aria-label="Video shared for <?= e($post['EventName']) ?>">
+                    <video controls playsinline preload="metadata" aria-label="Video shared for <?= e(($post['EventName'] ?? 'General update')) ?>">
                         <source src="<?= e(eventnest_url($media)) ?>">
                         Your browser cannot play this video.
                     </video>
@@ -78,27 +77,25 @@ function eventnest_render_post(array $post, array $viewer, bool $detail = false)
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
-            <p class="social-post__event">Linked event: <a href="<?= e(eventnest_url('event-detail.php?event_id=' . (int) $post['EventID'])) ?>"><?= e($post['EventName']) ?></a></p>
+            <?php if ($post['EventID'] !== null): ?><p class="social-post__event">Linked event: <a href="<?= e(eventnest_url('event-detail.php?event_id=' . (int) $post['EventID'])) ?>"><?= e(($post['EventName'] ?? 'General update')) ?></a></p><?php else: ?><p class="social-post__event">General update</p><?php endif; ?>
         </div>
         <div class="social-post__actions">
             <div class="reaction-controls" <?= $can_react ? 'data-reaction-widget' : '' ?> data-post-id="<?= $id ?>" data-current-reaction="<?= e($selected ?? '') ?>" data-csrf-token="<?= $can_react ? e(eventnest_csrf_token()) : '' ?>" data-endpoint="<?= e(eventnest_url('reaction.php')) ?>" data-login-url="<?= e(eventnest_url('login.php')) ?>">
                 <?php foreach ($options as $reaction => [$icon, $label, $count]): ?>
                     <?php if ($can_react): ?>
                         <button type="button" class="reaction-button<?= $selected === $reaction ? ' is-selected' : '' ?>" data-reaction-button data-reaction-type="<?= e($reaction) ?>" aria-pressed="<?= $selected === $reaction ? 'true' : 'false' ?>" aria-label="<?= e($label) ?>">
-                            <span aria-hidden="true"><?= $icon ?></span> <span class="reaction-label"><?= e($label) ?></span> <span data-reaction-count="<?= e($reaction) ?>"><?= (int) ($post[$count] ?? 0) ?></span>
+                            <span aria-hidden="true"><?= $icon ?></span> <span class="reaction-label"><?= e($label) ?></span> <span title="<?= (int) ($post[$count] ?? 0) ?> reactions" data-reaction-count="<?= e($reaction) ?>"><?= eventnest_compact_count((int) ($post[$count] ?? 0)) ?></span>
                         </button>
                     <?php elseif ($viewer['user'] === null): ?>
-                        <a class="reaction-button" href="<?= e(eventnest_url('login.php')) ?>" aria-label="Log in to react: <?= e($label) ?>"><span aria-hidden="true"><?= $icon ?></span> <?= e($label) ?> <?= (int) ($post[$count] ?? 0) ?></a>
+                        <a class="reaction-button" href="<?= e(eventnest_url('login.php')) ?>" aria-label="Log in to react: <?= e($label) ?>"><span aria-hidden="true"><?= $icon ?></span> <?= e($label) ?> <?= eventnest_compact_count((int) ($post[$count] ?? 0)) ?></a>
                     <?php else: ?>
-                        <span class="social-post__total"><?= $icon ?> <?= e($label) ?> <?= (int) ($post[$count] ?? 0) ?></span>
+                        <span class="social-post__total" title="<?= (int) ($post[$count] ?? 0) ?> reactions"><?= $icon ?> <?= e($label) ?> <?= eventnest_compact_count((int) ($post[$count] ?? 0)) ?></span>
                     <?php endif; ?>
                 <?php endforeach; ?>
                 <span class="social-post__status" role="status" data-reaction-message></span>
             </div>
-            <div class="social-post__share" data-post-share data-share-url="<?= e($share_url) ?>" data-share-title="<?= e($post['EventName'] . ' — ' . $name) ?>">
+            <div class="social-post__share" data-post-share data-share-url="<?= e($share_url) ?>" data-share-title="<?= e(($post['EventName'] ?? 'General update') . ' — ' . $name) ?>">
                 <button type="button" class="reaction-button" data-share-native>Share</button>
-                <button type="button" class="reaction-button" data-share-copy>Copy link</button>
-                <a class="reaction-button" href="<?= e($mailto) ?>" data-share-email rel="noopener">Share by email</a>
                 <span class="social-post__status" role="status" data-share-message></span>
             </div>
         </div>

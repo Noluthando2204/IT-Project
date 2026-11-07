@@ -83,6 +83,10 @@ if ($expected_total <= 0.0) {
 if ($booking['Status'] === 'pending' && eventnest_checkout_started($booking_id)) {
     $errors[] = 'Checkout has already been opened. Payment confirmation is being processed. Check its status before starting another payment.';
 }
+// A tagged local demo balance may reject sandbox checkout; never simulates a payment.
+if (eventnest_demo_insufficient_funds($pdo, $auth_user, $expected_total)) {
+    $errors[] = 'Insufficient funds. Your available balance is R10.00. Choose a free event or use another account.';
+}
 $csrf_token = eventnest_csrf_token();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errors) {

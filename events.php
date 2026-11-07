@@ -249,7 +249,7 @@ require_once __DIR__ . '/shared-components/header.php';
                 <div class="event-grid">
                     <?php foreach ($events as $event): ?>
                         <article class="event-card">
-                            <img class="event-card__image" src="<?= escape_html(eventnest_image_url($event['ImagePath'] ?? null)) ?>" alt="<?= escape_html($event['EventName'] ?? 'EventNest') ?>" width="1600" height="900" loading="lazy">
+                            <img class="event-card__image event-banner" src="<?= escape_html(eventnest_image_url($event['ImagePath'] ?? null)) ?>" alt="<?= escape_html($event['EventName'] ?? 'EventNest') ?>" width="1600" height="900" loading="lazy">
                             <div class="event-card__content">
                                 <h3><?= escape_html($event['EventName']) ?></h3>
                                 <p><?= escape_html(format_datetime($event['EventDate'])) ?></p>
