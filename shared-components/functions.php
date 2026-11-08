@@ -1192,6 +1192,18 @@ function eventnest_payfast_origin(): string
     return $mode === 'live' ? 'https://www.payfast.co.za' : 'https://sandbox.payfast.co.za';
 }
 
+// PayFast rejects some checkout requests (400 "Internal Server Error") when free-text fields contain
+// symbols such as "&", quotes or non-ASCII characters, so send a plain, length-limited version.
+function eventnest_payfast_text(string $value, int $max = 100): string
+{
+    $value = str_replace('&', 'and', $value);
+    $ascii = function_exists('iconv') ? @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value) : false;
+    $value = is_string($ascii) && $ascii !== '' ? $ascii : $value;
+    $value = (string) preg_replace('/[^A-Za-z0-9 .,\'()\/:@_-]+/', ' ', $value);
+    $value = trim((string) preg_replace('/\s+/', ' ', $value));
+    return substr($value, 0, $max);
+}
+
 // ITNs include empty fields and preserve received field order and values.
 // Checkout signatures omit empty fields, so they must not share that serialisation.
 function eventnest_payfast_itn_parameters(array $data): string
@@ -1438,7 +1450,7 @@ function eventnest_prepare_verification_fee(PDO $pdo, array $user): array
     $form = [
         'merchant_id' => $merchant, 'merchant_key' => $merchant_key,
         'return_url' => $return_url, 'cancel_url' => $return_url . '?fee=not-completed', 'notify_url' => $notify_url,
-        'name_first' => (string) $current['FirstName'], 'name_last' => (string) $current['LastName'],
+        'name_first' => eventnest_payfast_text((string) $current['FirstName']), 'name_last' => eventnest_payfast_text((string) $current['LastName']),
         'email_address' => (string) $current['Email'], 'm_payment_id' => $reference,
         'amount' => '99.00', 'item_name' => 'EventNest annual organiser verification',
     ];
