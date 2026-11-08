@@ -19,7 +19,7 @@
         var valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
             && (domain.endsWith('.ac.za') || domain === 'tuks.co.za' || domain.endsWith('.tuks.co.za'));
         email.setCustomValidity(valid ? '' : 'Enter an eligible academic email ending in .ac.za or tuks.co.za.');
-        feedback.textContent = valid ? 'Academic email format accepted; the server will check it again.' : 'Student tickets require an eligible academic email.';
+        feedback.textContent = !value ? '' : (valid ? 'Academic email format accepted; the server will check it again.' : 'Student tickets require an eligible academic email.');
     }
     function update() {
         var student = !!selectedStudent(); wrap.hidden = !student; email.required = student;

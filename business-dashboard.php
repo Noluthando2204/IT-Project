@@ -21,3 +21,4 @@ require __DIR__.'/shared-components/header.php';
 <section class="content-card"><h2>Upcoming events</h2><?php foreach($events as $event): ?><p><?= escape_html($event['EventName']) ?> ? <?= escape_html(format_datetime($event['EventDate'])) ?> <?= eventnest_status_badge($event['Status']) ?></p><?php endforeach; ?><?php if(!$events): ?><p>No upcoming events.</p><?php endif; ?></section>
 <p class="callout callout-teal">Annual fee coverage: <?= auth_has_current_verification_fee($user)?'Active until '.escape_html(format_datetime($user['VerificationFeePaidUntil'])):'Not active. New bookings remain disabled until coverage is renewed.' ?></p></main></div>
 <?php require __DIR__.'/shared-components/footer.php'; ?>
+

@@ -3,3 +3,4 @@
 .floating-timer .timer-drag { cursor:grab;touch-action:none;user-select:none;background:transparent;color:inherit;border:1px solid currentColor;border-radius:4px;padding:4px; }
 .floating-timer .timer-drag:active { cursor:grabbing; }
 .floating-timer.is-warning,.floating-timer.is-expired { background:#b42318; }
+@media (max-width:720px){ .floating-timer{ left:16px;right:16px;bottom:16px;justify-content:center; } }
