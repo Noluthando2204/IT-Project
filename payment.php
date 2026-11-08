@@ -80,8 +80,8 @@ if ($booking['Status'] !== 'pending') {
 if ($expected_total <= 0.0) {
     $errors[] = 'Free bookings do not use PayFast.';
 }
-if ($booking['Status'] === 'pending' && eventnest_checkout_started($booking_id)) {
-    $errors[] = 'Checkout has already been opened. Payment confirmation is being processed. Check its status before starting another payment.';
+if ($booking['Status'] === 'pending' && eventnest_checkout_recent($booking_id)) {
+    $errors[] = 'Checkout was opened a moment ago. If PayFast showed an error or you closed it, wait a minute and open this page again; if you already paid, check your bookings for the status.';
 }
 // A tagged local demo balance may reject sandbox checkout; never simulates a payment.
 if (eventnest_demo_insufficient_funds($pdo, $auth_user, $expected_total)) {
@@ -120,12 +120,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errors) {
                 'return_url' => payment_absolute_url('payment-success.php?booking_id=' . $booking_id),
                 'cancel_url' => payment_absolute_url('payment-cancel.php?booking_id=' . $booking_id),
                 'notify_url' => payment_absolute_url('payment-notify.php'),
-                'name_first' => (string) $booking['FirstName'],
-                'name_last' => (string) $booking['LastName'],
+                'name_first' => eventnest_payfast_text((string) $booking['FirstName'], 100),
+                'name_last' => eventnest_payfast_text((string) $booking['LastName'], 100),
                 'email_address' => (string) $booking['Email'],
                 'm_payment_id' => (string) $booking['BookingReference'],
                 'amount' => number_format($expected_total, 2, '.', ''),
-                'item_name' => mb_substr('EventNest - ' . (string) $booking['EventName'], 0, 100, 'UTF-8'),
+                'item_name' => eventnest_payfast_text('EventNest - ' . (string) $booking['EventName'], 100),
                 'custom_int1' => (string) $booking_id,
             ];
             $payfast_form['signature'] = payment_payfast_signature($payfast_form, $passphrase);
@@ -138,8 +138,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errors) {
                     || (!(int) $current['Unexpired'] && !eventnest_checkout_started($booking_id))) {
                     throw new DomainException('This reservation has expired. Please book again.');
                 }
-                if (eventnest_checkout_started($booking_id)) {
-                    throw new DomainException('Checkout has already been opened. Please check your payment status.');
+                if (eventnest_checkout_recent($booking_id)) {
+                    throw new DomainException('Checkout was opened a moment ago. Wait a minute before trying again, or check your payment status.');
                 }
                 eventnest_mark_checkout($booking_id);
                 $pdo->commit();
@@ -189,6 +189,7 @@ require_once __DIR__ . '/shared-components/header.php';
             <p>Your booking remains pending until EventNest receives and verifies the provider notification.</p>
             <form method="post" action="<?= escape_html(eventnest_payfast_origin() . '/eng/process') ?>">
                 <?php foreach ($payfast_form as $name => $value): ?>
+                    <?php if ((string) $value === '') { continue; } ?>
                     <input type="hidden" name="<?= escape_html($name) ?>" value="<?= escape_html((string) $value) ?>">
                 <?php endforeach; ?>
                 <button class="btn btn-primary" type="submit">Continue to secure payment</button>
@@ -200,7 +201,7 @@ require_once __DIR__ . '/shared-components/header.php';
             <input type="hidden" name="csrf_token" value="<?= escape_html($csrf_token) ?>">
             <button class="btn btn-primary" type="submit">Continue to secure payment</button>
         </form>
-    <?php elseif ($booking['Status'] === 'pending' && eventnest_checkout_started($booking_id)): ?>
+    <?php elseif ($booking['Status'] === 'pending' && eventnest_checkout_recent($booking_id)): ?>
         <div class="button-row">
             <a class="btn btn-primary" href="payment-success.php?booking_id=<?= $booking_id ?>">Check payment status</a>
             <a class="btn btn-outline" href="payment-cancel.php?booking_id=<?= $booking_id ?>">Cancel this checkout</a>
