@@ -159,11 +159,13 @@ CREATE TABLE EVENTS (
         ON DELETE RESTRICT
         ON UPDATE CASCADE,
 
+    -- ON UPDATE RESTRICT (not CASCADE): MySQL/MariaDB refuse a CHECK constraint
+    -- on a column that is also used by a cascading foreign key action.
     CONSTRAINT fk_events_allowed_career_field
         FOREIGN KEY (AllowedCareerField)
         REFERENCES CATEGORIES(CategoryID)
         ON DELETE RESTRICT
-        ON UPDATE CASCADE,
+        ON UPDATE RESTRICT,
 
     CONSTRAINT chk_events_gate_fields
         CHECK (

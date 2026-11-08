@@ -355,25 +355,9 @@ video { max-width:100%; height:auto; }
 .nav-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; margin-left: 6px; padding: 0 5px; border-radius: 999px; background: #C62828; color: #fff; font-size: .7rem; font-weight: 700; line-height: 1; vertical-align: middle; }
 .auth-help { margin: 12px 0; }
 
-/* Floating reservation timer (shown on every page while an attendee has a pending booking) */
-.floating-timer {
-    position: fixed;
-    top: 84px; /* just below the sticky navbar */
-    right: 20px;
-    background-color: #1E3A8A;
-    color: #fff;
-    padding: 12px 24px;
-    border-radius: 30px;
-    font-weight: 700;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    z-index: 9999;
-    display: none;
-    text-decoration: none;
-    transition: background-color .3s ease;
-}
-a.floating-timer:hover, a.floating-timer:focus { color: #fff; text-decoration: underline; }
-.floating-timer.is-warning { background-color: #D9363E; animation: pulse 1s infinite; }
-.floating-timer.is-expired { background-color: #6B7280; animation: none; }
+/* Floating reservation timer: layout lives in reservation-timer.css (legacy rules here stretched it top-to-bottom). */
+.floating-timer.is-warning { animation: pulse 1s infinite; }
+.floating-timer.is-expired { animation: none; }
 
 @keyframes pulse {
     0% { transform: scale(1); }
@@ -385,9 +369,6 @@ a.floating-timer:hover, a.floating-timer:focus { color: #fff; text-decoration: u
 .filter-actions { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
 .filter-actions .btn { width: 100%; }
 
-@media (max-width: 720px) {
-    .floating-timer { top: auto; bottom: 16px; right: 16px; left: 16px; text-align: center; }
-}
 
 
 /* SIT media and reaction usability fixes. */
@@ -535,3 +516,36 @@ img.event-banner { object-fit:cover; object-position:center; background:var(--wh
 .password-rules li { color:var(--danger); font-size:.86rem; }
 .password-rules li.is-met, .password-match.is-match { color:var(--success); }
 .password-match { display:block; min-height:1.25rem; color:var(--danger); }
+
+
+/* ---- Visual fixes ---- */
+/* Images keep their real 16:9 shape so text baked into banners is never cropped. */
+.event-card__image { height:auto; max-height:none; aspect-ratio:16/9; }
+.hero-event__image { height:auto; max-height:none; aspect-ratio:16/9; }
+.event-detail__cover { height:auto; max-height:none; aspect-ratio:16/9; }
+.event-cover img { height:auto; max-height:none; aspect-ratio:16/9; }
+
+/* Events list: image pinned to the top-left, compact text with even rhythm. */
+.events-page .event-card__image { height:auto; max-height:none; align-self:start; border-radius:8px; }
+.events-page .event-card__content { gap:6px; }
+.events-page .event-card__content p { margin:0; }
+.events-page .event-card__content > .btn:last-child { margin-top:10px; }
+
+/* Career-field cards: equal height, buttons aligned along the bottom. */
+.event-grid > .content-card { display:flex; flex-direction:column; align-items:flex-start; margin-bottom:0; }
+.event-grid > .content-card .event-card__image { border-radius:8px; margin-bottom:14px; }
+.event-grid > .content-card h2 { margin:0 0 8px; }
+.event-grid > .content-card > .btn { margin-top:auto; }
+.event-grid > .content-card > p { margin:0 0 16px; }
+
+/* Form spacing: stacked fields and the submit button no longer touch. */
+form > .field + .field, form > .field + .btn, form > .field + button,
+form > .field + .field-hint, form > .field + p { margin-top:16px; }
+.support-layout > aside { margin-top:0; }
+
+/* Event detail: space between ticket cards and the Book now button. */
+.booking-guidance { margin-top:18px; }
+.booking-guidance .btn { margin-top:4px; }
+
+/* Organiser profile: heading rows line up. */
+.organiser-profile-page section > h2 { margin-top:0; }

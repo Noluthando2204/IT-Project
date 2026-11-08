@@ -66,10 +66,17 @@ function eventnest_render_post(array $post, array $viewer, bool $detail = false)
             <p class="social-post__fallback" role="status">This <?= $type === 'video' ? 'video' : 'image' ?> is currently unavailable.</p>
         <?php endif; ?>
         <div class="social-post__content">
-            <?php if (trim((string) $post['Content']) !== ''): ?>
-                <p class="social-post__caption"><?= nl2br(e($detail ? $post['Content'] : eventnest_excerpt($post['Content'], 400))) ?></p>
+            <?php
+            $tags = eventnest_extract_hashtags($post['Hashtags']);
+            // Hashtags are shown once as tag links below, so drop trailing copies from the caption text.
+            $caption = (string) $post['Content'];
+            if ($tags) {
+                $caption = rtrim((string) preg_replace('/(?:\s+#(?:' . implode('|', array_map(static fn ($t) => preg_quote((string) $t, '/'), $tags)) . '))+\s*$/iu', '', $caption));
+            }
+            ?>
+            <?php if (trim($caption) !== ''): ?>
+                <p class="social-post__caption"><?= nl2br(e($detail ? $caption : eventnest_excerpt($caption, 400))) ?></p>
             <?php endif; ?>
-            <?php $tags = eventnest_extract_hashtags($post['Hashtags']); ?>
             <?php if ($tags): ?>
                 <div class="social-post__tags" aria-label="Post hashtags">
                     <?php foreach ($tags as $tag): ?>

@@ -62,7 +62,7 @@ $date_from = events_valid_date(events_get_string('date_from', 10));
 $date_to = events_valid_date(events_get_string('date_to', 10));
 $price_type = events_get_string('price_type', 10);
 $ticket_type = events_get_string('ticket_type', 20);
-$sort = events_get_string('sort', 20) ?: 'newest';
+$sort = events_get_string('sort', 20) ?: 'event_date';
 $page = max(1, events_positive_int('page') ?: 1);
 
 if (!in_array($format, ['', 'online', 'physical', 'hybrid'], true)) {
@@ -75,7 +75,7 @@ if (!in_array($ticket_type, ['', 'General', 'VIP', 'Early Bird', 'Student'], tru
     $ticket_type = '';
 }
 if (!in_array($sort, ['newest', 'event_date', 'event_date_desc'], true)) {
-    $sort = 'newest';
+    $sort = 'event_date';
 }
 if ($date_from !== '' && $date_to !== '' && $date_from > $date_to) {
     $date_from = '';
@@ -224,9 +224,9 @@ require_once __DIR__ . '/shared-components/header.php';
 
                 <label for="sort">Sort</label>
                 <select id="sort" name="sort">
-                    <option value="newest" <?= $sort === 'newest' ? 'selected' : '' ?>>Newest first</option>
-                    <option value="event_date" <?= $sort === 'event_date' ? 'selected' : '' ?>>Event date: earliest</option>
-                    <option value="event_date_desc" <?= $sort === 'event_date_desc' ? 'selected' : '' ?>>Event date: latest</option>
+                    <option value="event_date" <?= $sort === 'event_date' ? 'selected' : '' ?>>Soonest first</option>
+                    <option value="event_date_desc" <?= $sort === 'event_date_desc' ? 'selected' : '' ?>>Latest first</option>
+                    <option value="newest" <?= $sort === 'newest' ? 'selected' : '' ?>>Recently added</option>
                 </select>
 
                 <div class="filter-actions">

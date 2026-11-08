@@ -158,8 +158,7 @@ require_once __DIR__ . '/shared-components/header.php';
     <section class="page-heading organiser-brand">
         <?= eventnest_organiser_avatar($organiser, 120) ?>
         <div>
-            <p class="eyebrow">Verified organiser</p>
-            <h1>Events by <?= escape_html($organiser_name) ?></h1>
+                        <h1>Events by <?= escape_html($organiser_name) ?></h1>
             <p><span class="status status-success">Verified organiser</span></p>
             <p>Published events, completed event history, and public career posts.</p>
         </div>
