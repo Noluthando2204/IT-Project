@@ -1192,6 +1192,33 @@ function eventnest_payfast_origin(): string
     return $mode === 'live' ? 'https://www.payfast.co.za' : 'https://sandbox.payfast.co.za';
 }
 
+// One source of truth for PayFast credentials, used by checkout and by ITN verification.
+// Sandbox mode uses PayFast's public shared sandbox merchant by default, because a sandbox
+// merchant ID/key/passphrase that do not belong together makes PayFast answer every
+// checkout with "400 Bad Request". Set PAYFAST_USE_OWN_SANDBOX=1 to use your own sandbox account.
+function eventnest_payfast_credentials(): array
+{
+    $mode = (getenv('PAYFAST_MODE') ?: 'sandbox') === 'live' ? 'live' : 'sandbox';
+    $id = trim((string) getenv('PAYFAST_MERCHANT_ID'));
+    $key = trim((string) getenv('PAYFAST_MERCHANT_KEY'));
+    $passphrase = trim((string) getenv('PAYFAST_PASSPHRASE'));
+    if ($mode === 'sandbox' && (getenv('PAYFAST_USE_OWN_SANDBOX') !== '1' || $id === '' || $key === '')) {
+        return ['merchant_id' => '10000100', 'merchant_key' => '46f0cd694581a', 'passphrase' => 'jt7NOE43FZPn', 'mode' => 'sandbox'];
+    }
+    return ['merchant_id' => $id, 'merchant_key' => $key, 'passphrase' => $passphrase, 'mode' => $mode];
+}
+
+// PayFast validates email_address and rejects reserved/demo domains with a 400, so leave it
+// out for those (the field is optional and PayFast then asks the payer on its own page).
+function eventnest_payfast_email(string $email): string
+{
+    $email = trim($email);
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 100) { return ''; }
+    $domain = strtolower(substr(strrchr($email, '@') ?: '', 1));
+    if (preg_match('/(^|\.)(example\.(com|org|net)|test|invalid|local|localhost|example)$/', $domain)) { return ''; }
+    return $email;
+}
+
 // PayFast rejects some checkout requests (400 "Internal Server Error") when free-text fields contain
 // symbols such as "&", quotes or non-ASCII characters, so send a plain, length-limited version.
 function eventnest_payfast_text(string $value, int $max = 100): string
@@ -1415,9 +1442,10 @@ function eventnest_verify_payfast_notification(array $post): void
     foreach ($post as $value) {
         if (!is_scalar($value)) { throw new RuntimeException('Invalid notification field.'); }
     }
-    $merchant = trim((string) getenv('PAYFAST_MERCHANT_ID'));
+    $credentials = eventnest_payfast_credentials();
+    $merchant = $credentials['merchant_id'];
     if ($merchant === '' || !hash_equals($merchant, trim((string) ($post['merchant_id'] ?? '')))
-        || !hash_equals(eventnest_payfast_itn_signature($post, (string) getenv('PAYFAST_PASSPHRASE')), strtolower(trim((string) ($post['signature'] ?? ''))))
+        || !hash_equals(eventnest_payfast_itn_signature($post, $credentials['passphrase']), strtolower(trim((string) ($post['signature'] ?? ''))))
         || !payfast_validate_with_provider($post)) {
         throw new RuntimeException('Payment verification failed.');
     }
@@ -1425,8 +1453,9 @@ function eventnest_verify_payfast_notification(array $post): void
 
 function eventnest_prepare_verification_fee(PDO $pdo, array $user): array
 {
-    $merchant = trim((string) getenv('PAYFAST_MERCHANT_ID'));
-    $merchant_key = trim((string) getenv('PAYFAST_MERCHANT_KEY'));
+    $credentials = eventnest_payfast_credentials();
+    $merchant = $credentials['merchant_id'];
+    $merchant_key = $credentials['merchant_key'];
     if ($merchant === '' || $merchant_key === '') { throw new DomainException('Sandbox fee payment is not configured on this server.'); }
     $return_url = eventnest_absolute_url('organiser-verification.php');
     $notify_url = eventnest_absolute_url('verification.php');
@@ -1451,11 +1480,11 @@ function eventnest_prepare_verification_fee(PDO $pdo, array $user): array
         'merchant_id' => $merchant, 'merchant_key' => $merchant_key,
         'return_url' => $return_url, 'cancel_url' => $return_url . '?fee=not-completed', 'notify_url' => $notify_url,
         'name_first' => eventnest_payfast_text((string) $current['FirstName']), 'name_last' => eventnest_payfast_text((string) $current['LastName']),
-        'email_address' => (string) $current['Email'], 'm_payment_id' => $reference,
+        'email_address' => eventnest_payfast_email((string) $current['Email']), 'm_payment_id' => $reference,
         'amount' => '99.00', 'item_name' => 'EventNest annual organiser verification',
     ];
     // PayFast requires its checkout merchant fields; the signing passphrase stays on the server.
-    $form['signature'] = payfast_signature($form, (string) getenv('PAYFAST_PASSPHRASE'));
+    $form['signature'] = payfast_signature($form, $credentials['passphrase']);
     return $form;
 }
 

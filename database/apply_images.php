@@ -30,20 +30,9 @@ function img_find(string $folder, string $prefix, array $slugs): ?string
     return null;
 }
 
-// Events without their own picture borrow the closest of the five finished pictures.
-$fallbacks = [
-    'chartered-accountancy-career-lab' => 'graduate-career-summit',
-    'financial-analyst-pathways-forum' => 'graduate-career-summit',
-    'allied-health-careers-expo' => 'graduate-career-summit',
-    'healthcare-graduate-pathways' => 'graduate-career-summit',
-    'career-development-reflection-workshop' => 'graduate-career-summit',
-    'engineering-graduate-launchpad' => 'futuretech-connect',
-    'renewable-energy-engineering-workshop' => 'futuretech-connect',
-    'electrical-mechatronics-apprenticeship-fair' => 'futuretech-connect',
-    'cybersecurity-careers-bootcamp' => 'cloud-skills-workshop',
-    'ux-digital-product-careers-evening' => 'creative-design-lab',
-    'artisan-careers-open-day' => 'heritage-creative-evening',
-];
+// Every seeded event now ships with its own cover (uploaded-content/event-banners/event-<slug>-01.jpg),
+// so no event borrows another event's picture (those carried the wrong event name in the artwork).
+$fallbacks = [];
 
 echo "== EventNest image check ==\n";
 foreach (['event-banners', 'category-images'] as $folder) {

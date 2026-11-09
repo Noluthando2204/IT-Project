@@ -9,8 +9,9 @@ function payment_success_record_itn(PDO $pdo, array $post): void
             throw new RuntimeException('Invalid payment notification value.');
         }
     }
-    $merchant_id = trim((string) getenv('PAYFAST_MERCHANT_ID'));
-    $passphrase = (string) getenv('PAYFAST_PASSPHRASE');
+    $credentials = eventnest_payfast_credentials();
+    $merchant_id = $credentials['merchant_id'];
+    $passphrase = $credentials['passphrase'];
 
     $received_signature = strtolower(trim((string) ($post['signature'] ?? '')));
     $reference = trim((string) ($post['m_payment_id'] ?? ''));

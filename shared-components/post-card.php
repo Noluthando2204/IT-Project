@@ -7,7 +7,8 @@ require_once __DIR__ . '/auth.php';
 function eventnest_post_viewer(PDO $pdo, array $posts): array
 {
     $user = auth_current_user();
-    $state = ['user' => $user, 'attendee' => $user !== null && $user['Role'] === 'attendee', 'blocked' => [], 'selected' => []];
+    $state = ['user' => $user, 'attendee' => $user !== null && $user['Role'] === 'attendee', 'blocked' => [], 'selected' => [], 'events' => [], 'fields' => []];
+    eventnest_post_context($pdo, $posts, $state);
     if (!$state['attendee'] || !$posts) { return $state; }
     $ids = array_values(array_unique(array_column($posts, 'PostID')));
     $marks = implode(',', array_fill(0, count($ids), '?'));
@@ -20,6 +21,47 @@ function eventnest_post_viewer(PDO $pdo, array $posts): array
     $stmt->execute(array_merge([$user['Email']], $organisers));
     foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) { $state['blocked'][(int) $id] = true; }
     return $state;
+}
+
+// Batched look-ups for the preview cards: the linked event (cover, date, price) and, for general
+// updates, the organiser's career field. Failures only hide the previews, never the posts.
+function eventnest_post_context(PDO $pdo, array $posts, array &$state): void
+{
+    try {
+        $event_ids = array_values(array_unique(array_filter(array_map(static fn ($p) => (int) ($p['EventID'] ?? 0), $posts))));
+        if ($event_ids) {
+            $marks = implode(',', array_fill(0, count($event_ids), '?'));
+            $stmt = $pdo->prepare(
+                "SELECT e.EventID, e.EventName, e.EventDate, e.Format, e.Venue, e.Province, e.ImagePath, e.Status,
+                        c.CategoryName,
+                        (SELECT MIN(t.Price) FROM TICKETS t WHERE t.EventID = e.EventID) AS MinimumPrice,
+                        (SELECT COALESCE(SUM(t.QuantityAvailable), 0) FROM TICKETS t WHERE t.EventID = e.EventID) AS SeatsLeft
+                 FROM EVENTS e LEFT JOIN CATEGORIES c ON c.CategoryID = e.CategoryID
+                 WHERE e.EventID IN ($marks)"
+            );
+            $stmt->execute($event_ids);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) { $state['events'][(int) $row['EventID']] = $row; }
+        }
+        $general = array_values(array_unique(array_map(static fn ($p) => (int) $p['OrganiserID'], array_filter($posts, static fn ($p) => empty($p['EventID'])))));
+        foreach ($general as $organiser_id) {
+            // Prefer the field the organiser actually runs upcoming events in; fall back to their career field.
+            $stmt = $pdo->prepare(
+                "SELECT c.CategoryID, c.CategoryName, c.ImagePath,
+                        (SELECT COUNT(*) FROM EVENTS x WHERE x.CategoryID = c.CategoryID AND x.Status = 'published' AND x.EventDate > NOW()) AS Upcoming
+                 FROM CATEGORIES c
+                 LEFT JOIN EVENTS e ON e.CategoryID = c.CategoryID AND e.OrganiserID = :organiser AND e.Status = 'published' AND e.EventDate > NOW()
+                 LEFT JOIN USERS u ON u.UserID = :organiser2 AND u.CareerField = c.CategoryName
+                 WHERE e.EventID IS NOT NULL OR u.UserID IS NOT NULL
+                 GROUP BY c.CategoryID, c.CategoryName, c.ImagePath
+                 ORDER BY COUNT(e.EventID) DESC, c.CategoryID
+                 LIMIT 1"
+            );
+            $stmt->execute([':organiser' => $organiser_id, ':organiser2' => $organiser_id]);
+            if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) { $state['fields'][$organiser_id] = $row; }
+        }
+    } catch (Throwable $exception) {
+        error_log('EventNest post preview context skipped: ' . get_class($exception));
+    }
 }
 
 // All callers have already applied the existing public-post visibility queries.
@@ -84,7 +126,44 @@ function eventnest_render_post(array $post, array $viewer, bool $detail = false)
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
-            <?php if ($post['EventID'] !== null): ?><p class="social-post__event">Linked event: <a href="<?= e(eventnest_url('event-detail.php?event_id=' . (int) $post['EventID'])) ?>"><?= e(($post['EventName'] ?? 'General update')) ?></a></p><?php else: ?><p class="social-post__event">General update</p><?php endif; ?>
+            <?php
+            $linked = $post['EventID'] !== null ? ($viewer['events'][(int) $post['EventID']] ?? null) : null;
+            $field = $post['EventID'] === null ? ($viewer['fields'][$organiser] ?? null) : null;
+            ?>
+            <?php if ($linked): ?>
+                <?php
+                $upcoming = $linked['Status'] === 'published' && strtotime((string) $linked['EventDate']) > time();
+                $price = $linked['MinimumPrice'] === null ? '' : ((float) $linked['MinimumPrice'] <= 0 ? 'Free' : 'From ' . format_money($linked['MinimumPrice']));
+                $state_label = $upcoming ? ((int) $linked['SeatsLeft'] > 0 ? 'Booking open' : 'Sold out · waitlist') : ($linked['Status'] === 'completed' ? 'Event completed' : ($linked['Status'] === 'canceled' ? 'Event canceled' : ''));
+                ?>
+                <a class="post-preview<?= $media === null ? ' post-preview--large' : '' ?>" href="<?= e(eventnest_url('event-detail.php?event_id=' . (int) $linked['EventID'])) ?>" aria-label="Linked event: <?= e($linked['EventName']) ?>">
+                    <img class="post-preview__image" src="<?= e(eventnest_image_url($linked['ImagePath'] ?? null)) ?>" alt="" loading="lazy" width="1280" height="720">
+                    <span class="post-preview__body">
+                        <span class="post-preview__eyebrow"><?= e($linked['CategoryName'] ?? 'Linked event') ?></span>
+                        <strong class="post-preview__title"><?= e($linked['EventName']) ?></strong>
+                        <span class="post-preview__meta"><?= e(format_datetime($linked['EventDate'])) ?> · <?= e(ucfirst((string) $linked['Format'])) ?> · <?= e(eventnest_event_location($linked)) ?></span>
+                        <span class="post-preview__foot">
+                            <?php if ($price !== ''): ?><span class="post-preview__price"><?= e($price) ?></span><?php endif; ?>
+                            <?php if ($state_label !== ''): ?><span class="post-preview__state<?= $upcoming ? ' is-open' : '' ?>"><?= e($state_label) ?></span><?php endif; ?>
+                            <span class="post-preview__cta"><?= $upcoming ? 'View &amp; book →' : 'View event →' ?></span>
+                        </span>
+                    </span>
+                </a>
+            <?php elseif ($post['EventID'] !== null): ?>
+                <p class="social-post__event">Linked event: <a href="<?= e(eventnest_url('event-detail.php?event_id=' . (int) $post['EventID'])) ?>"><?= e(($post['EventName'] ?? 'Event')) ?></a></p>
+            <?php elseif ($field && $media === null): ?>
+                <a class="post-preview post-preview--field" href="<?= e(eventnest_url('events.php?category_id=' . (int) $field['CategoryID'])) ?>">
+                    <img class="post-preview__image" src="<?= e(eventnest_image_url($field['ImagePath'] ?? null, 'category')) ?>" alt="" loading="lazy" width="1280" height="720">
+                    <span class="post-preview__body">
+                        <span class="post-preview__eyebrow">Career field</span>
+                        <strong class="post-preview__title"><?= e($field['CategoryName']) ?></strong>
+                        <span class="post-preview__meta"><?= (int) $field['Upcoming'] === 1 ? '1 upcoming event' : (int) $field['Upcoming'] . ' upcoming events' ?> on EventNest</span>
+                        <span class="post-preview__foot"><span class="post-preview__cta">Explore events →</span></span>
+                    </span>
+                </a>
+            <?php else: ?>
+                <p class="social-post__event">General update</p>
+            <?php endif; ?>
         </div>
         <div class="social-post__actions">
             <div class="reaction-controls" <?= $can_react ? 'data-reaction-widget' : '' ?> data-post-id="<?= $id ?>" data-current-reaction="<?= e($selected ?? '') ?>" data-csrf-token="<?= $can_react ? e(eventnest_csrf_token()) : '' ?>" data-endpoint="<?= e(eventnest_url('reaction.php')) ?>" data-login-url="<?= e(eventnest_url('login.php')) ?>">

@@ -24,6 +24,13 @@ uploaded-content/*
 # Include event banner images in Render deployments
 !uploaded-content/event-banners/
 !uploaded-content/event-banners/*.png
+!uploaded-content/event-banners/*.jpg
+
+# Include organiser post photos in Render deployments
+!uploaded-content/posts/
+!uploaded-content/posts/*.jpg
+!uploaded-content/posts/*.jpeg
+!uploaded-content/posts/*.png
 
 # Include career field images in Render deployments
 !uploaded-content/category-images/

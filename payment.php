@@ -107,9 +107,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errors) {
     }
 
     if (!$errors) {
-        $merchant_id = trim((string) getenv('PAYFAST_MERCHANT_ID'));
-        $merchant_key = trim((string) getenv('PAYFAST_MERCHANT_KEY'));
-        $passphrase = trim((string) getenv('PAYFAST_PASSPHRASE'));
+        $credentials = eventnest_payfast_credentials();
+        $merchant_id = $credentials['merchant_id'];
+        $merchant_key = $credentials['merchant_key'];
+        $passphrase = $credentials['passphrase'];
 
         if ($merchant_id === '' || $merchant_key === '' || !filter_var(getenv('EVENTNEST_BASE_URL'), FILTER_VALIDATE_URL) || parse_url((string)getenv('EVENTNEST_BASE_URL'), PHP_URL_SCHEME) !== 'https') {
             $errors[] = 'PayFast payment and trusted HTTPS callback URLs must be configured on this server.';
@@ -122,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$errors) {
                 'notify_url' => payment_absolute_url('payment-notify.php'),
                 'name_first' => eventnest_payfast_text((string) $booking['FirstName'], 100),
                 'name_last' => eventnest_payfast_text((string) $booking['LastName'], 100),
-                'email_address' => (string) $booking['Email'],
+                'email_address' => eventnest_payfast_email((string) $booking['Email']),
                 'm_payment_id' => (string) $booking['BookingReference'],
                 'amount' => number_format($expected_total, 2, '.', ''),
                 'item_name' => eventnest_payfast_text('EventNest - ' . (string) $booking['EventName'], 100),
