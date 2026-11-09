@@ -35,7 +35,9 @@ $booking_stmt = $pdo->prepare(
             EXISTS(
                 SELECT 1 FROM PAYMENTS p
                 WHERE p.BookingID = b.BookingID AND p.PaymentStatus = 'success'
-            ) AS HasVerifiedPayment
+            ) AS HasVerifiedPayment,
+            (SELECT p2.PaymentMethod FROM PAYMENTS p2
+             WHERE p2.BookingID = b.BookingID AND p2.PaymentStatus = 'success' LIMIT 1) AS PaymentMethodUsed
      FROM BOOKINGS b
      INNER JOIN EVENTS e ON e.EventID = b.EventID
      INNER JOIN TICKETS t ON t.TicketID = b.TicketID AND t.EventID = b.EventID
@@ -66,7 +68,7 @@ require_once __DIR__ . '/shared-components/header.php';
         <?php if ($is_confirmed): ?>
             <div class="status status-success">Confirmed</div>
             <h1>Booking confirmed</h1>
-            <p><?= $is_free ? 'Your free booking is confirmed.' : 'EventNest has verified the PayFast payment for this booking.' ?></p>
+            <p><?= $is_free ? 'Your free booking is confirmed.' : (str_contains((string) ($booking['PaymentMethodUsed'] ?? ''), 'simulated') ? 'Your sandbox payment was simulated because the PayFast sandbox was unavailable. No money was taken.' : 'EventNest has verified the PayFast payment for this booking.') ?></p>
         <?php elseif ($is_pending): ?>
 
             <div class="status status-warning">Payment pending</div>

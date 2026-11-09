@@ -627,3 +627,8 @@ form > .field + .field-hint, form > .field + p { margin-top:16px; }
 .social-post__header > .social-post__author { align-self:end; }
 .social-post__header > time { align-self:start; font-size:.85rem; }
 .organiser-card__meta { color:var(--muted); font-size:.9rem; margin:-6px 0 16px; }
+
+/* Sandbox payment simulator (shown only in PayFast sandbox mode). */
+.payment-simulator { margin-top:24px; padding:18px 20px; border:1px dashed #b9c7da; border-radius:var(--radius); background:#fff; }
+.payment-simulator h2 { margin:0 0 6px; font-size:1.05rem; color:var(--navy); }
+.payment-simulator p { margin:0 0 12px; color:var(--muted); font-size:.92rem; }

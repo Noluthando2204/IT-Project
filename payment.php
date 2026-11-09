@@ -214,5 +214,18 @@ require_once __DIR__ . '/shared-components/header.php';
             <button class="btn btn-primary" type="submit">Try payment setup again</button>
         </form>
     <?php endif; ?>
+
+    <?php if ($booking['Status'] === 'pending' && $expected_total > 0 && eventnest_payfast_simulator_enabled()
+        && !eventnest_demo_insufficient_funds($pdo, $auth_user, $expected_total)): ?>
+        <section class="payment-simulator" aria-labelledby="simulator-heading">
+            <h2 id="simulator-heading">PayFast sandbox unavailable?</h2>
+            <p>If PayFast's test system shows an error, you can complete this sandbox booking with a simulated payment. No money is involved, and it is recorded as <strong>PayFast sandbox (simulated)</strong>. This option is never shown in live mode.</p>
+            <form method="post" action="payment-simulate.php">
+                <input type="hidden" name="booking_id" value="<?= $booking_id ?>">
+                <input type="hidden" name="csrf_token" value="<?= escape_html($csrf_token) ?>">
+                <button class="btn btn-outline" type="submit">Simulate sandbox payment</button>
+            </form>
+        </section>
+    <?php endif; ?>
 </main>
 <?php require_once __DIR__ . '/shared-components/footer.php'; ?>
