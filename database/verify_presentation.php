@@ -15,12 +15,10 @@ verify('12 future published events',count($events)===12 && count(array_filter($e
 verify('Summit rescheduled',(string)$pdo->query("SELECT EventDate FROM EVENTS WHERE EventID=1")->fetchColumn()==='2026-11-19 10:45:00');
 verify('Canceled booking fixture preserved',(string)$pdo->query("SELECT Status FROM BOOKINGS WHERE BookingReference='EN-BN-0001'")->fetchColumn()==='canceled');
 verify('Completed and canceled events preserved',(int)$pdo->query("SELECT COUNT(*) FROM EVENTS WHERE (EventID=4 AND Status='completed' AND EventDate='2026-09-20 18:00:00') OR (EventID=5 AND Status='canceled' AND EventDate='2026-10-28 09:00:00')")->fetchColumn()===2);
-verify('Synthetic login disabled',(int)$pdo->query("SELECT COUNT(*) FROM USERS u JOIN DEMO_FIXTURES f ON f.EntityID=u.UserID AND f.EntityType='reactor' WHERE PasswordHash IS NULL AND Role='attendee' AND Is_email_verified=0")->fetchColumn()===5500);
-$targets=[0=>[1200,1600,847],3=>[934,1400,2000],6=>[1700,1100,1300],9=>[2000,1800,1500],12=>[1300,1900,1100],15=>[1600,1200,1800]];
-foreach($targets as $post=>$expected) {
-    $stmt=$pdo->prepare("SELECT r.ReactionType,COUNT(*) AS Total FROM REACTIONS r JOIN DEMO_FIXTURES f ON f.EntityID=r.PostID AND f.EntityType='post' WHERE f.FixtureKey=? GROUP BY r.ReactionType");$stmt->execute(['post'.$post]);$actual=$stmt->fetchAll(PDO::FETCH_KEY_PAIR);
-    verify('Featured reaction counts post'.$post,array_map(fn($t)=>(int)($actual[$t]??0),['thumbs_up','clap','lightbulb'])===$expected);
-}
+verify('Synthetic login disabled',(int)$pdo->query("SELECT COUNT(*) FROM USERS u JOIN DEMO_FIXTURES f ON f.EntityID=u.UserID AND f.EntityType='reactor' WHERE PasswordHash IS NULL AND Role='attendee' AND Is_email_verified=0")->fetchColumn()===(int)$pdo->query("SELECT COUNT(*) FROM DEMO_FIXTURES WHERE EntityType='reactor'")->fetchColumn());
+verify('Synthetic reactor pool trimmed',(int)$pdo->query("SELECT COUNT(*) FROM DEMO_FIXTURES WHERE EntityType='reactor'")->fetchColumn()<=60);
+$totals=$pdo->query("SELECT p.PostID,COUNT(r.UserID) AS Total FROM POSTS p LEFT JOIN REACTIONS r ON r.PostID=p.PostID WHERE p.PostDate<'2026-11-11' GROUP BY p.PostID")->fetchAll(PDO::FETCH_KEY_PAIR);
+verify('Believable reaction totals on seeded posts',$totals!==[] && max($totals)<=80 && min($totals)>=5);
 verify('No duplicate reactions',(int)$pdo->query('SELECT COUNT(*) FROM (SELECT UserID,PostID FROM REACTIONS GROUP BY UserID,PostID HAVING COUNT(*)>1) x')->fetchColumn()===0);
 $neo=$pdo->query("SELECT * FROM USERS WHERE Email='neo.lowbalance@example.com'")->fetch();
 verify('Neo R10 sandbox guard',eventnest_demo_insufficient_funds($pdo,$neo,40));
@@ -36,7 +34,7 @@ verify('Seven distinct descriptions',count(array_unique(array_intersect_key($cat
 foreach ($events as $event) {
     verify('Relevant fixture tags: '.$event['EventName'],($copy['event_tags'][$event['EventName']]??null)===$event['Hashtags']);
 }
-verify('All designated posts have three real reaction types',(int)$pdo->query("SELECT COUNT(*) FROM (SELECT p.PostID FROM POSTS p JOIN DEMO_FIXTURES f ON f.EntityID=p.PostID AND f.EntityType='post' JOIN REACTIONS r ON r.PostID=p.PostID GROUP BY p.PostID HAVING COUNT(DISTINCT r.ReactionType)=3) x")->fetchColumn()===18);
+verify('All designated posts have three reaction types',(int)$pdo->query("SELECT COUNT(*) FROM (SELECT p.PostID FROM POSTS p JOIN DEMO_FIXTURES f ON f.EntityID=p.PostID AND f.EntityType='post' JOIN REACTIONS r ON r.PostID=p.PostID GROUP BY p.PostID HAVING COUNT(DISTINCT r.ReactionType)=3) x")->fetchColumn()===18);
 verify('Company logos cannot render as event/category artwork',str_ends_with(eventnest_image_url('uploaded-content/profile-pictures/cloudstep_careers_b.png'),'images/event-placeholder.svg') && str_ends_with(eventnest_image_url('uploaded-content/profile-pictures/cloudstep_careers_b.png','category'),'images/category-placeholder.svg'));
 foreach (['graduate_summit_b.png', 'futuretech_b.png', 'creative_lab_b.png'] as $file) {
     verify('Profile-directory artwork rejected: '.$file, str_ends_with(eventnest_image_url('uploaded-content/profile-pictures/'.$file), 'images/event-placeholder.svg'));

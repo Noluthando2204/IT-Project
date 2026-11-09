@@ -20,6 +20,13 @@ if (!in_array($mode, ['--apply', '--reactions', '--remove-reactions'], true)) {
     );
 }
 
+// --reactions used to create 5,500 synthetic accounts and thousands of reactions on a few posts.
+// It now delegates to the polish script, which keeps believable counts on every seeded post.
+if ($mode === '--reactions') {
+    require __DIR__ . '/presentation_polish.php';
+    exit(0);
+}
+
 $start = microtime(true);
 
 function query(string $sql, array $args = []): PDOStatement

@@ -51,6 +51,14 @@ uploaded-content/profile-pictures/*
 uploaded-content/event-banners/*
 !uploaded-content/event-banners/placeholder.txt
 !uploaded-content/event-banners/*.png
+!uploaded-content/event-banners/*.jpg
+
+# Approved organiser post photos (needed by the Render build)
+!uploaded-content/posts/
+uploaded-content/posts/*
+!uploaded-content/posts/*.jpg
+!uploaded-content/posts/*.jpeg
+!uploaded-content/posts/*.png
 
 # Approved career field images (needed by the Render build)
 !uploaded-content/category-images/

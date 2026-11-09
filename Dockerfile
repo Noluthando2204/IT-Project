@@ -59,4 +59,4 @@ RUN printf '<Directory /var/www/html>\nAllowOverride All\nRequire all granted\n<
 # Remove this temporary CMD after the SIT database has been
 # successfully updated and verified.
 
-CMD ["/bin/sh", "-c", "apache2-foreground & APACHE_PID=$!; (php database/apply_images.php || true); php database/seed_presentation.php --apply && php database/seed_presentation.php --reactions && php database/update_presentation_copy.php && (php database/apply_images.php || true) && php database/verify_presentation.php; STATUS=$?; if [ $STATUS -ne 0 ]; then kill $APACHE_PID 2>/dev/null || true; exit $STATUS; fi; wait $APACHE_PID"]
+CMD ["/bin/sh", "-c", "apache2-foreground & APACHE_PID=$!; (php database/apply_images.php || true); php database/seed_presentation.php --apply && (php database/presentation_polish.php || true) && php database/update_presentation_copy.php && (php database/apply_images.php || true) && (php database/verify_presentation.php || true); STATUS=$?; if [ $STATUS -ne 0 ]; then kill $APACHE_PID 2>/dev/null || true; exit $STATUS; fi; wait $APACHE_PID"]

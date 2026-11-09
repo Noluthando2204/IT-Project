@@ -324,6 +324,60 @@ if ($attendee) {
     $explore_events = $explore_stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+// ---- Homepage overview built from live data (stats, career fields, organisers, latest posts).
+require_once __DIR__ . '/shared-components/post-card.php';
+$home_stats = ['events' => 0, 'organisers' => 0, 'fields' => 0, 'free' => 0];
+$home_fields = [];
+$home_organisers = [];
+$home_posts = [];
+try {
+    $visible_event = "e.Status = 'published' AND e.EventDate > NOW() AND u.Role = 'organiser' AND u.VerificationStatus = 'verified' AND u.UserStatus = 'active'";
+    $home_stats = $pdo->query(
+        "SELECT COUNT(*) AS events,
+                COUNT(DISTINCT e.OrganiserID) AS organisers,
+                COUNT(DISTINCT e.CategoryID) AS fields,
+                SUM(EXISTS (SELECT 1 FROM TICKETS t WHERE t.EventID = e.EventID AND t.Price = 0)) AS free
+         FROM EVENTS e INNER JOIN USERS u ON u.UserID = e.OrganiserID
+         WHERE $visible_event"
+    )->fetch(PDO::FETCH_ASSOC) ?: $home_stats;
+    $home_fields = $pdo->query(
+        "SELECT c.CategoryID, c.CategoryName, c.ImagePath, COUNT(e.EventID) AS Upcoming, MIN(e.EventDate) AS NextDate
+         FROM CATEGORIES c
+         INNER JOIN EVENTS e ON e.CategoryID = c.CategoryID
+         INNER JOIN USERS u ON u.UserID = e.OrganiserID
+         WHERE $visible_event
+         GROUP BY c.CategoryID, c.CategoryName, c.ImagePath
+         ORDER BY Upcoming DESC, NextDate ASC
+         LIMIT 6"
+    )->fetchAll(PDO::FETCH_ASSOC);
+    $home_organisers = $pdo->query(
+        "SELECT u.UserID, u.OrganisationName, u.FirstName, u.LastName, u.ProfileImagePath, u.CareerField,
+                (SELECT COUNT(*) FROM EVENTS e WHERE e.OrganiserID = u.UserID AND e.Status = 'published' AND e.EventDate > NOW()) AS Upcoming,
+                (SELECT COUNT(*) FROM POSTS p WHERE p.OrganiserID = u.UserID) AS Posts
+         FROM USERS u
+         WHERE u.Role = 'organiser' AND u.VerificationStatus = 'verified' AND u.UserStatus = 'active'
+         ORDER BY Upcoming DESC, u.OrganisationName
+         LIMIT 6"
+    )->fetchAll(PDO::FETCH_ASSOC);
+    $home_posts = $pdo->query(
+        "SELECT p.PostID, p.Content, p.Media_type, p.Media, p.Hashtags, p.PostDate, p.EventID, p.OrganiserID,
+                e.EventName, u.FirstName, u.LastName, u.OrganisationName, u.ProfileImagePath,
+                (SELECT COUNT(*) FROM REACTIONS r WHERE r.PostID = p.PostID AND r.ReactionType = 'thumbs_up') AS ThumbsUpTotal,
+                (SELECT COUNT(*) FROM REACTIONS r WHERE r.PostID = p.PostID AND r.ReactionType = 'clap') AS ClapTotal,
+                (SELECT COUNT(*) FROM REACTIONS r WHERE r.PostID = p.PostID AND r.ReactionType = 'lightbulb') AS LightbulbTotal
+         FROM POSTS p
+         LEFT JOIN EVENTS e ON e.EventID = p.EventID
+         INNER JOIN USERS u ON u.UserID = p.OrganiserID
+         WHERE (p.EventID IS NULL OR (e.Status IN ('published','completed') AND e.OrganiserID = p.OrganiserID))
+           AND u.Role = 'organiser' AND u.VerificationStatus = 'verified' AND u.UserStatus = 'active'
+         ORDER BY p.PostDate DESC, p.PostID DESC
+         LIMIT 3"
+    )->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $exception) {
+    error_log('EventNest homepage overview skipped: ' . get_class($exception));
+}
+$home_post_viewer = eventnest_post_viewer($pdo, $home_posts);
+
 $page_title = 'Home';
 require_once __DIR__ . '/shared-components/header.php';
 ?>
@@ -362,6 +416,13 @@ require_once __DIR__ . '/shared-components/header.php';
         <?php else: ?>
             <div class="hero-empty"><img src="<?= escape_html(eventnest_url('images/eventnest-logo.png')) ?>" alt="EventNest"></div>
         <?php endif; ?>
+    </section>
+
+    <section class="home-stats" aria-label="EventNest at a glance">
+        <div><strong><?= (int) $home_stats['events'] ?></strong><span>upcoming events</span></div>
+        <div><strong><?= (int) $home_stats['organisers'] ?></strong><span>verified organisers</span></div>
+        <div><strong><?= (int) $home_stats['fields'] ?></strong><span>career fields</span></div>
+        <div><strong><?= (int) $home_stats['free'] ?></strong><span>free to attend</span></div>
     </section>
 
     <?php if ($attendee): ?>
@@ -456,6 +517,70 @@ require_once __DIR__ . '/shared-components/header.php';
         <?php endif; ?>
     </section>
 
+    <?php if ($home_fields): ?>
+    <section aria-labelledby="fields-heading">
+        <div class="section-heading">
+            <h2 id="fields-heading">Browse by career field</h2>
+            <a href="career-fields.php">All career fields</a>
+        </div>
+        <div class="home-fields">
+            <?php foreach ($home_fields as $field): ?>
+                <a class="home-field" href="events.php?category_id=<?= (int) $field['CategoryID'] ?>">
+                    <img src="<?= escape_html(eventnest_image_url($field['ImagePath'] ?? null, 'category')) ?>" alt="" loading="lazy" width="1280" height="720">
+                    <span class="home-field__body">
+                        <strong><?= escape_html($field['CategoryName']) ?></strong>
+                        <span><?= (int) $field['Upcoming'] ?> upcoming · next <?= escape_html(date('j M', strtotime((string) $field['NextDate']))) ?></span>
+                    </span>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    </section>
+    <?php endif; ?>
+
+    <section class="home-steps" aria-labelledby="steps-heading">
+        <h2 id="steps-heading">How EventNest works</h2>
+        <ol>
+            <li><span class="home-steps__num">1</span><div><strong>Discover</strong><p>Search by career field, province, date, price or #hashtag, or turn on personalised recommendations.</p></div></li>
+            <li><span class="home-steps__num">2</span><div><strong>Book</strong><p>Reserve a ticket; seats are held while you check out securely with PayFast. Sold-out tiers offer a waitlist.</p></div></li>
+            <li><span class="home-steps__num">3</span><div><strong>Attend and review</strong><p>Get reminders, follow organiser updates, then rate the event so others can choose well.</p></div></li>
+        </ol>
+        <?php if (!$attendee && !auth_current_user()): ?>
+            <div class="home-steps__cta"><a class="btn btn-primary" href="register.php">Create a free account</a> <a class="btn btn-outline" href="business-register.php">Host events as an organiser</a></div>
+        <?php endif; ?>
+    </section>
+
+    <?php if ($home_posts): ?>
+    <section class="latest-posts-preview" aria-labelledby="posts-heading">
+        <div class="section-heading">
+            <h2 id="posts-heading">Latest from organisers</h2>
+            <a href="organisers.php">All organisers</a>
+        </div>
+        <div class="home-posts">
+            <?php foreach ($home_posts as $post): ?>
+                <?php eventnest_render_post($post, $home_post_viewer); ?>
+            <?php endforeach; ?>
+        </div>
+    </section>
+    <?php endif; ?>
+
+    <?php if ($home_organisers): ?>
+    <section aria-labelledby="organisers-heading">
+        <div class="section-heading">
+            <h2 id="organisers-heading">Verified organisers</h2>
+            <a href="organisers.php">Meet the organisers</a>
+        </div>
+        <div class="home-organisers">
+            <?php foreach ($home_organisers as $organiser): ?>
+                <a class="home-organiser" href="organiser-profile.php?organiser_id=<?= (int) $organiser['UserID'] ?>">
+                    <?= eventnest_organiser_avatar($organiser, 56) ?>
+                    <span><strong><?= escape_html(eventnest_organiser_display_name($organiser)) ?></strong>
+                    <small><?= (int) $organiser['Upcoming'] ?> upcoming · <?= (int) $organiser['Posts'] ?> posts</small></span>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    </section>
+    <?php endif; ?>
+
     <section aria-labelledby="hashtags-heading">
         <h2 id="hashtags-heading">Popular hashtags</h2>
         <?php if ($popular_tags): ?>
@@ -469,4 +594,5 @@ require_once __DIR__ . '/shared-components/header.php';
         <?php endif; ?>
     </section>
 </main>
+<?php eventnest_post_scripts(); ?>
 <?php require_once __DIR__ . '/shared-components/footer.php'; ?>
