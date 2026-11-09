@@ -1208,6 +1208,13 @@ function eventnest_payfast_credentials(): array
     return ['merchant_id' => $id, 'merchant_key' => $key, 'passphrase' => $passphrase, 'mode' => $mode];
 }
 
+// Sandbox-only "Simulate sandbox payment" button, for demos while PayFast's sandbox is down.
+// Never available in live mode; set PAYFAST_SIMULATOR=0 to hide it in sandbox too.
+function eventnest_payfast_simulator_enabled(): bool
+{
+    return (getenv('PAYFAST_MODE') ?: 'sandbox') === 'sandbox' && getenv('PAYFAST_SIMULATOR') !== '0';
+}
+
 // PayFast validates email_address and rejects reserved/demo domains with a 400, so leave it
 // out for those (the field is optional and PayFast then asks the payer on its own page).
 function eventnest_payfast_email(string $email): string
