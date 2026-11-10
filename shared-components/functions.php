@@ -226,15 +226,7 @@ function event_booking_eligibility(PDO $pdo, array $event, array $user): array
         return [false, 'Organiser block'];
     }
 
-    if (($event['CareerGoalType'] ?? '') === 'field') {
-        $stmt = $pdo->prepare('SELECT CategoryName FROM CATEGORIES WHERE CategoryID = ?');
-        $stmt->execute([$event['AllowedCareerField']]);
-        $allowed = trim((string) $stmt->fetchColumn());
-
-        if ($allowed === '' || strcasecmp($allowed, trim((string) ($user['CareerField'] ?? ''))) !== 0) {
-            return [false, 'Career field restriction'];
-        }
-    }
+    // Saved career interests never prevent an attendee booking another field.
 
     if (($event['CareerGoalType'] ?? '') === 'email_domain') {
         $domain = strtolower(substr(strrchr((string) $user['Email'], '@') ?: '', 1));

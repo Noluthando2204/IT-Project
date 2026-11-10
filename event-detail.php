@@ -134,15 +134,7 @@ if ($current_user_id > 0 && $current_role === 'attendee') {
         ]);
         $is_blocked = (bool) $block_stmt->fetchColumn();
 
-        if ($event['CareerGoalType'] === 'field') {
-            $career_stmt = $pdo->prepare('SELECT CategoryName FROM CATEGORIES WHERE CategoryID = :category_id LIMIT 1');
-            $career_stmt->execute([':category_id' => (int) $event['AllowedCareerField']]);
-            $allowed_career = (string) ($career_stmt->fetchColumn() ?: '');
-            $gate_ok = $allowed_career !== '' && mb_strtolower(trim((string) $attendee['CareerField']), 'UTF-8') === mb_strtolower(trim($allowed_career), 'UTF-8');
-            if (!$gate_ok) {
-                $gate_message = 'This event is limited to the ' . $allowed_career . ' career field.';
-            }
-        } elseif ($event['CareerGoalType'] === 'email_domain') {
+        if ($event['CareerGoalType'] === 'email_domain') {
             $verified_email = (int) $attendee['Is_email_verified'] === 1;
             $gate_ok = $verified_email && event_detail_domain_matches((string) $attendee['Email'], (string) $event['AllowedEmailDomain']);
             if (!$gate_ok) {
@@ -261,7 +253,7 @@ require_once __DIR__ . '/shared-components/header.php';
             <?php if ($event['Province']): ?><div><dt>Province</dt><dd><?= escape_html($event['Province']) ?></dd></div><?php endif; ?>
             <?php if ($event['AgeRestriction']): ?><div><dt>Age requirement</dt><dd><?= escape_html($event['AgeRestriction']) ?></dd></div><?php endif; ?>
             <?php if ($event['CareerGoalType'] === 'field'): ?>
-                <div><dt>Career restriction</dt><dd>This event is restricted to the selected career field. Your account career field is checked again during booking.</dd></div>
+                <div><dt>Career interests</dt><dd>Open to attendees from all career fields.</dd></div>
             <?php elseif ($event['CareerGoalType'] === 'email_domain'): ?>
                 <div><dt>Email restriction</dt><dd>A verified account email ending in <?= escape_html(ltrim((string) $event['AllowedEmailDomain'], '@')) ?> is required.</dd></div>
             <?php endif; ?>

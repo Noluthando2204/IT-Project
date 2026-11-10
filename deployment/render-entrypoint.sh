@@ -35,5 +35,7 @@ chown -R www-data:www-data "$data_root"
 # Docker is used by Render SIT. Upgrade schema before accepting requests;
 # never run presentation seeds or category/data reconciliation at startup.
 php /var/www/html/database/migrate_schema.php --apply
+# Category reconciliation is a reviewed, one-time deployment step. Repeating it
+# here would overwrite administrator edits or fail after a category rename.
 
 exec "$@"

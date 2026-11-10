@@ -162,11 +162,7 @@ require_once __DIR__ . '/shared-components/header.php';
 <main class="page-content payment-page">
     <p><a class="btn btn-outline" href="my-bookings.php">Back to my bookings</a></p>
     <h1>Confirm and pay</h1>
-    <p>Step 2 of 3 &middot; PayFast <?= escape_html($payment_mode) ?></p>
-
-    <div class="alert alert-info" role="status">
-        <?= $payment_mode === 'sandbox' ? 'PayFast sandbox is active for development testing.' : 'PayFast live payment is active.' ?>
-    </div>
+    <p>Step 2 of 3 &middot; Secure checkout</p>
 
     <?php if ($errors): ?>
         <div class="alert alert-error" role="alert">
@@ -189,13 +185,14 @@ require_once __DIR__ . '/shared-components/header.php';
         <section class="payment-redirect-card">
             <h2>Continue to PayFast</h2>
             <p>Your booking remains pending until EventNest receives and verifies the provider notification.</p>
-            <form method="post" action="<?= escape_html(eventnest_payfast_origin() . '/eng/process') ?>">
+            <form id="gateway-checkout" method="post" action="<?= escape_html(eventnest_payfast_origin() . '/eng/process') ?>">
                 <?php foreach ($payfast_form as $name => $value): ?>
                     <?php if ((string) $value === '') { continue; } ?>
                     <input type="hidden" name="<?= escape_html($name) ?>" value="<?= escape_html((string) $value) ?>">
                 <?php endforeach; ?>
                 <button class="btn btn-primary" type="submit">Continue to secure payment</button>
             </form>
+            <script src="<?= escape_html(eventnest_url('scripts/gateway-checkout.js')) ?>" defer></script>
         </section>
     <?php elseif ($booking['Status'] === 'pending' && !$errors): ?>
         <form method="post" action="payment.php">
@@ -219,12 +216,12 @@ require_once __DIR__ . '/shared-components/header.php';
     <?php if ($booking['Status'] === 'pending' && $expected_total > 0 && eventnest_payfast_simulator_enabled()
         && !eventnest_demo_insufficient_funds($pdo, $auth_user, $expected_total)): ?>
         <section class="payment-simulator" aria-labelledby="simulator-heading">
-            <h2 id="simulator-heading">PayFast sandbox unavailable?</h2>
-            <p>If PayFast's test system shows an error, you can complete this sandbox booking with a simulated payment. No money is involved, and it is recorded as <strong>PayFast sandbox (simulated)</strong>. This option is never shown in live mode.</p>
+            <h2 id="simulator-heading">Complete a demonstration booking</h2>
+            <p>Use the demonstration payment option to finish this booking without a charge.</p>
             <form method="post" action="payment-simulate.php">
                 <input type="hidden" name="booking_id" value="<?= $booking_id ?>">
                 <input type="hidden" name="csrf_token" value="<?= escape_html($csrf_token) ?>">
-                <button class="btn btn-outline" type="submit">Simulate sandbox payment</button>
+                <button class="btn btn-outline" type="submit">Complete demo payment</button>
             </form>
         </section>
     <?php endif; ?>
