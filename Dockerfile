@@ -52,6 +52,6 @@ RUN mkdir -p /var/www/eventnest-seed \
     && cp -a /var/www/html/uploaded-content /var/www/eventnest-seed/uploaded-content \
     && chmod +x /var/www/html/deployment/render-entrypoint.sh
 
-# Schema and approved catalogue imports are explicit release operations.
+# SIT startup applies additive schema only; catalogue/data changes stay explicit.
 ENTRYPOINT ["/var/www/html/deployment/render-entrypoint.sh"]
 CMD ["apache2-foreground"]
