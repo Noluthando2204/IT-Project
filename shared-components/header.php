@@ -73,7 +73,12 @@ if (($_SESSION['role'] ?? null) === 'attendee' && !empty($_SESSION['user_id'])) 
         </a>
         <?php require __DIR__ . '/navbar.php'; ?>
     </div>
-    <?php if (basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')) !== 'index.php'): ?>
+    <?php
+    // Show the header search only on pages where people browse for events. The home page and
+    // search results have their own search box; booking, payment, dashboards and admin do not need one.
+    $header_search_pages = ['events.php', 'career-fields.php', 'organisers.php', 'organiser-profile.php', 'organiser-posts.php', 'event-detail.php', 'post-detail.php', 'tag.php'];
+    ?>
+    <?php if (in_array(basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')), $header_search_pages, true)): ?>
     <form class="header-search" action="<?= e(app_url('search-results.php')) ?>" method="get" role="search" data-live-search>
         <label class="sr-only" for="header-search-q">Search events, career fields or hashtags</label>
         <div class="search-input-wrap"><input id="header-search-q" type="search" name="q" maxlength="100" placeholder="Search events, career fields or #hashtags" autocomplete="off"><div class="search-suggestions" data-search-suggestions hidden></div></div>

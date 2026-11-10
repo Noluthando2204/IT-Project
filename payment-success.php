@@ -88,6 +88,17 @@ require_once __DIR__ . '/shared-components/header.php';
             <div><dt>Total</dt><dd><?= escape_html(format_money($booking['TotalAmount'])) ?></dd></div>
         </dl>
 
+        <?php if ($is_confirmed): ?>
+        <div class="result-next">
+            <h2>What happens next</h2>
+            <ul>
+                <li>Your ticket is saved under <a href="my-bookings.php">My bookings</a>, and a confirmation appears in your notifications.</li>
+                <li>You can cancel from My bookings while the event is more than 24 hours away.</li>
+                <li>After the event, you can leave the organiser a private review.</li>
+            </ul>
+        </div>
+        <?php endif; ?>
+
         <div class="button-row">
             <a class="btn btn-secondary" href="my-bookings.php">View my bookings</a>
             <?php if ($is_pending): ?>

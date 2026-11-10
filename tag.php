@@ -122,7 +122,7 @@ $per_page = 12;
 
 try {
     $categories = $pdo->query(
-        'SELECT CategoryID, CategoryName FROM CATEGORIES ORDER BY CategoryName ASC'
+        "SELECT c.CategoryID, c.CategoryName FROM CATEGORIES c WHERE EXISTS (SELECT 1 FROM EVENTS e WHERE e.CategoryID = c.CategoryID AND e.Status IN ('published','completed')) ORDER BY c.CategoryName ASC"
     )->fetchAll(PDO::FETCH_ASSOC);
 
     $provinces = eventnest_provinces();
@@ -523,7 +523,7 @@ require_once __DIR__ . '/shared-components/header.php';
                                 <p><?= escape_html(format_datetime((string) $event['EventDate'])) ?></p>
                                 <p>
                                     <?= escape_html(ucfirst((string) $event['Format'])) ?>
-                                    ? <?= escape_html(eventnest_event_location($event)) ?>
+                                    · <?= escape_html(eventnest_event_location($event)) ?>
                                 </p>
                                 <p>
                                     Organised by

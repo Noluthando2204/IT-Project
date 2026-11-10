@@ -271,9 +271,11 @@ try {
         foreach ($stmt->fetchAll() as $event) {
             $suggestions[] = ['type'=>'event','event_id'=>(int)$event['EventID'],'label'=>$event['EventName']];
         }
-        // Career fields are the public taxonomy shown on career-fields.php, including fields with no upcoming events.
-        $stmt = $pdo->prepare("SELECT CategoryID,CategoryName FROM CATEGORIES
-            WHERE CategoryName LIKE ? ESCAPE '\\\\' ORDER BY CategoryName LIMIT 2");
+        // Only suggest career fields that have published events, matching career-fields.php.
+        $stmt = $pdo->prepare("SELECT c.CategoryID,c.CategoryName FROM CATEGORIES c
+            WHERE c.CategoryName LIKE ? ESCAPE '\\\\'
+              AND EXISTS (SELECT 1 FROM EVENTS e WHERE e.CategoryID=c.CategoryID AND e.Status='published')
+            ORDER BY c.CategoryName LIMIT 2");
         $stmt->execute([$pattern]);
         foreach ($stmt->fetchAll() as $category) {
             $suggestions[] = ['type'=>'category','category_id'=>(int)$category['CategoryID'],'label'=>$category['CategoryName']];
@@ -322,9 +324,10 @@ use events-and-posts hashtag page.
     // Filter data shown in the full result page.
     $categories = $pdo
         ->query(
-            "SELECT CategoryID, CategoryName
-             FROM CATEGORIES
-             ORDER BY CategoryName ASC"
+            "SELECT c.CategoryID, c.CategoryName
+             FROM CATEGORIES c
+             WHERE EXISTS (SELECT 1 FROM EVENTS e WHERE e.CategoryID = c.CategoryID AND e.Status IN ('published','completed'))
+             ORDER BY c.CategoryName ASC"
         )
         ->fetchAll(PDO::FETCH_ASSOC);
 

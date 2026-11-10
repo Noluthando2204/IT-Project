@@ -203,7 +203,9 @@ function eventnest_event_location(array $event): string
     $venue = trim((string) ($event['Venue'] ?? ''));
     $province = trim((string) ($event['Province'] ?? ''));
     if (filter_var($venue, FILTER_VALIDATE_URL)) { $venue = ''; }
-    if ($venue === '') {
+    // Cards already show the format, so an online venue of "Online" would read "Online · Online, Gauteng".
+    if (($event['Format'] ?? '') === 'online' && preg_match('/^online( event)?$/i', $venue) && $province !== '') { $venue = ''; }
+    if ($venue === '' && $province === '') {
         $venue = ($event['Format'] ?? '') === 'online' ? 'Online event' : '';
     }
     if ($province !== '' && stripos($venue, $province) === false) {
