@@ -241,7 +241,7 @@ if (
 if ($is_suggest) {
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store');
-    if ($invalid_mode || $q_too_long || !mb_check_encoding($raw_q, 'UTF-8') || mb_strlen($q, 'UTF-8') < 3) {
+    if ($invalid_mode || $q_too_long || !mb_check_encoding($raw_q, 'UTF-8') || mb_strlen($q, 'UTF-8') < 1) {
         echo json_encode(['suggestions' => []]);
         exit;
     }
@@ -271,17 +271,15 @@ try {
         foreach ($stmt->fetchAll() as $event) {
             $suggestions[] = ['type'=>'event','event_id'=>(int)$event['EventID'],'label'=>$event['EventName']];
         }
-        // Only suggest career fields that have published events, matching career-fields.php.
-        $stmt = $pdo->prepare("SELECT c.CategoryID,c.CategoryName FROM CATEGORIES c
-            WHERE c.CategoryName LIKE ? ESCAPE '\\\\'
-              AND EXISTS (SELECT 1 FROM EVENTS e WHERE e.CategoryID=c.CategoryID AND e.Status='published')
-            ORDER BY c.CategoryName LIMIT 2");
+        // Career fields are the public taxonomy shown on career-fields.php, including fields with no upcoming events.
+        $stmt = $pdo->prepare("SELECT CategoryID,CategoryName FROM CATEGORIES
+            WHERE CategoryName LIKE ? ESCAPE '\\\\' ORDER BY CategoryName LIMIT 2");
         $stmt->execute([$pattern]);
         foreach ($stmt->fetchAll() as $category) {
             $suggestions[] = ['type'=>'category','category_id'=>(int)$category['CategoryID'],'label'=>$category['CategoryName']];
         }
         $stmt = $pdo->prepare("SELECT e.Hashtags AS Tags FROM EVENTS e JOIN USERS u ON u.UserID=e.OrganiserID
-            WHERE e.Status='published' AND u.Role='organiser' AND u.UserStatus='active' AND u.VerificationStatus='verified'
+            WHERE e.Status='published' AND e.EventDate>NOW() AND u.Role='organiser' AND u.UserStatus='active' AND u.VerificationStatus='verified'
               AND e.Hashtags LIKE ? ESCAPE '\\\\'
             UNION ALL
             SELECT p.Hashtags FROM POSTS p JOIN USERS u ON u.UserID=p.OrganiserID
@@ -324,10 +322,9 @@ use events-and-posts hashtag page.
     // Filter data shown in the full result page.
     $categories = $pdo
         ->query(
-            "SELECT c.CategoryID, c.CategoryName
-             FROM CATEGORIES c
-             WHERE EXISTS (SELECT 1 FROM EVENTS e WHERE e.CategoryID = c.CategoryID AND e.Status IN ('published','completed'))
-             ORDER BY c.CategoryName ASC"
+            "SELECT CategoryID, CategoryName
+             FROM CATEGORIES
+             ORDER BY CategoryName ASC"
         )
         ->fetchAll(PDO::FETCH_ASSOC);
 
@@ -350,7 +347,7 @@ use events-and-posts hashtag page.
         $errors[] = 'Unknown province filter was ignored.';
     }
 
-    $where = ["e.Status = 'published'"];
+    $where = [eventnest_public_event_sql('e')];
     $bindings = [];
 
     if ($q !== '') {
@@ -571,48 +568,7 @@ require_once __DIR__ . '/shared-components/header.php';
             Explore published career and professional-development events across South Africa.
         </p>
 
-        <form
-            action="search-results.php"
-            method="get"
-            role="search"
-            class="search-form"
-            data-live-search
-        >
-            <label for="search-q">
-                Search career events, career fields or hashtags
-            </label>
-
-            <div class="search-form__controls">
-                <div class="search-input-wrap">
-                <input
-                    id="search-q"
-                    name="q"
-                    type="search"
-                    maxlength="100"
-                    value="<?= search_escape($q) ?>"
-                    placeholder="Search events, categories or #hashtags"
-                    autocomplete="off"
-                    data-search-input
-                >
-                <div class="search-suggestions" data-search-suggestions hidden></div>
-                </div>
-
-                <button type="submit" class="btn btn-primary">
-                    Search
-                </button>
-
-                <button
-                    type="button"
-                    class="btn btn-outline"
-                    id="toggle-search-filters"
-                    data-filter-toggle
-                    aria-controls="search-filters"
-                    aria-expanded="true"
-                >
-                    Hide filters
-                </button>
-            </div>
-        </form>
+<p><a href="index.php">Change your search on the homepage</a></p>
     </section>
 
     <?php if ($errors !== []): ?>

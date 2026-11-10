@@ -1,8 +1,12 @@
 Options -Indexes
+<IfModule mod_php.c>
+    php_value upload_max_filesize 20M
+    php_value post_max_size 24M
+</IfModule>
 RewriteEngine On
 
 # Keep source control, environment files and internal audit files private.
-RewriteRule ^(?:\.git|\.review|database|database-config|vendor)(?:/|$) - [F,L,NC]
+RewriteRule ^(?:\.git|\.review|database|database-config|deployment|vendor)(?:/|$) - [F,L,NC]
 <FilesMatch "(?i)(^\.env|\.(sql|md|log|json|lock|backup)$|^Dockerfile$)">
     Require all denied
 </FilesMatch>

@@ -71,6 +71,7 @@ try {
     }
 
     foreach ($pdo->query('SELECT CategoryID, CategoryName, ImagePath FROM CATEGORIES')->fetchAll() as $category) {
+        if(!empty($category['ImagePath']) && @getimagesize(dirname(__DIR__).'/'.$category['ImagePath'])) continue;
         $slug = img_slug((string) $category['CategoryName']);
         $path = img_find('category-images', 'category', [$slug]);
         if ($path === null && empty($category['ImagePath']) && isset($categoryFallbacks[$slug])) {

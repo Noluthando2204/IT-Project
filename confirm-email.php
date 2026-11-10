@@ -22,6 +22,7 @@ if ($data !== null && $_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         try {
             $pdo->beginTransaction();
+            $consume=$pdo->prepare("DELETE FROM ACCOUNT_TOKENS WHERE TokenHash=? AND Purpose='email_change' AND ExpiresAt>NOW()");$consume->execute([hash('sha256',$token)]);if($consume->rowCount()!==1)throw new DomainException('Expired or used link.');
             $stmt = $pdo->prepare("SELECT UserID, Email, UserStatus FROM USERS WHERE UserID = ? FOR UPDATE");
             $stmt->execute([$data['user_id']]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -44,7 +45,9 @@ if ($data !== null && $_SERVER['REQUEST_METHOD'] === 'POST') {
                         $stmt = $pdo->prepare('DELETE FROM USER_EVENT_RECOMMENDATIONS WHERE UserID = ?');
                         $stmt->execute([$data['user_id']]);
                     }
+                    if($changed)$pdo->prepare('DELETE FROM ACCOUNT_TOKENS WHERE UserID=?')->execute([$data['user_id']]);
                     $pdo->commit();
+                    if($changed){eventnest_mail_notice($data['new_email'],'EventNest email address confirmed','Your new email address has been confirmed.');eventnest_mail_notice($data['old_email'],'EventNest email address changed','Your EventNest email address has changed. Contact support if this was not you.');}
                     $state = $changed ? 'done' : 'invalid';
                 }
             }

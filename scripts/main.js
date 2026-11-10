@@ -1,5 +1,26 @@
 /* EventNest shared, non-database UI behaviour. Backend validates every operation. */
 (function () {
+    var data=document.getElementById('province-cities');
+    if(!data) return;
+    var cities=JSON.parse(data.textContent),province=document.getElementById('province'),city=document.getElementById('city_choice'),other=document.getElementById('city_other'),format=document.getElementById('format'),venue=document.getElementById('venue');
+    function toggle(){
+        var online=format.value==='online';
+        [province,city,venue].forEach(function(x){ x.disabled=online; x.required=!online; });
+        var manual=!online&&city.value==='Other';
+        other.closest('[data-city-other]').hidden=!manual;other.disabled=!manual;other.required=manual;
+    }
+    function populate(selected){
+        city.replaceChildren(new Option('Choose city / town',''));
+        (cities[province.value]||[]).forEach(function(name){city.add(new Option(name,name));});
+        city.add(new Option('Other','Other'));
+        if(selected){city.value=(cities[province.value]||[]).includes(selected)?selected:'Other';}
+        toggle();
+    }
+    province.addEventListener('change',function(){populate('');});city.addEventListener('change',toggle);format.addEventListener('change',toggle);
+    populate(city.dataset.cityCurrent);
+})();
+(function(){ if(location.hash==='#recommendation-preferences'){var section=document.getElementById('recommendation-preferences');if(section){section.focus({preventScroll:true});section.scrollIntoView();}} })();
+(function () {
     'use strict';
     document.querySelectorAll('input[type="password"]').forEach(function (input, index) {
         if (input.closest('.password-control')) return;
@@ -106,7 +127,7 @@
         input.addEventListener('input', function (event) {
             close();
             var query = input.value.trim(), request = serial;
-            if (event.isComposing || Array.from(query).length < 3 || Array.from(query).length > 100) return;
+            if (event.isComposing || Array.from(query).length < 1 || Array.from(query).length > 100) return;
             timer = setTimeout(async function () {
                 controller = new AbortController();
                 try {

@@ -1,13 +1,8 @@
 <?php
 declare(strict_types=1);
 
-// Presentation data polish. Runs on every deploy (see Dockerfile), safe to repeat, never stops the deploy.
-//  1. Posts: removes images that were attached twice (the same photo on two posts) and fixes the
-//     matching captions, so each organiser photo appears once.
-//  2. Reactions: replaces the inflated synthetic counts (thousands on a few posts, 1-3 on the rest)
-//     with modest, believable counts on every seeded post. Reactions from real accounts are kept and
-//     counted; only the login-disabled synthetic reactor accounts are adjusted.
-//  3. Removes the unused synthetic reactor accounts (5,500 were created; 60 are enough).
+// Explicit development/presentation-only fixture polish; never run automatically on production.
+// Only registered fixture posts and login-disabled synthetic reactors are adjusted.
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
     exit;
@@ -15,7 +10,7 @@ if (PHP_SAPI !== 'cli') {
 
 require_once dirname(__DIR__) . '/database-config/connection.php';
 
-const POLISH_POOL = 60;
+const POLISH_POOL = 5500;
 const POLISH_CUTOFF = '2026-11-11 00:00:00'; // posts created live after this are left alone
 
 function polish_q(PDO $pdo, string $sql, array $args = []): PDOStatement
@@ -34,16 +29,11 @@ function polish_fixture(PDO $pdo, string $key): int
     }
 }
 
-// Believable, stable counts per post: 9-46 reactions in total, older posts a little higher.
+// Stable hundreds/thousands for explicitly designated presentation posts.
 function polish_targets(int $post_id, string $post_date): array
 {
-    $h = crc32('eventnest-post-' . $post_id);
-    $days_old = max(0, (int) floor((strtotime(POLISH_CUTOFF) - strtotime($post_date)) / 86400));
-    $total = 9 + ($h % 24) + min(12, $days_old);
-    $thumbs = (int) round($total * (0.42 + (($h >> 8) % 15) / 100));
-    $claps = (int) round(($total - $thumbs) * (0.50 + (($h >> 16) % 25) / 100));
-    $bulbs = max(1, $total - $thumbs - $claps);
-    return ['thumbs_up' => $thumbs, 'clap' => max(1, $claps), 'lightbulb' => $bulbs];
+    $n=$post_id%3;
+    return ['thumbs_up'=>847+$n*353,'clap'=>1200+$n*200,'lightbulb'=>1600+$n*200];
 }
 
 $report = ['posts_fixed' => 0, 'posts_balanced' => 0, 'reactors_removed' => 0, 'reactors_renamed' => 0];
@@ -88,34 +78,36 @@ try {
 
     // Make sure exactly POLISH_POOL synthetic reactors exist (login disabled: NULL password, unverified).
     $pdo->beginTransaction();
-    for ($i = 1; $i <= POLISH_POOL; $i++) {
-        $key = 'reactor' . sprintf('%06d', $i);
-        if (polish_fixture($pdo, $key)) { continue; }
-        $email = 'demo.' . $key . '@example.com';
-        $existing = (int) polish_q($pdo, 'SELECT UserID FROM USERS WHERE Email=?', [$email])->fetchColumn();
-        if (!$existing) {
-            polish_q($pdo, "INSERT INTO USERS (FirstName,LastName,Email,PasswordHash,Role,UserStatus,Is_email_verified,CreatedAt)
-                            VALUES ('Community','Member',?,NULL,'attendee','active',0,'2026-10-15 08:00:00')", [$email]);
-            $existing = (int) $pdo->lastInsertId();
-        }
-        polish_q($pdo, "INSERT INTO DEMO_FIXTURES (FixtureKey,EntityType,EntityID) VALUES (?,'reactor',?)", [$key, $existing]);
+    $registered=$pdo->query("SELECT FixtureKey FROM DEMO_FIXTURES WHERE EntityType='reactor'")->fetchAll(PDO::FETCH_COLUMN);
+    $registered=array_fill_keys($registered,true);
+    $existing=$pdo->query("SELECT Email FROM USERS WHERE Email LIKE 'demo.reactor%@example.com'")->fetchAll(PDO::FETCH_COLUMN);
+    $existing=array_fill_keys($existing,true);
+    $pending=[];
+    for($i=1;$i<=POLISH_POOL;$i++) {
+        $key='reactor'.sprintf('%06d',$i);
+        if(isset($registered[$key])) continue;
+        $email='demo.'.$key.'@example.com';
+        if(isset($existing[$email])) throw new RuntimeException('Unmanaged demo reactor collision; no account adopted.');
+        $pending[$key]=$email;
+    }
+    foreach(array_chunk($pending,250,true) as $chunk) {
+        $marks=implode(',',array_fill(0,count($chunk),"('Demo','Reactor',?,NULL,'attendee','active',0,'2026-10-15 08:00:00')"));
+        polish_q($pdo,'INSERT INTO USERS(FirstName,LastName,Email,PasswordHash,Role,UserStatus,Is_email_verified,CreatedAt) VALUES '.$marks,array_values($chunk));
+        $marks=implode(',',array_fill(0,count($chunk),'?'));
+        $users=polish_q($pdo,"SELECT UserID,Email FROM USERS WHERE Email IN ($marks)",array_values($chunk))->fetchAll();
+        $args=[];$rows=[];
+        foreach($users as $u){$rows[]="(?,'reactor',?)";array_push($args,substr(explode('@',$u['Email'])[0],5),$u['UserID']);}
+        polish_q($pdo,'INSERT INTO DEMO_FIXTURES(FixtureKey,EntityType,EntityID) VALUES '.implode(',',$rows),$args);
     }
     $pool = polish_q($pdo, "SELECT f.EntityID FROM DEMO_FIXTURES f JOIN USERS u ON u.UserID=f.EntityID
                             WHERE f.EntityType='reactor' AND f.FixtureKey<=? AND u.PasswordHash IS NULL
                             ORDER BY f.FixtureKey", ['reactor' . sprintf('%06d', POLISH_POOL)])->fetchAll(PDO::FETCH_COLUMN);
     $pool = array_map('intval', $pool);
 
-    // Give the kept reactors ordinary names (they only ever appear in admin user lists).
-    $first = ['Ayanda','Bongani','Chloe','Dineo','Ethan','Fatima','Gugu','Hlengiwe','Imran','Jabu','Kamogelo','Lebo','Musa','Nandi','Omphile','Precious','Quinton','Refilwe','Siya','Tumi'];
-    $last = ['Mabaso','Pillay','Van Wyk','Khumalo','Ndlovu','Botha','Mahlangu','Govender','Sithole','Petersen','Zulu','Moloi'];
-    foreach ($pool as $n => $uid) {
-        $report['reactors_renamed'] += polish_q($pdo, "UPDATE USERS SET FirstName=?, LastName=? WHERE UserID=? AND PasswordHash IS NULL AND FirstName IN ('Demo','Community')",
-            [$first[$n % count($first)], $last[($n * 7) % count($last)], $uid])->rowCount();
-    }
     $pdo->commit();
 
-    // Rebalance every seeded post (anything posted before the cut-off date).
-    $posts = $pdo->query("SELECT PostID, PostDate FROM POSTS WHERE PostDate < '" . POLISH_CUTOFF . "' ORDER BY PostID")->fetchAll();
+    // Adjust only explicitly registered presentation posts.
+    $posts = $pdo->query("SELECT DISTINCT p.PostID,p.PostDate FROM POSTS p JOIN DEMO_FIXTURES f ON f.EntityID=p.PostID AND f.EntityType='post' WHERE f.FixtureKey REGEXP '^post[0-9]+$' ORDER BY p.PostID")->fetchAll();
     $marks = implode(',', array_fill(0, count($pool), '?'));
     foreach ($posts as $post) {
         $pid = (int) $post['PostID'];

@@ -18,6 +18,8 @@ RUN apt-get update \
 COPY . /var/www/html/
 
 WORKDIR /var/www/html
+COPY deployment/apache-privacy.conf /etc/apache2/conf-available/eventnest-privacy.conf
+RUN a2enconf eventnest-privacy
 
 # Install Composer dependencies
 RUN composer install \
@@ -43,20 +45,13 @@ RUN printf '<Directory /var/www/html>\nAllowOverride All\nRequire all granted\n<
         /var/www/eventnest-private \
         /var/www/html/uploaded-content
 
-# TEMPORARY SIT DATABASE UPDATE
-#
-# Start Apache first so Render detects an open web port.
-# Then update and verify the Aiven SIT database in the same container.
-#
-# Sequence:
-# 1. Start Apache
-# 2. Apply presentation/demo data
-# 3. Add presentation reaction data
-# 4. Apply final public-facing presentation wording
-# 5. Verify the resulting SIT database
-# 6. Keep Apache running
-#
-# Remove this temporary CMD after the SIT database has been
-# successfully updated and verified.
+# Keep a read-only seed copy of approved repository assets. At runtime the
+# entrypoint exposes /var/data through the paths the PHP application already
+# uses, allowing one Render persistent disk to preserve all mutable files.
+RUN mkdir -p /var/www/eventnest-seed \
+    && cp -a /var/www/html/uploaded-content /var/www/eventnest-seed/uploaded-content \
+    && chmod +x /var/www/html/deployment/render-entrypoint.sh
 
-CMD ["/bin/sh", "-c", "apache2-foreground & APACHE_PID=$!; (php database/apply_images.php || true); php database/seed_presentation.php --apply && (php database/presentation_polish.php || true) && php database/update_presentation_copy.php && (php database/apply_images.php || true) && (php database/verify_presentation.php || true); STATUS=$?; if [ $STATUS -ne 0 ]; then kill $APACHE_PID 2>/dev/null || true; exit $STATUS; fi; wait $APACHE_PID"]
+# Schema and approved catalogue imports are explicit release operations.
+ENTRYPOINT ["/var/www/html/deployment/render-entrypoint.sh"]
+CMD ["apache2-foreground"]

@@ -5,12 +5,13 @@ $user = auth_require_verified_organiser();
 $pdo = eventnest_db();
 $editing = $editing ?? false;
 $event_id = $editing ? eventnest_id($_POST['event_id'] ?? $_GET['event_id'] ?? null) : 0;
-$categories = $pdo->query('SELECT CategoryID,CategoryName FROM CATEGORIES ORDER BY CategoryName')->fetchAll();
+$categories = $pdo->query('SELECT CategoryID,CategoryName FROM CATEGORIES WHERE IsVisible=1 ORDER BY CategoryName')->fetchAll();
 $category_ids = array_map('intval',array_column($categories,'CategoryID'));
 $event = [];
 $tickets = [];
 $message = '';
 $saved_image = null;
+$cities=require __DIR__.'/shared-components/cities.php';
 if ($editing) {
     $stmt = $pdo->prepare('SELECT * FROM EVENTS WHERE EventID = ? AND OrganiserID = ?');
     $stmt->execute([$event_id,$user['UserID']]);
@@ -39,6 +40,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $date_input = trim_input($_POST['event_date'] ?? '');
         $date = DateTimeImmutable::createFromFormat('!Y-m-d\TH:i',$date_input);
         $format = trim_input($_POST['format'] ?? '');
+        $choice=trim_input($_POST['city_choice']??'');
+        $city=$choice==='Other'?trim_input($_POST['city_other']??''):$choice;
+        if($format==='online') { $city=''; $province=''; $venue=''; }
+        elseif(!isset($cities[$province]) || ($choice!=='Other' && !in_array($choice,$cities[$province],true)) || $city==='' || mb_strlen($city)>100 || $venue==='') throw new DomainException('Choose a province and city, or Other and type your city/town/suburb. Enter a separate venue.');
         $gate = trim_input($_POST['career_gate_type'] ?? 'none');
         $category = eventnest_id($_POST['category_id'] ?? null);
         $allowed = $gate === 'field' ? eventnest_id($_POST['allowed_career_field'] ?? null) : null;
@@ -85,13 +90,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!in_array($lock->fetchColumn(),['draft','published'],true)) {
                 throw new DomainException('Event state changed. Reload before editing.');
             }
-            $stmt = $pdo->prepare('UPDATE EVENTS SET EventName=?,Description=?,Venue=?,EventDate=?,AgeRestriction=?,Format=?,Hashtags=?,CareerGoalType=?,AllowedCareerField=?,AllowedEmailDomain=?,Province=?,CategoryID=?,ImagePath=? WHERE EventID=? AND OrganiserID=?');
-            $stmt->execute([$name,$description,$venue,$date->format('Y-m-d H:i:s'),$age ?: null,$format,$tags,$gate,$allowed,$domain,$province ?: null,$category,$image_path,$event_id,$user['UserID']]);
+            $stmt = $pdo->prepare('UPDATE EVENTS SET EventName=?,Description=?,Venue=?,EventDate=?,AgeRestriction=?,Format=?,Hashtags=?,CareerGoalType=?,AllowedCareerField=?,AllowedEmailDomain=?,Province=?,CategoryID=?,ImagePath=?,City=? WHERE EventID=? AND OrganiserID=?');
+            $stmt->execute([$name,$description,$venue,$date->format('Y-m-d H:i:s'),$age ?: null,$format,$tags,$gate,$allowed,$domain,$province ?: null,$category,$image_path,$city ?: null,$event_id,$user['UserID']]);
         }
         else {
             // Publication and featured status are administrator-controlled.
-            $stmt = $pdo->prepare("INSERT INTO EVENTS (OrganiserID,CategoryID,EventName,Description,Venue,EventDate,AgeRestriction,Format,Hashtags,CareerGoalType,AllowedCareerField,AllowedEmailDomain,Province,ImagePath,Status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,'draft')");
-            $stmt->execute([$user['UserID'],$category,$name,$description,$venue,$date->format('Y-m-d H:i:s'),$age ?: null,$format,$tags,$gate,$allowed,$domain,$province ?: null,$image_path]);
+            $stmt = $pdo->prepare("INSERT INTO EVENTS (OrganiserID,CategoryID,EventName,Description,Venue,EventDate,AgeRestriction,Format,Hashtags,CareerGoalType,AllowedCareerField,AllowedEmailDomain,Province,ImagePath,City,Status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'draft')");
+            $stmt->execute([$user['UserID'],$category,$name,$description,$venue,$date->format('Y-m-d H:i:s'),$age ?: null,$format,$tags,$gate,$allowed,$domain,$province ?: null,$image_path,$city ?: null]);
             $event_id = (int)$pdo->lastInsertId();
         }
         $stmt = $pdo->prepare('SELECT * FROM TICKETS WHERE EventID = ? FOR UPDATE');
@@ -128,6 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$event_id,$type,$price,$capacity,$capacity,$text]);
         }
         $pdo->commit();
+        eventnest_audit($editing?'event_updated':'event_created',(int)$user['UserID'],'saved');
         // Only discard the previous file once the new database row is safely committed.
         if ($editing && !empty($event['ImagePath']) && $event['ImagePath'] !== $image_path) {
             eventnest_delete_upload($event['ImagePath']);
@@ -159,10 +165,13 @@ require __DIR__ . '/shared-components/header.php';
 <form class="content-card" method="post" enctype="multipart/form-data" data-validate="true"><?php eventnest_csrf_field(); ?>
 <?php if ($editing): ?><input type="hidden" name="event_id" value="<?= $event_id ?>"><?php endif; ?>
 <h2>Event details</h2><div class="form-grid">
-<?php foreach (['event_name'=>['Event title','EventName',100],'venue'=>['Public venue / town or suburb','Venue',150],'age_restriction'=>['Age restriction','AgeRestriction',10],'hashtags'=>['Hashtags','Hashtags',255]] as $field=>[$label,$column,$max]): ?>
+<?php foreach (['event_name'=>['Event title','EventName',100],'venue'=>['Venue','Venue',150],'age_restriction'=>['Age restriction','AgeRestriction',10],'hashtags'=>['Hashtags','Hashtags',255]] as $field=>[$label,$column,$max]): ?>
 <div class="field"><label for="<?= $field ?>"><?= $label ?></label><input id="<?= $field ?>" name="<?= $field ?>" maxlength="<?= $max ?>" value="<?= escape_html(event_form_value($field,$column,$event)) ?>" <?= $field==='event_name'?'required':'' ?>></div><?php endforeach; ?>
 <div class="field"><label for="province">Province</label><select id="province" name="province"><option value="">Choose province</option><?php foreach (eventnest_provinces() as $province_option): ?><option value="<?= escape_html($province_option) ?>" <?= event_form_value('province','Province',$event)===$province_option?'selected':'' ?>><?= escape_html($province_option) ?></option><?php endforeach; ?></select></div>
-<p class="field-hint">Enter the actual venue and town or suburb, for example Pretoria, Hammanskraal or Stellenbosch. Locations are not limited to provincial capitals.</p>
+<div class="field"><label for="city_choice">City / town</label><select id="city_choice" name="city_choice" data-city-current="<?= escape_html(trim_input($_POST['city_choice'] ?? $event['City'] ?? '')) ?>"><option value="">Choose city / town</option></select></div>
+<div class="field" data-city-other hidden><label for="city_other">Other city / town / suburb</label><input id="city_other" name="city_other" maxlength="100" value="<?= escape_html(trim_input($_POST['city_other'] ?? $event['City'] ?? '')) ?>"><small>Type the city, town or suburb manually.</small></div>
+<script type="application/json" id="province-cities"><?= json_encode($cities,JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT) ?></script>
+<noscript><p>JavaScript is required for province-linked city suggestions.</p></noscript>
 <div class="field"><label for="event_date">Date and time</label><input id="event_date" name="event_date" type="datetime-local" required value="<?= escape_html($_POST['event_date'] ?? (!empty($event['EventDate'])?date('Y-m-d\TH:i',strtotime($event['EventDate'])):'')) ?>"></div>
 <div class="field"><label for="category_id">Career field</label><select id="category_id" name="category_id" required><option value="">Choose category</option><?php foreach ($categories as $c): ?><option value="<?= (int)$c['CategoryID'] ?>" <?= event_form_value('category_id','CategoryID',$event)==$c['CategoryID']?'selected':'' ?>><?= escape_html($c['CategoryName']) ?></option><?php endforeach; ?></select></div>
 <div class="field"><label for="format">Format</label><select id="format" name="format"><?php foreach (['online','physical','hybrid'] as $v): ?><option value="<?= $v ?>" <?= event_form_value('format','Format',$event)===$v?'selected':'' ?>><?= ucfirst($v) ?></option><?php endforeach; ?></select></div>

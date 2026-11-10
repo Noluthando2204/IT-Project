@@ -12,7 +12,7 @@ $account_exists = false;
 $logo = null;
 $organisation_name = '';
 $email = '';
-$categories = $pdo->query('SELECT CategoryName FROM CATEGORIES ORDER BY CategoryName')->fetchAll(PDO::FETCH_COLUMN);
+$categories = $pdo->query('SELECT CategoryName FROM CATEGORIES WHERE IsVisible=1 ORDER BY CategoryName')->fetchAll(PDO::FETCH_COLUMN);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     eventnest_require_post();
@@ -84,9 +84,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $logo['relative'] ?? null,
         ]);
 
+        $new_id=(int)$pdo->lastInsertId();
+        try { $verify_user=['UserID'=>$new_id,'PasswordHash'=>''];
+          $s=$pdo->prepare('SELECT * FROM USERS WHERE UserID=?');$s->execute([$new_id]);$verify_user=$s->fetch();
+          $verify_token=eventnest_account_token($verify_user,'verify',null,3600);
+          eventnest_mail_notice($email,'Welcome to EventNest — verify your email','Welcome! Your email is not verified yet. Confirm ownership within 60 minutes: '.eventnest_absolute_url('verify-email.php').'?token='.$verify_token);
+        } catch(Throwable $e){error_log('EventNest welcome delivery unavailable.');}
         $role = $organiser_intent ? 'organiser' : 'attendee';
         auth_start_user_session([
-            'UserID' => (int) $pdo->lastInsertId(),
+            'UserID' => $new_id,
             'FirstName' => $first_name,
             'LastName' => $last_name,
             'Email' => $email,

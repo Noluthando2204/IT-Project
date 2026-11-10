@@ -14,6 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     reaction_response(405, ['success' => false, 'message' => 'Method not allowed.']);
 }
 $user = auth_current_user();
+if($user) eventnest_require_email($user);
 if ($user === null) {
     reaction_response(401, ['success' => false, 'login_required' => true]);
 }

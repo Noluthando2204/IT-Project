@@ -15,3 +15,4 @@ if (is_file($local_config)) {
     }
     unset($settings);
 }
+require_once __DIR__.'/security.php';

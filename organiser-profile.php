@@ -129,7 +129,7 @@ $post_stmt = $pdo->prepare(
         p.Media,
         p.Media_type,
         p.Hashtags,
-        p.PostDate,
+        p.PostDate, p.EditedAt,
         e.EventID,
         e.EventName,
         (SELECT COUNT(*) FROM REACTIONS r1 WHERE r1.PostID = p.PostID AND r1.ReactionType = 'thumbs_up') AS ThumbsUpTotal,

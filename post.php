@@ -5,8 +5,18 @@ $user=auth_require_verified_organiser();
 eventnest_require_post();
 $pdo=eventnest_db();
 $saved=null;
+$old_media=null;
 try {
     $pdo->beginTransaction();
+    $action=$_POST['action'] ?? '';
+    $existing=null;
+    if($action==='update') {
+        $stmt=$pdo->prepare('SELECT * FROM POSTS WHERE PostID=? AND OrganiserID=? FOR UPDATE');
+        $stmt->execute([eventnest_id($_POST['PostID']??null),$user['UserID']]);
+        $existing=$stmt->fetch();
+        if(!$existing) throw new DomainException('Post not found for your account.');
+        $old_media=$existing['Media'];
+    }
     if(($_POST['action'] ?? '')==='delete') {
         $stmt=$pdo->prepare('SELECT PostID,Media,Media_type FROM POSTS WHERE PostID=? AND OrganiserID=? FOR UPDATE');
         $stmt->execute([eventnest_id($_POST['PostID'] ?? null),$user['UserID']]);
@@ -21,13 +31,15 @@ try {
             $stmt->execute([$post['PostID']]);
         }
         $pdo->commit();
-        if($media) {
+        eventnest_audit('post_deleted',(int)$user['UserID'],'saved');
+        $references=$pdo->prepare('SELECT 1 FROM POSTS WHERE Media=? LIMIT 1'); $references->execute([$media]);
+        if($media && str_starts_with($media,'uploaded-content/posts/') && !$references->fetchColumn()) {
             @unlink(__DIR__.'/'.$media);
         }
         auth_set_flash('Post deleted.','success');
         auth_redirect('create-post.php');
     }
-    if(($_POST['action'] ?? '')!=='create') {
+    if(!in_array($action,['create','update'],true)) {
         throw new DomainException('Invalid post action.');
     }
     $event_id=eventnest_id($_POST['EventID'] ?? null);
@@ -39,8 +51,9 @@ try {
     if(($event_id && !$stmt->fetchColumn()) || mb_strlen($content)>10000) {
         throw new DomainException('Select one of your available events and keep text within 10,000 characters.');
     }
-    $media=null;
-    $type=null;
+    $media=$existing['Media'] ?? null;
+    $type=$existing['Media_type'] ?? null;
+    if(($_POST['remove_media']??'')==='1') { $media=null; $type=null; }
     $file=$_FILES['Media'] ?? null;
     if(is_array($file) && ($file['error'] ?? UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE) {
         if(($file['error'] ?? null)!==UPLOAD_ERR_OK || !is_string($file['tmp_name'] ?? null) || !is_string($file['name'] ?? null) || !is_int($file['size'] ?? null) || !is_uploaded_file($file['tmp_name'])) {
@@ -71,9 +84,20 @@ try {
     if($content==='' && $media===null) {
         throw new DomainException('Add an event update or approved media file.');
     }
-    $stmt=$pdo->prepare('INSERT INTO POSTS (EventID,OrganiserID,Content,Media,Media_type,Hashtags) VALUES (?,?,?,?,?,?)');
-    $stmt->execute([$event_id ?: null,$user['UserID'],$content ?: null,$media,$type,$hashtags]);
+    if($existing) {
+        $stmt=$pdo->prepare('UPDATE POSTS SET EditedAt=IF(NOT(EventID <=> ?) OR NOT(Content <=> ?) OR NOT(Media <=> ?) OR NOT(Media_type <=> ?) OR NOT(Hashtags <=> ?),NOW(),EditedAt),EventID=?,Content=?,Media=?,Media_type=?,Hashtags=? WHERE PostID=? AND OrganiserID=?');
+        $stmt->execute([$event_id ?: null,$content ?: null,$media,$type,$hashtags,$event_id ?: null,$content ?: null,$media,$type,$hashtags,$existing['PostID'],$user['UserID']]);
+    } else {
+        $stmt=$pdo->prepare('INSERT INTO POSTS (EventID,OrganiserID,Content,Media,Media_type,Hashtags) VALUES (?,?,?,?,?,?)');
+        $stmt->execute([$event_id ?: null,$user['UserID'],$content ?: null,$media,$type,$hashtags]);
+    }
     $pdo->commit();
+    eventnest_audit($existing?'post_updated':'post_created',(int)$user['UserID'],'saved');
+    if($old_media && $old_media!==$media && str_starts_with($old_media,'uploaded-content/posts/')) {
+        $ref=$pdo->prepare('SELECT 1 FROM POSTS WHERE Media=? LIMIT 1'); $ref->execute([$old_media]);
+        $safe=eventnest_safe_media_path($old_media);
+        if(!$ref->fetchColumn() && $safe) @unlink(__DIR__.'/'.$safe);
+    }
     auth_set_flash('Post saved. Draft-event posts remain private until publication.','success');
 }
 catch(Throwable $exception) {
