@@ -128,6 +128,15 @@
             close();
             var query = input.value.trim(), request = serial;
             if (event.isComposing || Array.from(query).length < 1 || Array.from(query).length > 100) return;
+            // Show that suggestions are on their way, so a slow server never looks like "nothing happened".
+            var loading = document.createElement('p');
+            loading.className = 'suggestion-empty suggestion-loading';
+            loading.setAttribute('role', 'status');
+            loading.textContent = 'Searching…';
+            box.appendChild(loading);
+            box.hidden = false;
+            box.classList.add('open');
+            input.setAttribute('aria-expanded', 'true');
             timer = setTimeout(async function () {
                 controller = new AbortController();
                 try {
@@ -137,6 +146,7 @@
                     if (!response.ok) throw new Error('Search unavailable');
                     var data = await response.json();
                     if (request !== serial || input.value.trim() !== query) return;
+                    box.replaceChildren();
                     (Array.isArray(data.suggestions) ? data.suggestions : []).slice(0, 8).forEach(function (item) {
                         if (typeof item.label !== 'string') return;
                         var destination;

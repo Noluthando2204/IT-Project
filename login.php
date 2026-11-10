@@ -110,6 +110,15 @@ $page_title = 'Log in';
 require_once __DIR__ . '/shared-components/header.php';
 ?>
 <main class="auth-container content-card">
+    <nav class="role-tabs" aria-label="Choose your login portal">
+        <?php foreach (['attendee' => 'Attendee', 'organiser' => 'Organiser', 'admin' => 'Admin'] as $portal => $portal_label): ?>
+            <?php if ($portal === $login_role): ?>
+                <span class="role-tab is-active" aria-current="page"><?= escape_html($portal_label) ?></span>
+            <?php else: ?>
+                <a class="role-tab" href="<?= escape_html(eventnest_url('login.php?role=' . $portal)) ?>"><?= escape_html($portal_label) ?></a>
+            <?php endif; ?>
+        <?php endforeach; ?>
+    </nav>
     <h1><?= escape_html(ucfirst($login_role)) ?> login</h1>
     <p>Use the email address you registered with.</p>
 
@@ -136,14 +145,13 @@ require_once __DIR__ . '/shared-components/header.php';
 
         <div class="form-actions">
             <button class="btn btn-orange" type="submit">Log in</button>
-            <a class="btn btn-outline" href="register.php">Create account</a>
+            <?php if ($login_role === 'organiser'): ?>
+                <a class="btn btn-outline" href="business-register.php">Register your organisation</a>
+            <?php elseif ($login_role !== 'admin'): ?>
+                <a class="btn btn-outline" href="register.php">Create account</a>
+            <?php endif; ?>
         </div>
     </form>
-<aside class="role-login-links" aria-label="Choose your login portal">
-<?php foreach (['attendee','organiser','admin'] as $portal): ?>
-<article class="content-card"><h2><?= escape_html(ucfirst($portal)) ?> login</h2>
-<?php if ($portal === $login_role): ?><p aria-current="page">You are using this portal.</p>
-<?php else: ?><a class="btn btn-outline" href="<?= escape_html(eventnest_url('login.php?role='.$portal)) ?>">Open <?= escape_html($portal) ?> login</a><?php endif; ?></article>
-<?php endforeach; ?></aside></main>
+</main>
 <script src="<?= escape_html(eventnest_url('scripts/validation.js')) ?>" defer></script>
 <?php require_once __DIR__ . '/shared-components/footer.php'; ?>
