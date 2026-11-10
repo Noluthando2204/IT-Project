@@ -34,6 +34,10 @@ try {
     $pdo->exec("SET time_zone = '+02:00'");
 } catch (PDOException $exception) {
     error_log('EventNest database connection failed: ' . $exception->getCode());
+    if (PHP_SAPI === 'cli') {
+        fwrite(STDERR, "EventNest database connection failed. Verify DB environment settings and connectivity.\n");
+        exit(1);
+    }
     http_response_code(503);
     exit('EventNest is temporarily unavailable.');
 }

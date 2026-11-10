@@ -32,4 +32,8 @@ replace_with_link /var/www/eventnest-private/organiser-documents "$documents_dir
 
 chown -R www-data:www-data "$data_root"
 
+# Docker is used by Render SIT. Upgrade schema before accepting requests;
+# never run presentation seeds or category/data reconciliation at startup.
+php /var/www/html/database/migrate_schema.php --apply
+
 exec "$@"

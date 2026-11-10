@@ -1,6 +1,13 @@
 <?php
 // Copy to local.php (ignored). Use your deployment environment in production.
 return [
+    'DB_HOST' => '',
+    'DB_PORT' => '3306',
+    'DB_NAME' => '',
+    'DB_USER' => '',
+    'DB_PASS' => '',
+    'DB_SSL_CA' => '', // Optional private CA file path required by some remote databases
+    'APP_KEY' => '', // At least 32 random bytes as hex; use different values in SIT and production
     'MAIL_ENABLED' => '0', // Enable only with a verified sender and controlled test mailbox
     'EVENTNEST_SUPPORT_EMAIL' => '',
     'EVENTNEST_BASE_URL' => 'https://your-public-eventnest-host.example',
