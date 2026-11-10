@@ -241,7 +241,7 @@ if (
 if ($is_suggest) {
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store');
-    if ($invalid_mode || $q_too_long || !mb_check_encoding($raw_q, 'UTF-8') || mb_strlen($q, 'UTF-8') < 3) {
+    if ($invalid_mode || $q_too_long || !mb_check_encoding($raw_q, 'UTF-8') || mb_strlen($q, 'UTF-8') < 2) {
         echo json_encode(['suggestions' => []]);
         exit;
     }
@@ -607,9 +607,9 @@ require_once __DIR__ . '/shared-components/header.php';
                     id="toggle-search-filters"
                     data-filter-toggle
                     aria-controls="search-filters"
-                    aria-expanded="true"
+                    aria-expanded="<?= ($raw_category_id !== '' || $raw_province !== '' || $raw_format !== '' || $raw_date_from !== '' || $raw_date_to !== '' || $raw_price_type !== '' || $raw_ticket_type !== '') ? 'true' : 'false' ?>"
                 >
-                    Hide filters
+                    <?= ($raw_category_id !== '' || $raw_province !== '' || $raw_format !== '' || $raw_date_from !== '' || $raw_date_to !== '' || $raw_price_type !== '' || $raw_ticket_type !== '') ? 'Hide filters' : 'Show filters' ?>
                 </button>
             </div>
         </form>
@@ -623,9 +623,14 @@ require_once __DIR__ . '/shared-components/header.php';
         </div>
     <?php endif; ?>
 
-    <div class="search-layout">
+    <?php
+    // Filters start collapsed so results use the full width; they open automatically when a filter is in use.
+    $filters_open = $raw_category_id !== '' || $raw_province !== '' || $raw_format !== '' || $raw_date_from !== ''
+        || $raw_date_to !== '' || $raw_price_type !== '' || $raw_ticket_type !== '';
+    ?>
+    <div class="search-layout search-layout--collapsible<?= $filters_open ? ' is-filters-open' : '' ?>">
         <aside
-            class="filter-panel"
+            class="filter-panel<?= $filters_open ? ' open' : '' ?>"
             id="search-filters"
             data-filter-panel
             aria-labelledby="filter-heading"

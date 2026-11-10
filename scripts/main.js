@@ -50,7 +50,15 @@
         var filterToggle = event.target.closest('[data-filter-toggle]');
         if (filterToggle) {
             var panel = qs('[data-filter-panel], .filters-panel, .filter-panel, .event-filters');
-            if (panel) { var open = panel.classList.toggle('open'); filterToggle.setAttribute('aria-expanded',String(open)); }
+            if (panel) {
+                var open = panel.classList.toggle('open');
+                filterToggle.setAttribute('aria-expanded', String(open));
+                var layout = panel.closest('.search-layout--collapsible');
+                if (layout) {
+                    layout.classList.toggle('is-filters-open', open);
+                    filterToggle.textContent = open ? 'Hide filters' : 'Show filters';
+                }
+            }
         }
     });
 
@@ -106,7 +114,16 @@
         input.addEventListener('input', function (event) {
             close();
             var query = input.value.trim(), request = serial;
-            if (event.isComposing || Array.from(query).length < 3 || Array.from(query).length > 100) return;
+            if (event.isComposing || Array.from(query).length < 2 || Array.from(query).length > 100) return;
+            // Show that suggestions are on their way, so a slow server never looks like "nothing happened".
+            var loading = document.createElement('p');
+            loading.className = 'suggestion-empty suggestion-loading';
+            loading.setAttribute('role', 'status');
+            loading.textContent = 'Searching…';
+            box.appendChild(loading);
+            box.hidden = false;
+            box.classList.add('open');
+            input.setAttribute('aria-expanded', 'true');
             timer = setTimeout(async function () {
                 controller = new AbortController();
                 try {
@@ -116,6 +133,7 @@
                     if (!response.ok) throw new Error('Search unavailable');
                     var data = await response.json();
                     if (request !== serial || input.value.trim() !== query) return;
+                    box.replaceChildren();
                     (Array.isArray(data.suggestions) ? data.suggestions : []).slice(0, 8).forEach(function (item) {
                         if (typeof item.label !== 'string') return;
                         var destination;
@@ -164,7 +182,7 @@
                     box.classList.add('open');
                     input.setAttribute('aria-expanded', 'true');
                 }
-            }, 250);
+            }, 200);
         });
         input.addEventListener('compositionend', function () { input.dispatchEvent(new Event('input')); });
         input.addEventListener('keydown', function (event) {

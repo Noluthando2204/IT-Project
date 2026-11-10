@@ -11,11 +11,12 @@ if($_SERVER['REQUEST_METHOD']==='POST') {
     $subject=trim_input($_POST['subject'] ?? '');
     $body=trim_input($_POST['message'] ?? '');
     if($name==='' || mb_strlen($name)>100 || !filter_var($email,FILTER_VALIDATE_EMAIL) || strlen($email)>100 || $subject==='' || mb_strlen($subject)>150 || preg_match('/[\r\n]/',$subject) || mb_strlen($body)<10 || mb_strlen($body)>5000) {
-        $message='Complete all fields with a valid email and a message of 10?5,000 characters.';
+        $message='Complete all fields with a valid email and a message of 10 to 5,000 characters.';
     }
     else {
         // Recipient comes from server configuration, never a submitted form field.
-        $sent=eventnest_send_mail((string)getenv('EVENTNEST_SUPPORT_EMAIL'),'EventNest contact: '.$subject,"From: ".$name."\nEmail: ".$email."\n\n".$body,$email);
+        $support_to=(string)getenv('EVENTNEST_SUPPORT_EMAIL'); if(!filter_var($support_to,FILTER_VALIDATE_EMAIL)){ $support_to=(string)getenv('EVENTNEST_FROM_EMAIL'); }
+        $sent=eventnest_send_mail($support_to,'EventNest contact: '.$subject,"From: ".$name."\nEmail: ".$email."\n\n".$body,$email);
         $message=$sent?'Your message was sent to EventNest support.':'Your message could not be sent. Please try again later; support email may be unavailable.';
     }
 }

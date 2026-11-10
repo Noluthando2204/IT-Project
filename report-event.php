@@ -39,7 +39,8 @@ if($_SERVER['REQUEST_METHOD']==='POST') {
     }
     else {
         $body='Event: '.$event['EventName'].' (#'.$event_id.')'."\nBooking: ".($booking['BookingReference'] ?? 'Not supplied')."\nIssue: ".$issue."\nAttendee: ".$user['Email']."\n\n".$explanation;
-        $sent=eventnest_send_mail((string)getenv('EVENTNEST_SUPPORT_EMAIL'),'EventNest event report',$body,$user['Email']);
+        $support_to=(string)getenv('EVENTNEST_SUPPORT_EMAIL'); if(!filter_var($support_to,FILTER_VALIDATE_EMAIL)){ $support_to=(string)getenv('EVENTNEST_FROM_EMAIL'); }
+        $sent=eventnest_send_mail($support_to,'EventNest event report',$body,$user['Email']);
         $message=$sent?'Your report was emailed to EventNest support for review.':'The report could not be sent. Please try again later; no report has been recorded.';
     }
 }

@@ -250,16 +250,30 @@ function eventnest_send_mail(string $to, string $subject, string $body, ?string 
     $autoload = eventnest_project_root() . '/vendor/autoload.php';
     if (!is_file($autoload) || !filter_var($to, FILTER_VALIDATE_EMAIL)) { return false; }
     require_once $autoload;
-    if (!class_exists('PHPMailer\\PHPMailer\\PHPMailer') || !getenv('EVENTNEST_SMTP_HOST')) { return false; }
+    if (!class_exists('PHPMailer\\PHPMailer\\PHPMailer')) { return false; }
+    // Sender address: configured, or no-reply@<site domain> so shared hosting accepts it.
+    $from = trim((string) getenv('EVENTNEST_FROM_EMAIL'));
+    if (!filter_var($from, FILTER_VALIDATE_EMAIL)) {
+        $host = (string) parse_url((string) getenv('EVENTNEST_BASE_URL'), PHP_URL_HOST);
+        $host = preg_replace('/^www\./', '', $host);
+        $from = ($host !== '' && str_contains($host, '.')) ? 'no-reply@' . $host : '';
+    }
+    if ($from === '') { return false; }
     try {
         $mail = new PHPMailer\PHPMailer\PHPMailer(true);
-        $mail->isSMTP(); $mail->Host = (string) getenv('EVENTNEST_SMTP_HOST');
-        $mail->Port = (int) (getenv('EVENTNEST_SMTP_PORT') ?: 587);
-        $mail->SMTPAuth = true; $mail->Username = (string) getenv('EVENTNEST_SMTP_USER');
-        $mail->Password = (string) getenv('EVENTNEST_SMTP_PASS');
-        $mail->SMTPSecure = $mail->Port === 465 ? 'ssl' : 'tls';
-        $mail->Timeout = 8; $mail->CharSet = 'UTF-8';
-        $mail->setFrom((string) getenv('EVENTNEST_FROM_EMAIL'), (string) (getenv('EVENTNEST_FROM_NAME') ?: 'EventNest'));
+        if (getenv('EVENTNEST_SMTP_HOST')) {
+            $mail->isSMTP(); $mail->Host = (string) getenv('EVENTNEST_SMTP_HOST');
+            $mail->Port = (int) (getenv('EVENTNEST_SMTP_PORT') ?: 587);
+            $mail->SMTPAuth = true; $mail->Username = (string) getenv('EVENTNEST_SMTP_USER');
+            $mail->Password = (string) getenv('EVENTNEST_SMTP_PASS');
+            $mail->SMTPSecure = $mail->Port === 465 ? 'ssl' : 'tls';
+            $mail->Timeout = 8;
+        } else {
+            // No SMTP configured (e.g. cPanel/DirectAdmin hosting): use the server's own mail service.
+            $mail->isMail();
+        }
+        $mail->CharSet = 'UTF-8';
+        $mail->setFrom($from, (string) (getenv('EVENTNEST_FROM_NAME') ?: 'EventNest'));
         $mail->addAddress($to);
         if ($reply_to && filter_var($reply_to, FILTER_VALIDATE_EMAIL)) { $mail->addReplyTo($reply_to); }
         $mail->SMTPDebug = 0;
