@@ -51,6 +51,7 @@ try {
     if($root && $document && str_starts_with($document,$root.DIRECTORY_SEPARATOR) && is_file($document)) {
         @unlink($document);
     }
+    if($user['Is_email_verified']) eventnest_mail_notice($current['Email'],'EventNest account deleted','Your EventNest account has been disabled and personal account details anonymised. Required booking and payment history is retained.');
     auth_destroy_session();
     auth_redirect('index.php?deleted=1');
 }

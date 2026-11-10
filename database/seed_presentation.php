@@ -142,7 +142,7 @@ try {
     if ($mode === '--apply') {
         $families = [
             'Finance & Accounting',
-            'Healthcare & Medical',
+            'Allied Health & Medical Careers',
             'Engineering',
             'ICT & Digital Technology',
             'Skilled Trades & Technical Careers',

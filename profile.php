@@ -2,12 +2,12 @@
 declare(strict_types=1);
 require_once __DIR__.'/shared-components/auth.php';
 $account_mode=$account_mode ?? false;
-$user=$account_mode?auth_require_organiser():auth_require_attendee();
+$user=$account_mode?auth_require_organiser():auth_require_login();
 $pdo=eventnest_db();
 $message='';
 $message_type='info';
 $logo=null;
-$categories=$pdo->query('SELECT CategoryName FROM CATEGORIES ORDER BY CategoryName')->fetchAll(PDO::FETCH_COLUMN);
+$categories=$pdo->query('SELECT CategoryName FROM CATEGORIES WHERE IsVisible=1 ORDER BY CategoryName')->fetchAll(PDO::FETCH_COLUMN);
 if($_SERVER['REQUEST_METHOD']==='POST') {
     eventnest_require_post();
     try {
@@ -40,6 +40,7 @@ if($_SERVER['REQUEST_METHOD']==='POST') {
             if(!eventnest_send_email_change_verification($new_email,$link)) {
                 throw new DomainException('We could not send the confirmation email. Check the address or try again later.');
             }
+            eventnest_mail_notice($row['Email'],'EventNest email change requested','An email address change was requested. The new address must confirm ownership. Contact support if this was not you.');
             $message='We sent a confirmation link to '.$new_email.'. Open it within 60 minutes to finish changing your email.';
             $message_type='success';
             throw new LogicException('email-change-requested');

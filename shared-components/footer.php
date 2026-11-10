@@ -14,5 +14,6 @@
 </footer>
 <script src="<?= e(app_url('scripts/main.js')) ?>?v=<?= filemtime(dirname(__DIR__).'/scripts/main.js') ?>" defer></script>
 <script src="<?= e(app_url('scripts/reservation-timer.js')) ?>" defer></script>
+<?php eventnest_content_toolbar(); ?>
 </body>
 </html>

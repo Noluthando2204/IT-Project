@@ -49,8 +49,6 @@ function home_fetch_event(PDO $pdo, int $event_id): ?array
            AND u.Role = 'organiser'
            AND u.VerificationStatus = 'verified'
            AND u.UserStatus = 'active'
-           AND u.VerificationFeePaymentStatus = 'paid'
-           AND u.VerificationFeePaidUntil > NOW()
          LIMIT 1"
     );
     $stmt->execute([':event_id' => $event_id]);
@@ -131,8 +129,6 @@ function home_sql_fallback(PDO $pdo, array $attendee, int $limit = 5): array
            AND u.Role = 'organiser'
            AND u.VerificationStatus = 'verified'
            AND u.UserStatus = 'active'
-           AND u.VerificationFeePaymentStatus = 'paid'
-           AND u.VerificationFeePaidUntil > NOW()
            AND NOT EXISTS (
                SELECT 1 FROM BLOCKS b
                WHERE b.OrganiserID = e.OrganiserID
@@ -164,7 +160,7 @@ function home_sql_fallback(PDO $pdo, array $attendee, int $limit = 5): array
         } else {
             $event['WhyRecommended'] = $index % 2 === 0
                 ? 'An upcoming ' . (string) $event['CategoryName'] . ' event that can broaden your career options.'
-                : 'A different career area you may want to explore alongside your saved field.';
+                : 'Explore ' . (string)$event['CategoryName'] . ' through this upcoming in-person event.';
         }
     }
     unset($event);
@@ -190,7 +186,7 @@ if ($current_user_id > 0 && $current_role === 'attendee') {
 }
 
 $hero_stmt = $pdo->query(
-    "SELECT e.EventID, e.EventName, e.EventDate, e.Format, e.Venue, e.Province, e.ImagePath,
+    "SELECT e.EventID, e.EventName, e.EventDate, e.Format, e.Venue, e.City, e.Province, e.ImagePath,
             e.Hashtags, e.OrganiserID, e.CategoryID, c.CategoryName,
             u.FirstName, u.LastName,
             (SELECT MIN(t.Price) FROM TICKETS t WHERE t.EventID = e.EventID AND t.QuantityAvailable > 0) AS MinimumPrice
@@ -209,7 +205,7 @@ $hero_stmt = $pdo->query(
 $hero_event = $hero_stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 
 $featured_sql =
-    "SELECT e.EventID, e.EventName, e.EventDate, e.Format, e.Venue, e.Province, e.ImagePath,
+    "SELECT e.EventID, e.EventName, e.EventDate, e.Format, e.Venue, e.City, e.Province, e.ImagePath,
             e.Hashtags, e.OrganiserID, e.CategoryID, c.CategoryName,
             u.FirstName, u.LastName, e.IsFeatured,
             (SELECT MIN(t.Price) FROM TICKETS t WHERE t.EventID = e.EventID AND t.QuantityAvailable > 0) AS MinimumPrice
@@ -231,26 +227,6 @@ $featured_sql .= ' ORDER BY e.IsFeatured DESC, CASE WHEN e.IsFeatured = 1 THEN e
 $featured_stmt = $pdo->prepare($featured_sql);
 $featured_stmt->execute($featured_params);
 $featured_events = $featured_stmt->fetchAll(PDO::FETCH_ASSOC);
-
-$hashtag_counts = [];
-$tag_stmt = $pdo->query(
-    "SELECT Hashtags FROM EVENTS WHERE Status = 'published' AND Hashtags IS NOT NULL AND Hashtags <> ''
-     UNION ALL
-     SELECT p.Hashtags FROM POSTS p LEFT JOIN EVENTS e ON e.EventID = p.EventID AND e.OrganiserID=p.OrganiserID
-     WHERE (p.EventID IS NULL OR e.Status IN ('published','completed')) AND p.Hashtags IS NOT NULL AND p.Hashtags <> ''
-     LIMIT 300"
-);
-foreach ($tag_stmt->fetchAll(PDO::FETCH_COLUMN) as $tag_string) {
-    foreach (home_tags((string) $tag_string) as $tag) {
-        $key = mb_strtolower($tag, 'UTF-8');
-        if (!isset($hashtag_counts[$key])) {
-            $hashtag_counts[$key] = ['tag' => $tag, 'count' => 0];
-        }
-        $hashtag_counts[$key]['count']++;
-    }
-}
-usort($hashtag_counts, static fn(array $a, array $b): int => $b['count'] <=> $a['count']);
-$popular_tags = array_slice($hashtag_counts, 0, 5);
 
 $recommendation_events = [];
 $recommendation_mode = '';
@@ -298,7 +274,7 @@ if ($attendee) {
     }
 
     $explore_stmt = $pdo->prepare(
-        "SELECT e.EventID, e.EventName, e.EventDate, e.Format, e.Venue, e.Province, e.ImagePath,
+        "SELECT e.EventID, e.EventName, e.EventDate, e.Format, e.Venue, e.City, e.Province, e.ImagePath,
                 e.OrganiserID, c.CategoryName,
                 (SELECT MIN(t.Price) FROM TICKETS t WHERE t.EventID = e.EventID AND t.QuantityAvailable > 0) AS MinimumPrice
          FROM EVENTS e
@@ -456,17 +432,6 @@ require_once __DIR__ . '/shared-components/header.php';
         <?php endif; ?>
     </section>
 
-    <section aria-labelledby="hashtags-heading">
-        <h2 id="hashtags-heading">Popular hashtags</h2>
-        <?php if ($popular_tags): ?>
-            <div class="tag-list">
-                <?php foreach ($popular_tags as $tag): ?>
-                    <a class="tag-chip" href="tag.php?<?= http_build_query(['tag' => ltrim((string) $tag['tag'], '#')], '', '&', PHP_QUERY_RFC3986) ?>"><?= escape_html($tag['tag']) ?></a>
-                <?php endforeach; ?>
-            </div>
-        <?php else: ?>
-            <p>No public hashtags are available yet.</p>
-        <?php endif; ?>
-    </section>
+
 </main>
-<?php require_once __DIR__ . '/shared-components/footer.php'; ?>
+<?php require __DIR__.'/shared-components/footer.php'; ?>

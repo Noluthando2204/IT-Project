@@ -143,7 +143,7 @@ try {
             p.Media,
             p.Media_type,
             p.Hashtags,
-            p.PostDate,
+            p.PostDate, p.EditedAt,
             p.EventID,
             e.EventName,
             (SELECT COUNT(*)

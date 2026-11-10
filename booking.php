@@ -15,6 +15,7 @@ if (!isset($pdo) || !($pdo instanceof PDO)) {
 }
 
 $auth_user = auth_require_attendee();
+eventnest_require_email($auth_user);
 $user_id = (int) $auth_user['UserID'];
 eventnest_expire_pending($pdo); // Free every expired hold, not just this user's, so stock is accurate.
 

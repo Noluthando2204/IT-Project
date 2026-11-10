@@ -85,13 +85,13 @@ if ($date_from !== '' && $date_to !== '' && $date_from > $date_to) {
 $page_size = 12;
 $offset = ($page - 1) * $page_size;
 
-$categories = $pdo->query("SELECT c.CategoryID, c.CategoryName FROM CATEGORIES c WHERE EXISTS (SELECT 1 FROM EVENTS e WHERE e.CategoryID = c.CategoryID AND e.Status IN ('published','completed')) ORDER BY c.CategoryName")->fetchAll(PDO::FETCH_ASSOC);
+$categories = $pdo->query('SELECT CategoryID, CategoryName FROM CATEGORIES ORDER BY CategoryName')->fetchAll(PDO::FETCH_ASSOC);
 $provinces = eventnest_provinces();
 if ($province !== '' && !in_array($province, $provinces, true)) {
     $province = '';
 }
 
-$where = ["e.Status = 'published'"];
+$where = [eventnest_public_event_sql('e')];
 $params = [];
 
 if ($category_id > 0) {
@@ -143,7 +143,7 @@ if ($page > $pages) {
 $sql = "
     SELECT
         e.EventID, e.OrganiserID, e.EventName, e.EventDate, e.Format,
-        e.Province, e.ImagePath, e.Venue, e.Hashtags, c.CategoryName,
+        e.Province, e.ImagePath, e.Venue, e.City, e.Hashtags, c.CategoryName,
         (SELECT MIN(t.Price) FROM TICKETS t WHERE t.EventID = e.EventID AND t.QuantityAvailable > 0) AS MinPrice,
         (SELECT MAX(t.Price) FROM TICKETS t WHERE t.EventID = e.EventID AND t.QuantityAvailable > 0) AS MaxPrice
     FROM EVENTS e

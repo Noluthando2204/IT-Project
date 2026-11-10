@@ -35,3 +35,4 @@ uploaded-content/*
 # Include career field images in Render deployments
 !uploaded-content/category-images/
 !uploaded-content/category-images/*.png
+!uploaded-content/category-images/*.jpg

@@ -5,6 +5,8 @@ require_once __DIR__ . '/shared-components/auth.php';
 require_once __DIR__ . '/shared-components/functions.php';
 
 $pdo = eventnest_db();
+$login_role = $_GET['role'] ?? 'attendee';
+if(!is_string($login_role) || !in_array($login_role,['attendee','organiser','admin'],true)) $login_role='attendee';
 $message = '';
 $message_type = 'error';
 $email = is_string($_POST['email'] ?? null) ? strtolower(trim($_POST['email'])) : '';
@@ -39,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$email]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            if (!$user || !is_string($user['PasswordHash']) || !password_verify($password, $user['PasswordHash'])) {
+            if (!$user || $user['Role']!==$login_role || !is_string($user['PasswordHash']) || !password_verify($password, $user['PasswordHash'])) {
                 throw new DomainException('Invalid login.');
             }
 
@@ -88,6 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             The password recovery page can still help a real user regain access.
 
             */
+            eventnest_login_failure($email);
             $message = $exception->getMessage() === 'Suspended.'
                 ? 'Your account is currently suspended. Please contact EventNest support if you need help.'
                 : 'Unable to sign in with those details. Check your email and password, or reset your password.';
@@ -105,7 +108,7 @@ $page_title = 'Log in';
 require_once __DIR__ . '/shared-components/header.php';
 ?>
 <main class="auth-container content-card">
-    <h1>Log in to EventNest</h1>
+    <h1><?= escape_html(ucfirst($login_role)) ?> login</h1>
     <p>Use the email address you registered with.</p>
 
     <?php if ($message !== ''): ?>
@@ -114,7 +117,7 @@ require_once __DIR__ . '/shared-components/header.php';
         </div>
     <?php endif; ?>
 
-    <form method="post" action="login.php" data-validate="true">
+    <form method="post" action="login.php?role=<?= escape_html($login_role) ?>" data-validate="true">
         <?php eventnest_csrf_field(); ?>
 
         <div class="field">
@@ -134,6 +137,6 @@ require_once __DIR__ . '/shared-components/header.php';
             <a class="btn btn-outline" href="register.php">Create account</a>
         </div>
     </form>
-</main>
+<aside class="role-login-links"><article class="content-card"><h2>Not an attendee?</h2><a href="login.php?role=organiser">Log in as an organiser</a></article><article class="content-card"><h2>Not an organiser?</h2><a href="login.php?role=admin">Log in as an admin</a></article><a href="login.php">Attendee login</a></aside></main>
 <script src="<?= escape_html(eventnest_url('scripts/validation.js')) ?>" defer></script>
 <?php require_once __DIR__ . '/shared-components/footer.php'; ?>

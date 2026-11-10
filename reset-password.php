@@ -70,6 +70,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $token_data !== null && $user !== n
             Once the password changes, the same reset link can no longer be used again.
 
             */
+            $pdo->prepare('DELETE FROM ACCOUNT_TOKENS WHERE UserID=?')->execute([$user['UserID']]);
+            eventnest_mail_notice($user['Email'],'EventNest password updated','Your password was changed. Contact support if you did not do this.');
             unset($_SESSION['password_reset_last_sent']);
             session_regenerate_id(true);
             header('Location: ' . eventnest_url('login.php?reset=success'));

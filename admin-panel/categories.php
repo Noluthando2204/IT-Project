@@ -1,20 +1,20 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/../shared-components/auth.php';
-auth_require_admin();
+$admin=auth_require_admin();
 $pdo=eventnest_db();
 if($_SERVER['REQUEST_METHOD']==='POST') {
     eventnest_require_post();
     $id=eventnest_id($_POST['category_id'] ?? null);
     $action=trim_input($_POST['action'] ?? '');
-    $name=trim_input($_POST['name'] ?? '');
+    $name=preg_replace('/\s+/u',' ',trim_input($_POST['name'] ?? '')) ?? '';
     $description=trim_input($_POST['description'] ?? '');
     $saved_image=null;
     $old_image=null;
     try {
         $pdo->beginTransaction();
         if(in_array($action,['edit','delete'],true)) {
-            $stmt=$pdo->prepare('SELECT ImagePath FROM CATEGORIES WHERE CategoryID=? FOR UPDATE');
+            $stmt=$pdo->prepare('SELECT ImagePath,CategoryName,Description FROM CATEGORIES WHERE CategoryID=? FOR UPDATE');
             $stmt->execute([$id]);
             $current_image=$stmt->fetch(PDO::FETCH_NUM);
             if(!$current_image) {
@@ -69,8 +69,9 @@ if($_SERVER['REQUEST_METHOD']==='POST') {
         else {
             throw new DomainException('Invalid category action.');
         }
+        $pdo->prepare('INSERT INTO SECURITY_AUDIT(ActorID,EventName,Outcome,Summary) VALUES(?,?,?,?)')->execute([$admin['UserID'],'category:'.$action,'saved',json_encode(['id'=>$id,'old'=>$current_image??null,'new_name'=>$name,'description'=>$description])]);
         $pdo->commit();
-        if($old_image) {
+        if($old_image && !$pdo->query('SELECT 1 FROM CATEGORIES WHERE ImagePath='.$pdo->quote($old_image).' LIMIT 1')->fetchColumn()) {
             eventnest_delete_upload($old_image);
         }
         auth_set_flash('Category saved.','success');
@@ -84,7 +85,7 @@ if($_SERVER['REQUEST_METHOD']==='POST') {
         }
         auth_set_flash($exception instanceof DomainException?$exception->getMessage():'Unable to change category. It may be referenced or have a duplicate name.');
     }
-    auth_redirect('admin-panel/categories.php');
+    auth_redirect(isset($_POST['inline'])?'career-fields.php':'admin-panel/categories.php');
 }
 $categories=$pdo->query('SELECT c.*,(SELECT COUNT(*) FROM EVENTS e WHERE e.CategoryID=c.CategoryID OR e.AllowedCareerField=c.CategoryID) AS EventUsage,(SELECT COUNT(*) FROM Post_Categories pc WHERE pc.category_id=c.CategoryID) AS PostUsage FROM CATEGORIES c ORDER BY c.CategoryName')->fetchAll();
 $page_title='Career-field categories';

@@ -64,3 +64,5 @@ uploaded-content/posts/*
 !uploaded-content/category-images/
 uploaded-content/category-images/*
 !uploaded-content/category-images/*.png
+
+!uploaded-content/category-images/*.jpg

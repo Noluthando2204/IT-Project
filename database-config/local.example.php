@@ -1,6 +1,8 @@
 <?php
 // Copy to local.php (ignored). Use your deployment environment in production.
 return [
+    'MAIL_ENABLED' => '0', // Enable only with a verified sender and controlled test mailbox
+    'EVENTNEST_SUPPORT_EMAIL' => '',
     'EVENTNEST_BASE_URL' => 'https://your-public-eventnest-host.example',
     'EVENTNEST_SMTP_HOST' => 'smtp-relay.brevo.com',
     'EVENTNEST_SMTP_PORT' => '587',

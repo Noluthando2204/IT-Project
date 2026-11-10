@@ -32,7 +32,7 @@ function eventnest_post_context(PDO $pdo, array $posts, array &$state): void
         if ($event_ids) {
             $marks = implode(',', array_fill(0, count($event_ids), '?'));
             $stmt = $pdo->prepare(
-                "SELECT e.EventID, e.EventName, e.EventDate, e.Format, e.Venue, e.Province, e.ImagePath, e.Status,
+                "SELECT e.EventID, e.EventName, e.EventDate, e.Format, e.Venue, e.City, e.Province, e.ImagePath, e.Status,
                         c.CategoryName,
                         (SELECT MIN(t.Price) FROM TICKETS t WHERE t.EventID = e.EventID) AS MinimumPrice,
                         (SELECT COALESCE(SUM(t.QuantityAvailable), 0) FROM TICKETS t WHERE t.EventID = e.EventID) AS SeatsLeft
@@ -89,7 +89,7 @@ function eventnest_render_post(array $post, array $viewer, bool $detail = false)
         <header class="social-post__header">
             <?= eventnest_organiser_avatar($post) ?>
             <a class="social-post__author" href="<?= e(eventnest_url('organiser-profile.php?organiser_id=' . $organiser)) ?>"><?= e($name) ?></a>
-            <time datetime="<?= e(date('c', strtotime($post['PostDate']))) ?>"><?= e(format_datetime($post['PostDate'])) ?></time>
+            <time datetime="<?= e(date('c', strtotime($post['PostDate']))) ?>"><?= e(format_datetime($post['PostDate'])) ?><?= !empty($post['EditedAt'])?' (edited)':'' ?></time>
         </header>
         <?php if ($media !== null): ?>
             <div class="social-post__media">

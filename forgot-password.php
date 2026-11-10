@@ -8,7 +8,7 @@ $pdo = eventnest_db();
 eventnest_ensure_session();
 header('Cache-Control: no-store');
 $page_title = 'Forgot password';
-$email = is_string($_POST['email'] ?? $_GET['email'] ?? null) ? strtolower(trim((string) ($_POST['email'] ?? $_GET['email']))) : '';
+$email = is_string($_POST['email'] ?? null) ? strtolower(trim($_POST['email'])) : '';
 $message = '';
 $message_type = 'info';
 $cooldown = max(0, 60 - (time() - (int) ($_SESSION['password_reset_last_sent'] ?? 0)));
@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($cooldown > 0) {
         $message = 'Please wait ' . $cooldown . ' seconds before requesting another reset email.';
         $message_type = 'warning';
-    } elseif (eventnest_password_reset_secret() === '' || trim((string) getenv('EVENTNEST_SMTP_HOST')) === ''
+    } elseif (getenv('MAIL_ENABLED') !== '1' || trim((string) getenv('EVENTNEST_SMTP_HOST')) === ''
         || !is_file(__DIR__ . '/vendor/autoload.php')) {
         $message = 'Password recovery is not configured on this server yet. Please contact EventNest support.';
         $message_type = 'danger';
@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare(
                 "SELECT UserID, Email, PasswordHash, UserStatus
                  FROM USERS
-                 WHERE LOWER(Email) = LOWER(?)
+                 WHERE LOWER(Email) = LOWER(?) AND Is_email_verified=1 AND UserStatus='active'
                  LIMIT 1"
             );
             $stmt->execute([$email]);
@@ -60,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             This prevents the recovery form from becoming a way to discover registered accounts.
 
             */
-            $message = 'If an EventNest account is registered with that email address, password reset instructions have been sent. Please check your inbox and spam folder. The link is valid for 10 minutes. You can request another email after 60 seconds.';
+            $message = 'If an EventNest account is registered with that email address, password reset instructions have been requested. Delivery depends on the configured mail service. The link is valid for 10 minutes. You can request another email after 60 seconds.';
             $message_type = 'success';
         } catch (Throwable $exception) {
             error_log('EventNest forgot-password failed: ' . get_class($exception));

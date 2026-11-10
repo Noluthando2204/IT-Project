@@ -40,7 +40,7 @@ try {
             p.Media_type,
             p.Media,
             p.Hashtags,
-            p.PostDate,
+            p.PostDate, p.EditedAt,
             e.EventName,
             e.Status AS EventStatus,
             u.FirstName,

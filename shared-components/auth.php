@@ -26,6 +26,10 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 
     session_start();
 }
+if (PHP_SAPI !== 'cli' && isset($_SESSION['user_id'])) {
+    if (time()-(int)($_SESSION['last_activity'] ?? time())>1800) { $_SESSION=[]; session_regenerate_id(true); }
+    $_SESSION['last_activity']=time();
+}
 
 //DATABASE CONNECTION
 require_once __DIR__ . '/../database-config/connection.php';
@@ -88,7 +92,12 @@ Prevent this helper from ever becoming an open redirect.
 // Login and registration establish the same authenticated session.
 function auth_start_user_session(array $user): void
 {
+    if(!array_key_exists('PasswordHash',$user)) {
+        $s=auth_db()->prepare('SELECT PasswordHash FROM USERS WHERE UserID=?');
+        $s->execute([$user['UserID']]);$user['PasswordHash']=$s->fetchColumn();
+    }
     session_regenerate_id(true);
+    eventnest_audit('login:'.$user['Role'],(int)$user['UserID'],'authenticated');
     $_SESSION = [
         'user_id' => (int) $user['UserID'],
         'role' => $user['Role'],
@@ -98,6 +107,7 @@ function auth_start_user_session(array $user): void
         'name' => trim($user['FirstName'] . ' ' . $user['LastName']),
         'email' => $user['Email'],
         'loggedin' => true,
+        'password_marker' => hash('sha256',(string)($user['PasswordHash']??'')),
     ];
 }
 
@@ -187,7 +197,7 @@ function auth_current_user(): ?array
         $stmt = auth_db()->prepare(
             '
             SELECT
-                UserID,
+                UserID, PasswordHash,
                 FirstName,
                 LastName,
                 Email,
@@ -280,6 +290,12 @@ function auth_current_user(): ?array
         auth_redirect('login.php?auth=account_unavailable');
     }
 
+    // Refreshing a changed database role must also rotate the session identifier.
+    if(isset($_SESSION['role']) && $_SESSION['role'] !== (string)$user['Role']) {
+        session_regenerate_id(true);
+        eventnest_audit('session_role_refresh',(int)$user['UserID']);
+    }
+    if(isset($_SESSION['password_marker']) && $_SESSION['password_marker']!==hash('sha256',(string)$user['PasswordHash'])) { auth_destroy_session(); auth_redirect('login.php?auth=session_invalid'); }
     //REFRESH SHARED SESSION VALUES FROM DATABASE
     $_SESSION['user_id'] = (int) $user['UserID'];
     $_SESSION['role'] = (string) $user['Role'];
@@ -315,6 +331,7 @@ function auth_require_attendee(): array
     $user = auth_require_login();
 
     if ((string) $user['Role'] !== 'attendee') {
+        eventnest_audit('attendee_access',(int)$user['UserID'],'denied');
         auth_set_flash(
             'You do not have permission to access that page.'
         );
@@ -337,6 +354,7 @@ function auth_require_organiser(): array
     $user = auth_require_login();
 
     if ((string) $user['Role'] !== 'organiser') {
+        eventnest_audit('organiser_access',(int)$user['UserID'],'denied');
         auth_set_flash(
             'You do not have permission to access that page.'
         );
@@ -356,6 +374,7 @@ function auth_require_organiser(): array
 function auth_require_verified_organiser(): array
 {
     $user = auth_require_organiser();
+    eventnest_require_email($user);
 
     if ((string) $user['VerificationStatus'] !== 'verified') {
         auth_set_flash(
@@ -374,6 +393,7 @@ function auth_require_admin(): array
     $user = auth_require_login();
 
     if ((string) $user['Role'] !== 'admin') {
+        eventnest_audit('admin_access',(int)$user['UserID'],'denied');
         auth_set_flash(
             'Administrator access is required.'
         );

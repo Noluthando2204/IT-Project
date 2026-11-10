@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/config.php';
+require_once __DIR__.'/account-security.php';
 require_once __DIR__ . '/reservations.php';
 
 // Event dates and booking cutoffs use South African time throughout the application.
@@ -24,6 +25,8 @@ function eventnest_require_post(): void
     if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
         header('Allow: POST'); http_response_code(405); exit('Method not allowed.');
     }
+    $sensitive=['review.php','reaction.php','profile.php','settings.php','organiser-verification.php','verification.php'];
+    if(in_array(basename($_SERVER['SCRIPT_NAME']??''),$sensitive,true) && function_exists('auth_current_user') && ($actor=auth_current_user())) eventnest_require_email($actor);
     if (!eventnest_verify_csrf_token($_POST['csrf_token'] ?? null)) {
         http_response_code(403); exit('The request could not be verified. Refresh the form.');
     }
@@ -53,6 +56,8 @@ function eventnest_sidebar(string $role): void
         'manage-bookings.php' => 'Manage bookings', 'create-post.php' => 'Posts', 'manage-reviews.php' => 'Private reviews',
         'organiser-account.php' => 'Organiser account', 'organiser-verification.php' => 'Verification',
     ] : ['user-dashboard.php' => 'Overview', 'my-bookings.php' => 'My bookings', 'profile.php' => 'Profile', 'settings.php' => 'Settings']);
+    if($role==='admin')$links['profile.php']='My profile';
+    $links['settings.php']='Settings';
     $links['logout.php'] = 'Log out';
     echo '<aside class="dashboard-sidebar" aria-label="Account navigation"><strong class="sidebar-role">' . escape_html(ucfirst($role)) . '</strong>';
     foreach ($links as $path => $label) {
@@ -203,9 +208,8 @@ function eventnest_event_location(array $event): string
     $venue = trim((string) ($event['Venue'] ?? ''));
     $province = trim((string) ($event['Province'] ?? ''));
     if (filter_var($venue, FILTER_VALIDATE_URL)) { $venue = ''; }
-    // Cards already show the format, so an online venue of "Online" would read "Online · Online, Gauteng".
-    if (($event['Format'] ?? '') === 'online' && preg_match('/^online( event)?$/i', $venue) && $province !== '') { $venue = ''; }
-    if ($venue === '' && $province === '') {
+    if(!empty($event['City']) && stripos($venue,(string)$event['City'])===false) $venue=trim($venue.', '.$event['City'],', ');
+    if ($venue === '') {
         $venue = ($event['Format'] ?? '') === 'online' ? 'Online event' : '';
     }
     if ($province !== '' && stripos($venue, $province) === false) {
@@ -247,6 +251,7 @@ function event_booking_eligibility(PDO $pdo, array $event, array $user): array
 // Only a configured support address can receive contact and report messages.
 function eventnest_send_mail(string $to, string $subject, string $body, ?string $reply_to = null, ?string $html = null): bool
 {
+    if (getenv('MAIL_ENABLED') !== '1') return false;
     $autoload = eventnest_project_root() . '/vendor/autoload.php';
     if (!is_file($autoload) || !filter_var($to, FILTER_VALIDATE_EMAIL)) { return false; }
     require_once $autoload;
@@ -269,7 +274,7 @@ function eventnest_send_mail(string $to, string $subject, string $body, ?string 
         $mail->AltBody = $html !== null ? $body : '';
         return $mail->send();
     } catch (Throwable $exception) {
-        error_log('EventNest mail delivery failed: ' . get_class($exception)); return false;
+        error_log('EventNest mail delivery failed; correlation=' . bin2hex(random_bytes(6))); return false;
     }
 }
 
@@ -991,6 +996,8 @@ if (!function_exists('eventnest_save_image_upload')) {
             || @getimagesize($file['tmp_name']) === false) {
             throw new DomainException('The image is empty, invalid or larger than 5 MB.');
         }
+        $dimensions=@getimagesize($file['tmp_name']);
+        if(!$dimensions || $dimensions[0]>4096 || $dimensions[1]>4096 || $dimensions[0]<1 || $dimensions[1]<1) throw new DomainException('Image dimensions must be between 1 and 4096 pixels.');
         $target = eventnest_build_upload_path($subdirectory, eventnest_generate_upload_filename($prefix, $mime));
         $dir = dirname($target['absolute']);
         if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
@@ -998,6 +1005,13 @@ if (!function_exists('eventnest_save_image_upload')) {
         }
         if (!is_writable($dir) || !move_uploaded_file($file['tmp_name'], $target['absolute'])) {
             throw new DomainException('Image storage is unavailable.');
+        }
+        if(function_exists('imagecreatefromstring')) {
+            $decoded=@imagecreatefromstring(file_get_contents($target['absolute']));
+            if($decoded)imagealphablending($decoded,false);
+            if($decoded)imagesavealpha($decoded,true);
+            $ok=$decoded && match($mime){'image/jpeg'=>imagejpeg($decoded,$target['absolute'],90),'image/png'=>imagepng($decoded,$target['absolute']),'image/webp'=>imagewebp($decoded,$target['absolute'],90),default=>false};
+            if($decoded)imagedestroy($decoded);if(!$ok){@unlink($target['absolute']);throw new DomainException('Image processing failed.');}
         }
         return $target;
     }
@@ -1019,7 +1033,7 @@ if (!function_exists('eventnest_image_url')) {
     {
         $safe = $database_path ? eventnest_safe_media_path($database_path, 'image') : null;
         $prefix = $kind === 'category' ? 'uploaded-content/category-images/' : 'uploaded-content/event-banners/';
-        if ($safe !== null && !str_starts_with($safe, $prefix)) {
+        if ($safe !== null && !str_starts_with($safe, $prefix) && !($kind === 'category' && str_starts_with($safe,'uploaded-content/event-banners/') && in_array(basename($safe), ['01_Career_Development.jpg','02_Cloud_Computing.jpg','03_Dermatology.jpg','04_Design_and_Creative_Careers.jpg','05_Engineering.jpg','06_Finance_and_Accounting.jpg','07_Healthcare_and_Medical.jpg','08_ICT_and_Digital_Technology.jpg','09_Leadership.jpg','10_Networking.jpg','security.jpg','skilled-trades-technical-careers.jpg'],true))) {
             $safe = null;
         }
         return eventnest_url($safe ?? ($kind === 'category' ? 'images/category-placeholder.svg' : 'images/event-placeholder.svg'));
@@ -1316,119 +1330,17 @@ function eventnest_password_reset_secret(): string
         : '';
 }
 
-function eventnest_create_password_reset_token(array $user): ?string
-{
-    $secret = eventnest_password_reset_secret();
-    $user_id = (int) ($user['UserID'] ?? 0);
-    $email = strtolower(trim((string) ($user['Email'] ?? '')));
-    $password_hash = (string) ($user['PasswordHash'] ?? '');
-
-    if ($secret === '' || $user_id <= 0 || !filter_var($email, FILTER_VALIDATE_EMAIL) || $password_hash === '') {
-        return null;
-    }
-
-    $payload = [
-        'v' => 1,
-        'nonce' => bin2hex(random_bytes(16)),
-        'uid' => $user_id,
-        'email' => $email,
-        'exp' => time() + 600,
-        'pwd' => hash('sha256', $password_hash),
-    ];
-
-    $json = json_encode($payload, JSON_UNESCAPED_SLASHES);
-    if (!is_string($json)) {
-        return null;
-    }
-
-    $encoded = eventnest_base64url_encode($json);
-    $signature = hash_hmac('sha256', $encoded, $secret, true);
-
-    return $encoded . '.' . eventnest_base64url_encode($signature);
-}
-
-function eventnest_read_password_reset_token(string $token): ?array
-{
-    $secret = eventnest_password_reset_secret();
-    if ($secret === '' || strlen($token) > 2048 || substr_count($token, '.') !== 1) {
-        return null;
-    }
-
-    [$encoded, $signature_text] = explode('.', $token, 2);
-    $signature = eventnest_base64url_decode($signature_text);
-    $json = eventnest_base64url_decode($encoded);
-
-    if ($signature === null || $json === null) {
-        return null;
-    }
-
-    $expected = hash_hmac('sha256', $encoded, $secret, true);
-    if (!hash_equals($expected, $signature)) {
-        return null;
-    }
-
-    $payload = json_decode($json, true);
-    if (!is_array($payload)) {
-        return null;
-    }
-
-    $user_id = (int) ($payload['uid'] ?? 0);
-    $email = strtolower(trim((string) ($payload['email'] ?? '')));
-    $expires = (int) ($payload['exp'] ?? 0);
-    $password_marker = (string) ($payload['pwd'] ?? '');
-
-    if (($payload['v'] ?? null) !== 1 || !is_string($payload['nonce'] ?? null)
-        || !preg_match('/^[a-f0-9]{32}$/D', $payload['nonce'])
-        || $user_id <= 0 || !filter_var($email, FILTER_VALIDATE_EMAIL) || $expires <= time()
-        || $expires > time() + 600 || strlen($password_marker) !== 64) {
-        return null;
-    }
-
-    return [
-        'user_id' => $user_id,
-        'email' => $email,
-        'expires' => $expires,
-        'password_marker' => $password_marker,
-    ];
+function eventnest_create_password_reset_token(array $user): ?string { return eventnest_account_token($user,'reset'); }
+function eventnest_read_password_reset_token(string $token): ?array {
+ $r=eventnest_account_token_read($token,'reset');return $r?['user_id'=>(int)$r['UserID'],'email'=>$r['Email'],'password_marker'=>$r['PasswordMarker']]:null;
 }
 
 // ---- Account email change (verified by a link sent to the NEW address) ----------
-function eventnest_create_email_change_token(int $user_id, string $old_email, string $new_email): ?string
-{
-    $secret = eventnest_password_reset_secret();
-    $old_email = strtolower(trim($old_email));
-    $new_email = strtolower(trim($new_email));
-    if ($secret === '' || $user_id <= 0 || !filter_var($old_email, FILTER_VALIDATE_EMAIL) || !filter_var($new_email, FILTER_VALIDATE_EMAIL)) {
-        return null;
-    }
-    $json = json_encode([
-        'v' => 1, 'purpose' => 'email-change', 'nonce' => bin2hex(random_bytes(16)),
-        'uid' => $user_id, 'old' => $old_email, 'new' => $new_email, 'exp' => time() + 3600,
-    ], JSON_UNESCAPED_SLASHES);
-    if (!is_string($json)) { return null; }
-    $encoded = eventnest_base64url_encode($json);
-    // The purpose prefix stops a password-reset token from ever validating here (and vice versa).
-    return $encoded . '.' . eventnest_base64url_encode(hash_hmac('sha256', 'email-change|' . $encoded, $secret, true));
+function eventnest_create_email_change_token(int $user_id,string $old_email,string $new_email):?string {
+ $s=eventnest_db()->prepare('SELECT * FROM USERS WHERE UserID=? AND Email=?');$s->execute([$user_id,$old_email]);$u=$s->fetch();return $u?eventnest_account_token($u,'email_change',$new_email,3600):null;
 }
-
-function eventnest_read_email_change_token(string $token): ?array
-{
-    $secret = eventnest_password_reset_secret();
-    if ($secret === '' || strlen($token) > 2048 || substr_count($token, '.') !== 1) { return null; }
-    [$encoded, $signature_text] = explode('.', $token, 2);
-    $signature = eventnest_base64url_decode($signature_text);
-    $json = eventnest_base64url_decode($encoded);
-    if ($signature === null || $json === null
-        || !hash_equals(hash_hmac('sha256', 'email-change|' . $encoded, $secret, true), $signature)) { return null; }
-    $payload = json_decode($json, true);
-    if (!is_array($payload) || ($payload['v'] ?? null) !== 1 || ($payload['purpose'] ?? null) !== 'email-change') { return null; }
-    $user_id = (int) ($payload['uid'] ?? 0);
-    $old = strtolower(trim((string) ($payload['old'] ?? '')));
-    $new = strtolower(trim((string) ($payload['new'] ?? '')));
-    $expires = (int) ($payload['exp'] ?? 0);
-    if ($user_id <= 0 || !filter_var($old, FILTER_VALIDATE_EMAIL) || !filter_var($new, FILTER_VALIDATE_EMAIL)
-        || $expires <= time() || $expires > time() + 3600) { return null; }
-    return ['user_id' => $user_id, 'old_email' => $old, 'new_email' => $new, 'expires' => $expires];
+function eventnest_read_email_change_token(string $token):?array {
+ $r=eventnest_account_token_read($token,'email_change');return $r?['user_id'=>(int)$r['UserID'],'old_email'=>$r['Email'],'new_email'=>$r['Payload']]:null;
 }
 
 function eventnest_send_email_change_verification(string $to, string $confirm_url): bool
@@ -1530,4 +1442,12 @@ function eventnest_record_verification_fee(PDO $pdo, array $post): void
         throw $exception;
     }
 }
+
+
+// Upcoming published events from active verified organisers form the public catalogue.
+function eventnest_public_event_sql(string $alias='e'):string {
+ if(!in_array($alias,['e','x'],true))throw new InvalidArgumentException('Invalid event alias');
+ return "$alias.Status='published' AND $alias.EventDate>NOW() AND EXISTS(SELECT 1 FROM USERS discovery_owner WHERE discovery_owner.UserID=$alias.OrganiserID AND discovery_owner.Role='organiser' AND discovery_owner.UserStatus='active' AND discovery_owner.VerificationStatus='verified')";
+}
+require_once __DIR__.'/content-editor.php';
 

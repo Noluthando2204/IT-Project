@@ -9,7 +9,7 @@ $pdo->beginTransaction();
 try {
     // Only empty values or exact previous seed copy are replaced; custom descriptions survive.
     $base = [
-        'Technology'=>'Technology, software and digital career events.',
+        'ICT & Digital Technology'=>'Technology, software and digital career events.',
         'Dermatology'=>'Dermatology, skin health, skincare treatments and dermatology career events.',
         'Security'=>'Cybersecurity and information-security career events.',
         'Networking'=>'Professional networking and career-connection events.',

@@ -8,7 +8,7 @@ USE eventnest;
 INSERT IGNORE INTO CATEGORIES
     (CategoryID, CategoryName, Description)
 VALUES
-    (1, 'Technology', 'Technology, software and digital career events.'),
+    (1, 'ICT & Digital Technology', 'Technology, software and digital career events.'),
     (2, 'Dermatology', 'Dermatology, skin health, skincare treatments and dermatology career events.'),
     (3, 'Design', 'Creative, UX, graphic and design career events.'),
     (4, 'Security', 'Cybersecurity and information-security career events.'),
@@ -101,7 +101,7 @@ VALUES
     'lethabo.attendee01@example.com',
     '$2y$10$wuqcBJqKM9jI8PbCp63mV.3faxL6Y0r/ID20bNO/croL/LD7JeeUe',
     '0100000003',
-    'Technology',
+    'ICT & Digital Technology',
     'active',
     'attendee',
     'verified',
@@ -282,7 +282,7 @@ VALUES
 (
     10, 'Thabo', 'Nkosi', 'thabo.suspended@example.com',
     '$2y$10$wuqcBJqKM9jI8PbCp63mV.3faxL6Y0r/ID20bNO/croL/LD7JeeUe',
-    '0100000010', 'Technology', 'suspended', 'attendee', 'verified', FALSE,
+    '0100000010', 'ICT & Digital Technology', 'suspended', 'attendee', 'verified', FALSE,
     0, 1, CURRENT_TIMESTAMP, TRUE
 );
 

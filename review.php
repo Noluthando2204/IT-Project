@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/shared-components/auth.php';
 $user=auth_require_attendee();
+eventnest_require_email($user);
 eventnest_require_post();
 $pdo=eventnest_db();
 try {
