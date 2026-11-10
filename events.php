@@ -85,7 +85,7 @@ if ($date_from !== '' && $date_to !== '' && $date_from > $date_to) {
 $page_size = 12;
 $offset = ($page - 1) * $page_size;
 
-$categories = $pdo->query('SELECT CategoryID, CategoryName FROM CATEGORIES ORDER BY CategoryName')->fetchAll(PDO::FETCH_ASSOC);
+$categories = $pdo->query("SELECT c.CategoryID, c.CategoryName FROM CATEGORIES c WHERE EXISTS (SELECT 1 FROM EVENTS e WHERE e.CategoryID = c.CategoryID AND e.Status IN ('published','completed')) ORDER BY c.CategoryName")->fetchAll(PDO::FETCH_ASSOC);
 $provinces = eventnest_provinces();
 if ($province !== '' && !in_array($province, $provinces, true)) {
     $province = '';

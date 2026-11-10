@@ -632,3 +632,25 @@ form > .field + .field-hint, form > .field + p { margin-top:16px; }
 .payment-simulator { margin-top:24px; padding:18px 20px; border:1px dashed #b9c7da; border-radius:var(--radius); background:#fff; }
 .payment-simulator h2 { margin:0 0 6px; font-size:1.05rem; color:var(--navy); }
 .payment-simulator p { margin:0 0 12px; color:var(--muted); font-size:.92rem; }
+
+/* Presentation fixes: tables no longer break words letter by letter; status labels stay on one line. */
+td { overflow-wrap:break-word; }
+td a, td .btn { overflow-wrap:normal; }
+.status, .status-badge, [class*="status--"] { white-space:nowrap; }
+td .btn, td button { white-space:nowrap; }
+.table-wrap { overflow-x:auto; }
+.table-wrap table th { white-space:nowrap; }
+
+/* Admin manage bookings: summary boxes in a row, filter and list panels styled like cards. */
+.summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; margin:12px 0 24px; }
+.summary > .summary-card { background:#fff; border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px; }
+.summary > .summary-card p { margin:0; color:var(--muted); font-size:.86rem; }
+.summary > .summary-card strong { display:block; margin-top:4px; color:var(--navy); font-size:1.5rem; }
+.panel { background:#fff; border:1px solid var(--line); border-radius:var(--radius); padding:18px 20px; margin-bottom:20px; }
+.panel > h2:first-child { margin-top:0; }
+
+/* Payment result: clear next steps after a confirmed booking. */
+.result-next { margin:18px 0; padding:14px 18px; background:#F0F7F3; border:1px solid #CFE8DA; border-radius:var(--radius); }
+.result-next h2 { margin:0 0 6px; font-size:1rem; color:var(--navy); }
+.result-next ul { margin:0; padding-left:20px; }
+.result-next li { margin:4px 0; }
