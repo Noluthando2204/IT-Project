@@ -668,3 +668,19 @@ form > .field + .field-hint, form > .field + p { margin-top:16px; }
 .auth-container>.role-login-links {grid-column:2;grid-row:1 / span 6;align-content:start;margin-top:0}
 @media(max-width:768px){.auth-container:has(.role-login-links){display:block}.auth-container>.role-login-links{margin-top:24px}}
 .form-actions {gap:8px;flex-wrap:wrap}
+.role-login-links .content-card {margin:0;padding:20px}
+.role-login-links .btn {white-space:normal}
+.payment-page .summary-card {margin-bottom:24px}
+.payment-redirect-card {margin:24px 0}
+.inline-actions {display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.btn + .btn {margin-left:8px}
+.form-actions .btn,.button-row .btn,.inline-actions .btn {margin-left:0}
+.dashboard-main > form:has(input[name="q"]) {display:flex;align-items:flex-end;gap:12px;max-width:640px;margin:20px 0}
+.dashboard-main > form:has(input[name="q"]) label {flex:1;min-width:0}
+.dashboard-main > form:has(input[name="q"]) input {display:block;width:100%;margin-top:6px}
+.dashboard-main > form:has(input[name="q"]) button {flex-shrink:0}
+.recovery-envelope {font-size:64px;color:var(--teal);line-height:1.2}
+.recovery-confirmation {text-align:center}
+.recovery-confirmation .form-actions {justify-content:center}
+button:disabled {opacity:.65;cursor:not-allowed}
+.table-wrap td a {display:inline-block;margin:4px 12px 4px 0}

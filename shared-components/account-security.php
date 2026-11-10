@@ -1,5 +1,14 @@
 <?php
 declare(strict_types=1);
+function eventnest_send_account_recovery(array $user): void {
+ $db=eventnest_db();
+ $s=$db->prepare('SELECT * FROM USERS WHERE UserID=? FOR UPDATE');$s->execute([$user['UserID']]);$row=$s->fetch();
+ if(!$row || !$row['Is_email_verified']) throw new DomainException('Verify your email address before requesting account recovery.');
+ $s=$db->prepare("SELECT CreatedAt FROM ACCOUNT_TOKENS WHERE UserID=? AND Purpose='reset' ORDER BY CreatedAt DESC LIMIT 1");$s->execute([$user['UserID']]);$last=$s->fetchColumn();
+ if($last && strtotime($last)>time()-60) throw new DomainException('Please wait one minute before requesting another recovery link.');
+ $token=eventnest_account_token($row,'reset');
+ if(!eventnest_send_password_reset($row['Email'],eventnest_absolute_url('reset-password.php').'?token='.$token)) throw new DomainException('We could not send your recovery email. Please try again later.');
+}
 function eventnest_account_token(array $user,string $purpose,?string $payload=null,int $seconds=600):string{
  $db=eventnest_db();$token=bin2hex(random_bytes(32));
  $db->prepare('DELETE FROM ACCOUNT_TOKENS WHERE UserID=? AND Purpose=?')->execute([$user['UserID'],$purpose]);

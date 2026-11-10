@@ -11,6 +11,8 @@ $message = '';
 $message_type = 'error';
 $email = is_string($_POST['email'] ?? null) ? strtolower(trim($_POST['email'])) : '';
 $password = is_string($_POST['password'] ?? null) ? $_POST['password'] : '';
+// Role portals are separate full page requests, including after browser back.
+header('Cache-Control: no-store');
 
 if (($_GET['reset'] ?? '') === 'success') {
     $message = 'Your password has been updated. You can log in with the new password.';
@@ -137,6 +139,11 @@ require_once __DIR__ . '/shared-components/header.php';
             <a class="btn btn-outline" href="register.php">Create account</a>
         </div>
     </form>
-<aside class="role-login-links"><article class="content-card"><h2>Not an attendee?</h2><a href="login.php?role=organiser">Log in as an organiser</a></article><article class="content-card"><h2>Not an organiser?</h2><a href="login.php?role=admin">Log in as an admin</a></article><a href="login.php">Attendee login</a></aside></main>
+<aside class="role-login-links" aria-label="Choose your login portal">
+<?php foreach (['attendee','organiser','admin'] as $portal): ?>
+<article class="content-card"><h2><?= escape_html(ucfirst($portal)) ?> login</h2>
+<?php if ($portal === $login_role): ?><p aria-current="page">You are using this portal.</p>
+<?php else: ?><a class="btn btn-outline" href="<?= escape_html(eventnest_url('login.php?role='.$portal)) ?>">Open <?= escape_html($portal) ?> login</a><?php endif; ?></article>
+<?php endforeach; ?></aside></main>
 <script src="<?= escape_html(eventnest_url('scripts/validation.js')) ?>" defer></script>
 <?php require_once __DIR__ . '/shared-components/footer.php'; ?>

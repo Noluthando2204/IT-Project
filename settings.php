@@ -9,9 +9,10 @@ if($_SERVER['REQUEST_METHOD']==='POST') {
     try {
         $pdo->beginTransaction();
         if(($_POST['action'] ?? '')==='recover') {
-            $s=$pdo->prepare('SELECT * FROM USERS WHERE UserID=?');$s->execute([$user['UserID']]);$row=$s->fetch();
-            if($row['Is_email_verified']){ $token=eventnest_account_token($row,'reset');eventnest_send_password_reset($row['Email'],eventnest_absolute_url('reset-password.php').'?token='.$token); }
-            $pdo->commit();auth_set_flash('If eligible, recovery instructions were requested for '.eventnest_mask_email($row['Email']).'. Delivery depends on the mail service.','info');auth_redirect('settings.php');
+            eventnest_send_account_recovery($user);
+            $pdo->commit();
+            $_SESSION['recovery_sent_at']=time();
+            auth_redirect('recovery-sent.php');
         }
         elseif(($_POST['action'] ?? '')==='password') {
             $current=is_string($_POST['current_password'] ?? null)?$_POST['current_password']:'';

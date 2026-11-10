@@ -94,19 +94,7 @@ function booking_load_event(PDO $pdo, int $event_id, bool $for_update = false): 
 
 function booking_event_gate_error(PDO $pdo, array $event, array $attendee): string
 {
-    if ($event['CareerGoalType'] === 'field') {
-        if (empty($event['AllowedCareerField'])) {
-            return 'This event has an invalid career-field restriction. Please contact EventNest support.';
-        }
-        $stmt = $pdo->prepare('SELECT CategoryName FROM CATEGORIES WHERE CategoryID = :category_id LIMIT 1');
-        $stmt->execute([':category_id' => (int) $event['AllowedCareerField']]);
-        $allowed = trim((string) ($stmt->fetchColumn() ?: ''));
-        if ($allowed === '' || mb_strtolower(trim((string) $attendee['CareerField']), 'UTF-8') !== mb_strtolower($allowed, 'UTF-8')) {
-            return $allowed !== ''
-                ? 'This event is limited to the ' . $allowed . ' career field.'
-                : 'You do not meet this event\'s career-field restriction.';
-        }
-    }
+    // Career interests personalise discovery; they do not restrict bookings.
 
     if ($event['CareerGoalType'] === 'email_domain') {
         if ((int) $attendee['Is_email_verified'] !== 1 || !booking_domain_matches((string) $attendee['Email'], (string) $event['AllowedEmailDomain'])) {
@@ -443,7 +431,7 @@ require_once __DIR__ . '/shared-components/header.php';
             <?php endif; ?>
 
             <?php if ($event['CareerGoalType'] === 'field'): ?>
-                <p class="alert alert-info">Your saved career field is checked again when the booking is submitted.</p>
+                <p>You can book this event regardless of your saved career interests.</p>
             <?php elseif ($event['CareerGoalType'] === 'email_domain'): ?>
                 <p class="alert alert-info">Your verified EventNest account email must meet this event's domain restriction.</p>
             <?php endif; ?>
