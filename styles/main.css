@@ -684,3 +684,58 @@ form > .field + .field-hint, form > .field + p { margin-top:16px; }
 .recovery-confirmation .form-actions {justify-content:center}
 button:disabled {opacity:.65;cursor:not-allowed}
 .table-wrap td a {display:inline-block;margin:4px 12px 4px 0}
+
+/* Restored after merge: tables no longer break words letter by letter; status labels stay on one line. */
+td { overflow-wrap:break-word; }
+td a, td .btn { overflow-wrap:normal; }
+.status, .status-badge, [class*="status--"] { white-space:nowrap; }
+td .btn, td button { white-space:nowrap; }
+.table-wrap { overflow-x:auto; }
+.table-wrap table th { white-space:nowrap; }
+
+/* Restored: admin manage bookings summary boxes in a row; filter and list panels styled like cards. */
+.summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; margin:12px 0 24px; }
+.summary > .summary-card { background:#fff; border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px; }
+.summary > .summary-card p { margin:0; color:var(--muted); font-size:.86rem; }
+.summary > .summary-card strong { display:block; margin-top:4px; color:var(--navy); font-size:1.5rem; }
+.panel { background:#fff; border:1px solid var(--line); border-radius:var(--radius); padding:18px 20px; margin-bottom:20px; }
+.panel > h2:first-child { margin-top:0; }
+
+/* Restored: payment result next steps. */
+.result-next { margin:18px 0; padding:14px 18px; background:#F0F7F3; border:1px solid #CFE8DA; border-radius:var(--radius); }
+.result-next h2 { margin:0 0 6px; font-size:1rem; color:var(--navy); }
+.result-next ul { margin:0; padding-left:20px; }
+.result-next li { margin:4px 0; }
+
+/* Tables: consistent, compact action buttons and calmer headers. */
+.table-wrap table { font-size:.92rem; }
+.table-wrap th { font-size:.76rem; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); }
+.table-wrap td { vertical-align:top; }
+.table-wrap tbody tr:hover { background:#FAFBFD; }
+.table-wrap td small { color:var(--muted); }
+.btn--small { min-height:34px; padding:6px 12px; font-size:.84rem; }
+td .btn, td button.btn, td summary.btn { min-height:34px; padding:6px 12px; font-size:.84rem; border-radius:7px; }
+td:last-child { min-width:150px; }
+td:last-child > *, td.table-actions > * { vertical-align:top; }
+td:last-child > a:not(.btn), td .inline-actions > a:not(.btn) {
+    display:inline-flex; align-items:center; min-height:34px; padding:6px 12px; margin:0 6px 6px 0;
+    border:1px solid #C9D5E4; border-radius:7px; background:#fff; color:var(--blue); font-size:.84rem; font-weight:700; text-decoration:none;
+}
+td:last-child > a:not(.btn):hover, td .inline-actions > a:not(.btn):hover { border-color:var(--blue); text-decoration:none; }
+td:last-child > .btn, td:last-child > form, td.table-actions > .btn, td.table-actions > form { display:inline-flex; margin:0 6px 6px 0; }
+td .inline-actions { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+td .inline-actions > * { margin:0; }
+td form { margin:0; }
+td img { max-width:160px; height:auto; border-radius:8px; }
+.status-stack { display:flex; flex-direction:column; align-items:flex-start; gap:4px; }
+.nowrap-ref { white-space:nowrap; }
+.action-details summary { list-style:none; cursor:pointer; }
+.action-details summary::-webkit-details-marker { display:none; }
+.action-details[open] form { display:flex; flex-direction:column; gap:8px; margin-top:8px; min-width:200px; }
+.form-grid > .btn, .form-grid > button { align-self:end; justify-self:start; width:auto; height:auto; }
+
+/* Login: one tidy card with a role switcher instead of three side boxes. */
+.role-tabs { display:flex; gap:4px; padding:4px; margin:0 0 20px; background:#EEF2F7; border-radius:999px; }
+.role-tab { flex:1; text-align:center; padding:9px 12px; border-radius:999px; font-weight:700; font-size:.92rem; color:var(--muted); text-decoration:none; }
+.role-tab:hover { color:var(--navy); text-decoration:none; background:#fff; }
+.role-tab.is-active { background:#fff; color:var(--navy); box-shadow:0 1px 3px rgba(15,35,70,.15); }

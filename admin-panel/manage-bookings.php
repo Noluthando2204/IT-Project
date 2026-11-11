@@ -287,16 +287,11 @@ require_once __DIR__ . '/../shared-components/header.php';
                 <table>
                     <thead>
                         <tr>
-                            <th scope="col">Reference</th>
+                            <th scope="col">Booking</th>
                             <th scope="col">Attendee</th>
                             <th scope="col">Event</th>
-                            <th scope="col">Ticket</th>
-                            <th scope="col">Qty</th>
-                            <th scope="col">Total</th>
-                            <th scope="col">Date</th>
-                            <th scope="col">Booking</th>
-                            <th scope="col">Payment</th>
-                            <th scope="col">Escrow</th>
+                            <th scope="col">Ticket / total</th>
+                            <th scope="col">Status</th>
                             <th scope="col">Actions</th>
                         </tr>
                     </thead>
@@ -313,8 +308,8 @@ require_once __DIR__ . '/../shared-components/header.php';
                         ?>
                         <tr>
                             <td>
-                                <strong><?= escape_html((string) $booking['BookingReference']) ?></strong><br>
-                                <small>Booking #<?= (int) $booking['BookingID'] ?></small>
+                                <strong class="nowrap-ref"><?= escape_html((string) $booking['BookingReference']) ?></strong><br>
+                                <small>#<?= (int) $booking['BookingID'] ?> · booked <?= escape_html(format_datetime((string) $booking['BookingDate'])) ?></small>
                             </td>
                             <td>
                                 <?= escape_html($attendee_name !== '' ? $attendee_name : 'Unnamed attendee') ?><br>
@@ -324,34 +319,24 @@ require_once __DIR__ . '/../shared-components/header.php';
                                 <?= escape_html((string) $booking['EventName']) ?><br>
                                 <small><?= escape_html(format_datetime((string) $booking['EventDate'])) ?></small>
                             </td>
-                            <td><?= escape_html((string) $booking['TicketType']) ?></td>
-                            <td><?= (int) $booking['Quantity'] ?></td>
-                            <td><?= escape_html(format_money($booking['TotalAmount'])) ?></td>
-                            <td><?= escape_html(format_datetime((string) $booking['BookingDate'])) ?></td>
                             <td>
-                                <span class="<?= escape_html(eventnest_status_class($booking_status_value)) ?>">
-                                    <?= escape_html(eventnest_status_label($booking_status_value)) ?>
-                                </span>
+                                <?= escape_html((string) $booking['TicketType']) ?> × <?= (int) $booking['Quantity'] ?><br>
+                                <strong><?= escape_html(format_money($booking['TotalAmount'])) ?></strong>
                             </td>
                             <td>
-                                <?php if ($payment_status_value !== ''): ?>
-                                    <span class="<?= escape_html(eventnest_status_class($payment_status_value)) ?>">
-                                        <?= escape_html(eventnest_status_label($payment_status_value)) ?>
-                                    </span>
-                                <?php else: ?>
-                                    No payment record
-                                <?php endif; ?>
+                                <div class="status-stack">
+                                    <span title="Booking" class="<?= escape_html(eventnest_status_class($booking_status_value)) ?>"><?= escape_html(eventnest_status_label($booking_status_value)) ?></span>
+                                    <?php if ($payment_status_value !== ''): ?>
+                                        <small>Payment: <?= escape_html(eventnest_status_label($payment_status_value)) ?></small>
+                                    <?php else: ?>
+                                        <small>No payment record</small>
+                                    <?php endif; ?>
+                                    <?php if ($escrow_status_value !== ''): ?>
+                                        <small>Escrow: <?= escape_html(eventnest_status_label($escrow_status_value)) ?></small>
+                                    <?php endif; ?>
+                                </div>
                             </td>
-                            <td>
-                                <?php if ($escrow_status_value !== ''): ?>
-                                    <span class="<?= escape_html(eventnest_status_class($escrow_status_value)) ?>">
-                                        <?= escape_html(eventnest_status_label($escrow_status_value)) ?>
-                                    </span>
-                                <?php else: ?>
-                                    Not applicable
-                                <?php endif; ?>
-                            </td>
-                            <td>
+                            <td class="table-actions">
                                 <a class="btn btn--small btn--outline" href="<?= escape_html(eventnest_url('event-detail.php?event_id=' . (int) $booking['EventID'])) ?>">View event</a>
                                 <a class="btn btn--small btn--outline" href="<?= escape_html(eventnest_url('admin-panel/manage-users.php?user_id=' . (int) $booking['UserID'])) ?>">View user</a>
                                 <?php if (!empty($booking['PaymentID']) && $escrow_status_value === 'held' && $payment_status_value === 'success'): ?>
